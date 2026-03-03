@@ -14,7 +14,7 @@ import org.springframework.context.annotation.Configuration;
  */
 @Configuration
 @ConditionalOnExpression("!${spring.data.redis.enabled:false}")
-@EnableAutoConfiguration(exclude = org.redisson.spring.starter.RedissonAutoConfiguration.class)
+@EnableAutoConfiguration(exclude = org.redisson.spring.starter.RedissonAutoConfigurationV2.class)
 public class RedissonAutoConfiguration {
 
 }
