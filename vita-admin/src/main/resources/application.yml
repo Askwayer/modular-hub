@@ -1,6 +1,6 @@
 # Spring Boot 配置
 spring:
   profiles:
-    active: develop
+    active: dev
   application:
     name: vita
