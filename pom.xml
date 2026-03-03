@@ -25,6 +25,7 @@
         <maven.compiler.target>17</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <springboot.version>3.2.0</springboot.version>
+        <redisson.version>3.26.0</redisson.version>
     </properties>
 
     <modules>
@@ -34,7 +35,12 @@
 
     <dependencyManagement>
         <dependencies>
-            <!-- Define common dependencies for all modules here -->
+            <!-- redisson配置 -->
+            <dependency>
+                <groupId>org.redisson</groupId>
+                <artifactId>redisson-spring-boot-starter</artifactId>
+                <version>${redisson.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
