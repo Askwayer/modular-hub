@@ -1,0 +1,58 @@
+server:
+  port: 19001
+  servlet:
+    context-path: /admin/api
+
+# 服务配置
+spring:
+
+  # 数据库连接
+  datasource:
+    dynamic:
+      # 主库名称
+      primary: master
+      # 严格模式，未匹配数据源时抛异常
+      strict: true
+      datasource:
+        master:
+          # 数据源类型
+          type: com.zaxxer.hikari.HikariDataSource
+          # 驱动类名
+          driver-class-name: com.mysql.cj.jdbc.Driver
+          # 数据库连接地址
+          url: jdbc:mysql://106.54.205.33:3306/be_vita?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC
+          username: root
+          password: WQO6D9ax#f*QPJup
+
+
+  data:
+    # redis 配置
+    redis:
+      # 自动装配
+      enabled: false
+      # 是否启用 Redis
+      open: true
+      # 地址
+      host: 106.54.205.33
+      # 端口，默认为6379
+      port: 6379
+      # 数据库索引
+      database: 10
+      # 密码
+      password: dhQjF6HJfn@&bF6!
+      # 连接超时时间
+      timeout: 10s
+      lettuce:
+        pool:
+          # 连接池中的最小空闲连接 低负载情况下避免冷启动延迟
+          min-idle: 2
+          # 连接池中的最大空闲连接
+          max-idle: 8
+          # 连接池的最大数据库连接数
+          max-active: 30
+          # #连接池最大阻塞等待时间（使用负值表示没有限制）
+          max-wait: 6000ms
+          # 空闲连接检测周期
+          time-between-eviction-runs: 60s
+          #心跳 30s  配置项单位是毫秒
+          heartbeat: 30000
