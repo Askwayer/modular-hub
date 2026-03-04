@@ -23,11 +23,16 @@
         <HikariCP.version>5.0.1</HikariCP.version>
         <mysql.version>8.0.32</mysql.version>
         <redisson.version>3.26.0</redisson.version>
+        <mybatis-plus.version>3.5.12</mybatis-plus.version>
+        <fastjson2.version>2.0.52</fastjson2.version>
+        <hutool-all.version>5.8.25</hutool-all.version>
+        <guava.version>33.2.1-jre</guava.version>
     </properties>
 
     <modules>
         <module>vita-admin</module>
         <module>vita-common</module>
+        <module>vita-generator</module>
     </modules>
 
     <dependencyManagement>
@@ -74,6 +79,44 @@
                 <groupId>org.redisson</groupId>
                 <artifactId>redisson-spring-boot-starter</artifactId>
                 <version>${redisson.version}</version>
+            </dependency>
+
+            <!-- mybatis-plus -->
+            <dependency>
+                <groupId>com.baomidou</groupId>
+                <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
+                <version>${mybatis-plus.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.baomidou</groupId>
+                <artifactId>mybatis-plus-jsqlparser</artifactId>
+                <version>${mybatis-plus.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.baomidou</groupId>
+                <artifactId>mybatis-plus-generator</artifactId>
+                <version>${mybatis-plus.version}</version>
+            </dependency>
+
+            <!-- fastjson2 -->
+            <dependency>
+                <groupId>com.alibaba.fastjson2</groupId>
+                <artifactId>fastjson2</artifactId>
+                <version>${fastjson2.version}</version>
+            </dependency>
+
+            <!-- hutool -->
+            <dependency>
+                <groupId>cn.hutool</groupId>
+                <artifactId>hutool-all</artifactId>
+                <version>${hutool-all.version}</version>
+            </dependency>
+
+            <!-- guava -->
+            <dependency>
+                <groupId>com.google.guava</groupId>
+                <artifactId>guava</artifactId>
+                <version>${guava.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

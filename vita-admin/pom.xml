@@ -11,6 +11,7 @@
 
     <artifactId>vita-admin</artifactId>
     <name>vita-admin</name>
+    <packaging>jar</packaging>
     <description>Admin Spring Boot Application</description>
 
     <dependencies>
