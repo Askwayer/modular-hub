@@ -9,8 +9,9 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.support.SFunction;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.toolkit.Db;
+import com.vita.core.page.PageRequest;
+import com.vita.core.page.PageResponse;
 import org.apache.ibatis.annotations.Param;
-import org.springframework.data.domain.PageRequest;
 
 import java.util.Collection;
 import java.util.List;
@@ -32,12 +33,12 @@ public interface BaseMapperX<T> extends BaseMapper<T> {
      * @param queryWrapper 查询条件
      * @return 分页结果
      */
-    default PageResult<T> selectPage(PageRequest pageRequest, @Param("ew") Wrapper<T> queryWrapper) {
+    default PageResponse<T> selectPage(PageRequest pageRequest, @Param("ew") Wrapper<T> queryWrapper) {
         // MyBatis Plus 查询
-        IPage<T> mpPage = Page.of(pageRequest.getPageNo(), pageRequest.getPageSize());
+        IPage<T> mpPage = Page.of(pageRequest.getPageNum(), pageRequest.getPageSize());
         selectPage(mpPage, queryWrapper);
         // 转换返回
-        return new PageResult<>(mpPage.getRecords(), mpPage.getTotal());
+        return new PageResponse<>(mpPage.getRecords(), mpPage.getTotal());
     }
 
     default T selectOne(String field, Object value) {
