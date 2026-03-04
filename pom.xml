@@ -23,11 +23,13 @@
         <HikariCP.version>5.0.1</HikariCP.version>
         <mysql.version>8.0.32</mysql.version>
         <redisson.version>3.26.0</redisson.version>
+        <mybatis-plus.version>3.5.12</mybatis-plus.version>
     </properties>
 
     <modules>
         <module>vita-admin</module>
         <module>vita-common</module>
+        <module>vita-generator</module>
     </modules>
 
     <dependencyManagement>
@@ -74,6 +76,23 @@
                 <groupId>org.redisson</groupId>
                 <artifactId>redisson-spring-boot-starter</artifactId>
                 <version>${redisson.version}</version>
+            </dependency>
+
+            <!-- mybatis-plus -->
+            <dependency>
+                <groupId>com.baomidou</groupId>
+                <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
+                <version>${mybatis-plus.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.baomidou</groupId>
+                <artifactId>mybatis-plus-jsqlparser</artifactId>
+                <version>${mybatis-plus.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.baomidou</groupId>
+                <artifactId>mybatis-plus-generator</artifactId>
+                <version>${mybatis-plus.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
