@@ -430,3 +430,37 @@ Vita 项目当前最适合采用 **模块化单体架构**：
 - `CHANGELOG.md`：版本变更记录
 - `docs/architecture.md`：详细架构设计文档
 
+---
+
+## 14. 代码生成器（vita-generator）
+
+`vita-generator` 已支持按模块生成代码，可通过 JVM 参数覆盖默认值（默认兼容旧配置）：
+
+- `vita.codegen.targetModule`：目标模块目录（示例：`vita-admin`）
+- `vita.codegen.businessModule`：业务模块标识（用于父包、路由前缀、mapper 目录）
+- `vita.codegen.domainModule`：领域模块名（用于 `packageConfig.moduleName`）
+- `vita.codegen.basePackage`：基础包（示例：`com.vita`）
+- `vita.codegen.routePrefix`：接口路由前缀（默认同 `businessModule`）
+
+默认执行：
+
+```bash
+mvn -pl vita-generator -DskipTests exec:java -Dexec.mainClass=com.vita.config.CodeGenerator
+```
+
+自定义模块执行示例：
+
+```bash
+mvn -pl vita-generator -DskipTests exec:java \
+  -Dexec.mainClass=com.vita.config.CodeGenerator \
+  -Dvita.codegen.targetModule=vita-admin \
+  -Dvita.codegen.businessModule=user \
+  -Dvita.codegen.domainModule=member \
+  -Dvita.codegen.basePackage=com.vita \
+  -Dvita.codegen.routePrefix=user
+```
+
+输出目录示例：
+
+- Java：`<targetModule>/src/main/java/com/vita/<businessModule>/<domainModule>/...`
+- XML：`<targetModule>/src/main/resources/mapper/<businessModule>/...`

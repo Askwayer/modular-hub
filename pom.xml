@@ -33,6 +33,7 @@
         <module>vita-admin</module>
         <module>vita-common</module>
         <module>vita-generator</module>
+        <module>vita-service</module>
     </modules>
 
     <dependencyManagement>

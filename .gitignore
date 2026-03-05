@@ -1,4 +1,5 @@
 # IDE
+.codex/
 .idea/
 *.iml
 *.iws
