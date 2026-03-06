@@ -28,6 +28,7 @@
         <fastjson2.version>2.0.52</fastjson2.version>
         <hutool-all.version>5.8.25</hutool-all.version>
         <guava.version>33.2.1-jre</guava.version>
+        <bcprov.version>1.79</bcprov.version>
     </properties>
 
     <modules>
@@ -119,6 +120,13 @@
                 <groupId>com.google.guava</groupId>
                 <artifactId>guava</artifactId>
                 <version>${guava.version}</version>
+            </dependency>
+
+            <!-- bouncycastle -->
+            <dependency>
+                <groupId>org.bouncycastle</groupId>
+                <artifactId>bcprov-jdk18on</artifactId>
+                <version>${bcprov.version}</version>
             </dependency>
 
             <!-- vita-common -->
