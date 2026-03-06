@@ -56,3 +56,27 @@ spring:
           time-between-eviction-runs: 60s
           #心跳 30s  配置项单位是毫秒
           heartbeat: 30000
+
+# mybatis-plus
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
+  global-config:
+    db-config:
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+  mapper-locations: classpath*:mapper/**/*Mapper.xml
+  login: true
+
+
+# 打印所有的sql日志：sql, 参数, 结果
+logging:
+  config: classpath:logback-spring.xml
+  level:
+    com.vita: info
+    org:
+      apache:
+        ibatis: info  # 打印 MyBatis 内部执行的 SQL 语句
+    org.mybatis: info  # 打印 MyBatis 执行的 SQL

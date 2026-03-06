@@ -1,0 +1,108 @@
+package com.vita.controller.system;
+
+import com.vita.core.CommonResult;
+import com.vita.core.controller.BaseController;
+import com.vita.core.page.PageResponse;
+import com.vita.system.sysUser.dto.SysUserCreateDto;
+import com.vita.system.sysUser.dto.SysUserSearchDto;
+import com.vita.system.sysUser.dto.SysUserUpdateDto;
+import com.vita.system.sysUser.service.ISysUserService;
+import com.vita.system.sysUser.vo.SysUserDetailVo;
+import com.vita.system.sysUser.vo.SysUserListVo;
+import com.vita.system.sysUser.vo.SysUserPageVo;
+import jakarta.validation.Valid;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+/**
+ * @version 1.0
+ * @BelongsProject: vita
+ * @BelongsPackage: com.vita.controller.system
+ * @Author znk
+ * @CreateTime 2026-03-06 21:44:32
+ * @Description: 用户信息表 控制器
+ */
+@Validated
+@RestController
+@RequestMapping("/system/sysUser" )
+public class SysUserController extends BaseController {
+
+    /**
+     * 用户信息表 服务。
+     */
+    private final ISysUserService sysUserService;
+
+    public SysUserController(ISysUserService sysUserService) {
+        this.sysUserService = sysUserService;
+    }
+
+    /**
+     * 新增数据。
+     *
+     * @param createDto 创建请求对象
+     * @return 新增记录ID
+     */
+    @PostMapping("/add" )
+    public CommonResult<Long> create(@RequestBody @Valid SysUserCreateDto createDto) {
+        return CommonResult.success(sysUserService.create(createDto));
+    }
+
+    /**
+     * 更新数据。
+     *
+     * @param updateDto 更新请求对象
+     * @return 更新结果
+     */
+    @PostMapping("/update" )
+    public CommonResult<Boolean> update(@RequestBody @Valid SysUserUpdateDto updateDto) {
+        sysUserService.update(updateDto);
+        return CommonResult.success(true);
+    }
+
+    /**
+     * 删除数据。
+     *
+     * @param id 主键ID
+     * @return 删除结果
+     */
+    @DeleteMapping("/delete" )
+    public CommonResult<Boolean> delete(@RequestParam("id" ) Long id) {
+        sysUserService.delete(id);
+        return CommonResult.success(true);
+    }
+
+    /**
+     * 查询详情。
+     *
+     * @param id 主键ID
+     * @return 详情对象
+     */
+    @GetMapping("/getDetail" )
+    public CommonResult<SysUserDetailVo> getDetail(@RequestParam("id" ) Long id) {
+        return CommonResult.success(sysUserService.get(id));
+    }
+
+    /**
+     * 列表查询。
+     *
+     * @param searchDto 查询条件
+     * @return 列表数据
+     */
+    @GetMapping("/list" )
+    public CommonResult<List<SysUserListVo>> list(@Valid SysUserSearchDto searchDto) {
+        return CommonResult.success(sysUserService.list(searchDto));
+    }
+
+    /**
+     * 分页查询。
+     *
+     * @param searchDto 分页查询条件
+     * @return 分页数据
+     */
+    @GetMapping("/page" )
+    public CommonResult<PageResponse<SysUserPageVo>> page(@Valid SysUserSearchDto searchDto) {
+        return CommonResult.success(sysUserService.page(searchDto));
+    }
+}

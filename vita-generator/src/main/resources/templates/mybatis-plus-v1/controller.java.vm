@@ -1,0 +1,119 @@
+package ${package.Controller};
+
+import ${commonPackage}.CommonResult;
+import ${commonPackage}.page.PageResponse;
+import ${dtoPackage}.${entity}CreateDto;
+import ${dtoPackage}.${entity}SearchDto;
+import ${dtoPackage}.${entity}UpdateDto;
+import ${package.Service}.${table.serviceName};
+import ${voPackage}.${entity}DetailVo;
+import ${voPackage}.${entity}ListVo;
+import ${voPackage}.${entity}PageVo;
+import jakarta.validation.Valid;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+#if(${superControllerClassPackage})
+import ${superControllerClassPackage};
+#end
+
+/**
+ * @BelongsProject: ${projectName}
+ * @BelongsPackage: ${package.Controller}
+ * @Author ${author}
+ * @CreateTime ${date}
+ * @Description: ${table.comment} 控制器
+ * @version 1.0
+ */
+@Validated
+@RestController
+@RequestMapping("/#if(${moduleRoute})${moduleRoute}/#end${table.entityPath}")
+#if(${kotlin})
+class ${table.controllerName}#if(${superControllerClass}) : ${superControllerClass}()#end
+#else
+#if(${superControllerClass})
+public class ${table.controllerName} extends ${superControllerClass} {
+#else
+public class ${table.controllerName} {
+#end
+
+    /**
+     * ${table.comment} 服务。
+     */
+    private final ${table.serviceName} ${table.entityPath}Service;
+
+    public ${table.controllerName}(${table.serviceName} ${table.entityPath}Service) {
+        this.${table.entityPath}Service = ${table.entityPath}Service;
+    }
+
+    /**
+     * 新增数据。
+     *
+     * @param createDto 创建请求对象
+     * @return 新增记录ID
+     */
+    @PostMapping("/add")
+    public CommonResult<Long> create(@RequestBody @Valid ${entity}CreateDto createDto) {
+        return CommonResult.success(${table.entityPath}Service.create(createDto));
+    }
+
+    /**
+     * 更新数据。
+     *
+     * @param updateDto 更新请求对象
+     * @return 更新结果
+     */
+    @PostMapping("/update")
+    public CommonResult<Boolean> update(@RequestBody @Valid ${entity}UpdateDto updateDto) {
+        ${table.entityPath}Service.update(updateDto);
+        return CommonResult.success(true);
+    }
+
+    /**
+     * 删除数据。
+     *
+     * @param id 主键ID
+     * @return 删除结果
+     */
+    @DeleteMapping("/delete")
+    public CommonResult<Boolean> delete(@RequestParam("id") Long id) {
+        ${table.entityPath}Service.delete(id);
+        return CommonResult.success(true);
+    }
+
+    /**
+     * 查询详情。
+     *
+     * @param id 主键ID
+     * @return 详情对象
+     */
+    @GetMapping("/getDetail")
+    public CommonResult<${entity}DetailVo> getDetail(@RequestParam("id") Long id) {
+        return CommonResult.success(${table.entityPath}Service.get(id));
+    }
+
+    /**
+     * 列表查询。
+     *
+     * @param searchDto 查询条件
+     * @return 列表数据
+     */
+    @GetMapping("/list")
+    public CommonResult<List<${entity}ListVo>> list(@Valid ${entity}SearchDto searchDto) {
+        return CommonResult.success(${table.entityPath}Service.list(searchDto));
+    }
+
+    /**
+     * 分页查询。
+     *
+     * @param searchDto 分页查询条件
+     * @return 分页数据
+     */
+    @GetMapping("/page")
+    public CommonResult<PageResponse<${entity}PageVo>> page(@Valid ${entity}SearchDto searchDto) {
+        return CommonResult.success(${table.entityPath}Service.page(searchDto));
+    }
+}
+#end
