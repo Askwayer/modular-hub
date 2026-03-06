@@ -13,12 +13,13 @@
     <description>Be Vita Parent POM</description>
 
     <properties>
+        <vita.version>1.0.0-SNAPSHOT</vita.version>
         <java.version>17</java.version>
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <springboot.version>3.2.0</springboot.version>
-        <lombok.version>1.18.32</lombok.version>
+        <lombok.version>1.18.28</lombok.version>
         <dynamic.version>4.3.1</dynamic.version>
         <HikariCP.version>5.0.1</HikariCP.version>
         <mysql.version>8.0.32</mysql.version>
@@ -27,12 +28,19 @@
         <fastjson2.version>2.0.52</fastjson2.version>
         <hutool-all.version>5.8.25</hutool-all.version>
         <guava.version>33.2.1-jre</guava.version>
+        <bcprov.version>1.79</bcprov.version>
     </properties>
 
     <modules>
         <module>vita-admin</module>
         <module>vita-common</module>
         <module>vita-generator</module>
+        <module>vita-service</module>
+        <module>vita-starters</module>
+        <module>vita-starters/vita-captch-spring-boot-starter</module>
+        <module>vita-starters/vita-file-spring-boot-starter</module>
+        <module>vita-starters/vita-i18n-spring-boot-starter</module>
+        <module>vita-starters/vita-poi-spring-boot-starter</module>
     </modules>
 
     <dependencyManagement>
@@ -117,6 +125,27 @@
                 <groupId>com.google.guava</groupId>
                 <artifactId>guava</artifactId>
                 <version>${guava.version}</version>
+            </dependency>
+
+            <!-- bouncycastle -->
+            <dependency>
+                <groupId>org.bouncycastle</groupId>
+                <artifactId>bcprov-jdk18on</artifactId>
+                <version>${bcprov.version}</version>
+            </dependency>
+
+            <!-- vita-common -->
+            <dependency>
+                <groupId>com.vita</groupId>
+                <artifactId>vita-common</artifactId>
+                <version>${vita.version}</version>
+            </dependency>
+
+            <!-- vita-service -->
+            <dependency>
+                <groupId>com.vita</groupId>
+                <artifactId>vita-service</artifactId>
+                <version>${vita.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

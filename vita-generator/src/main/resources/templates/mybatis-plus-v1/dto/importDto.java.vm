@@ -1,0 +1,39 @@
+package ${dtoPackage};
+
+import lombok.Data;
+
+/**
+ * @BelongsProject: ${projectName}
+ * @BelongsPackage: ${dtoPackage}
+ * @Author ${author}
+ * @CreateTime ${date}
+ * @Description: ${table.comment} 导入 DTO
+ * @version 1.0
+ */
+@Data
+public class ${entity}ImportDto {
+#foreach($field in ${table.fields})
+    #if("$!field.propertyName" != "id"
+        && "$!field.propertyName" != "createTime"
+        && "$!field.propertyName" != "createById"
+        && "$!field.propertyName" != "createBy"
+        && "$!field.propertyName" != "updateTime"
+        && "$!field.propertyName" != "updateById"
+        && "$!field.propertyName" != "updateBy"
+        && "$!field.propertyName" != "isDeleted"
+        && "$!field.propertyName" != "tenantId"
+        && "$!field.propertyName" != "version")
+    #set($fieldType = $field.propertyType)
+    #if($field.columnType && $field.columnType.pkg && $field.columnType.pkg.startsWith("java."))
+    #set($fieldType = $field.columnType.pkg)
+    #end
+    #if("$!field.comment" != "")
+    /**
+     * ${field.comment}
+     */
+    #end
+    private ${fieldType} ${field.propertyName};
+
+    #end
+#end
+}

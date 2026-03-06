@@ -430,3 +430,63 @@ Vita 项目当前最适合采用 **模块化单体架构**：
 - `CHANGELOG.md`：版本变更记录
 - `docs/architecture.md`：详细架构设计文档
 
+---
+
+## 14. 代码生成器（vita-generator）
+
+`vita-generator` 已支持按模块生成代码，可通过 JVM 参数覆盖默认值（默认兼容旧配置）：
+
+- `vita.codegen.targetModule`：领域代码模块目录（默认：`vita-service`）
+- `vita.codegen.controllerModule`：控制器代码模块目录（默认：`vita-admin`）
+- `vita.codegen.businessModule`：业务模块标识（用于父包、路由前缀、mapper 目录）
+- `vita.codegen.domainModule`：领域模块名（用于 `com.vita.<businessModule>.<domainModule>`）
+- `vita.codegen.basePackage`：基础包（示例：`com.vita`）
+- `vita.codegen.routePrefix`：接口路由前缀（默认同 `businessModule`）
+
+默认执行：
+
+```bash
+mvn -pl vita-generator -DskipTests exec:java -Dexec.mainClass=com.vita.config.CodeGenerator
+```
+
+自定义模块执行示例：
+
+```bash
+mvn -pl vita-generator -DskipTests exec:java \
+  -Dexec.mainClass=com.vita.config.CodeGenerator \
+  -Dvita.codegen.targetModule=vita-service \
+  -Dvita.codegen.controllerModule=vita-admin \
+  -Dvita.codegen.businessModule=user \
+  -Dvita.codegen.domainModule=member \
+  -Dvita.codegen.basePackage=com.vita \
+  -Dvita.codegen.routePrefix=user
+```
+
+输出目录示例：
+
+- 领域代码（entity/service/mapper/dto/vo/model）：`<targetModule>/src/main/java/com/vita/<businessModule>/<domainModule>/...`
+- 控制器代码（controller）：`<controllerModule>/src/main/java/com/vita/controller/<businessModule>/...`
+- XML：`<targetModule>/src/main/resources/mapper/<businessModule>/...`
+
+### 14.1 `mybatis-plus-v1` 与 `mybatis-plus-v2` 对齐映射
+
+- 分层结构：`controller` / `service` / `serviceImpl` / `dto` / `vo` / `model` 与 v2 保持一致。
+- Controller 方法：`create`、`update`、`delete`、`getDetail`、`list`、`page`。
+- Service 方法：`Long create(...)`、`void update(...)`、`void delete(Long id)`、`DetailVo get(Long id)`、`List<ListVo> list(...)`、`PageResponse<PageVo> page(...)`。
+- DTO/VO 规则：`CreateDto`、`UpdateDto`、`SearchDto`、`DeletedDto`、`DetailVo`、`ListVo`、`PageVo`；分页查询关键字统一为 `keyword`。
+- Model 规则：`<Entity>Model extends <Entity>`。
+
+### 14.2 注释与依赖规范
+
+- 生成模板中的对象、字段、公开方法必须带 JavaDoc。
+- `serviceImpl` 中每个 `@Override` 方法必须包含用途、参数和返回值说明。
+- 清理未使用 import，避免历史遗留冗余依赖引用。
+- 对 `java.*` 类型字段，模板直接输出全限定类型，避免缺失导入导致编译失败。
+- 目标业务模块若使用 Lombok 注解（`@Data`、`@EqualsAndHashCode`），需在模块 `pom.xml` 显式引入：
+
+```xml
+<dependency>
+    <groupId>org.projectlombok</groupId>
+    <artifactId>lombok</artifactId>
+</dependency>
+```

@@ -1,0 +1,32 @@
+DROP TABLE IF EXISTS `sys_user`;
+CREATE TABLE `sys_user`
+(
+    `id`              bigint                                  NOT NULL AUTO_INCREMENT COMMENT 'ID',
+    `dept_id`         bigint                                           DEFAULT NULL COMMENT '部门ID',
+    `nick_name`       varchar(50) COLLATE utf8mb4_general_ci           DEFAULT NULL COMMENT '昵称',
+    `user_name`       varchar(50) COLLATE utf8mb4_general_ci  NOT NULL COMMENT '用户名称',
+    `password`        varchar(200) COLLATE utf8mb4_general_ci NOT NULL COMMENT '密码',
+    `mobile`          varchar(20) COLLATE utf8mb4_general_ci           DEFAULT NULL COMMENT '手机号',
+    `email`           varchar(100) COLLATE utf8mb4_general_ci          DEFAULT NULL COMMENT '邮箱',
+    `avatar_url`      varchar(255) COLLATE utf8mb4_general_ci          DEFAULT NULL COMMENT '头像',
+    `gender`          char(1) COLLATE utf8mb4_general_ci               DEFAULT '2' COMMENT '性别(0-女,1-男,2-其他)',
+    `status`          char(1) COLLATE utf8mb4_general_ci               DEFAULT '0' COMMENT '状态(0-正常,1-禁用)',
+    `is_super`        char(1) COLLATE utf8mb4_general_ci               DEFAULT '0' COMMENT '是否为超级管理员(0-否,1-是)',
+    `login_time`      datetime                                         DEFAULT NULL COMMENT '上次登录时间',
+    `login_address`   varchar(128) COLLATE utf8mb4_general_ci          DEFAULT NULL COMMENT '登录地址',
+    `pwd_update_date` datetime                                         DEFAULT NULL COMMENT '密码最后更新时间',
+    `create_time`     datetime                                NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '新增时间',
+    `update_time`     datetime                                         DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `is_deleted`      tinyint(1) DEFAULT '0' COMMENT '是否删除(0-否,1-是)',
+    `tenant_id`       bigint                                           DEFAULT NULL COMMENT '租户ID',
+    `create_by_id`    bigint                                           DEFAULT NULL COMMENT '新增用户ID',
+    `create_by`       varchar(50) COLLATE utf8mb4_general_ci           DEFAULT NULL COMMENT '新增用户名称',
+    `update_by_id`    bigint                                           DEFAULT NULL COMMENT '更新用户ID',
+    `update_by`       varchar(50) COLLATE utf8mb4_general_ci           DEFAULT NULL COMMENT '更新用户名称',
+    `version`         bigint                                           DEFAULT '0' COMMENT '乐观锁',
+    `remark`          varchar(500) COLLATE utf8mb4_general_ci          DEFAULT NULL COMMENT '备注',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `user_name` (`user_name`),
+    KEY               `idx_user_user_name` (`user_name`),
+    KEY               `idx_user_dept_id` (`dept_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='用户信息表';
