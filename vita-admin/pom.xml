@@ -23,7 +23,11 @@
         <dependency>
             <groupId>com.vita</groupId>
             <artifactId>vita-common</artifactId>
-            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.vita</groupId>
+            <artifactId>vita-service</artifactId>
         </dependency>
     </dependencies>
 
