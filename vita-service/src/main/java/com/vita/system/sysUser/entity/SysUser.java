@@ -4,17 +4,19 @@ import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.vita.core.entity.BaseEntity;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 import java.time.LocalDateTime;
 
 /**
+ * @version 1.0
  * @BelongsProject: vita
  * @BelongsPackage: com.vita.system.sysUser.entity
  * @Author znk
  * @CreateTime 2026-03-06 21:44:32
  * @Description: 用户信息表 实体类
- * @version 1.0
  */
+@EqualsAndHashCode(callSuper = true)
 @Data
 @TableName("sys_user")
 public class SysUser extends BaseEntity {
