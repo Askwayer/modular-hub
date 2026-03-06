@@ -7,6 +7,9 @@ import ${pkg};
 #foreach($pkg in ${importEntityJavaPackages})
 import ${pkg};
 #end
+#if(${entityLombokModel} && ${superEntityClass})
+import lombok.EqualsAndHashCode;
+#end
 
 /**
  * @BelongsProject: ${projectName}
@@ -18,6 +21,9 @@ import ${pkg};
  */
 #foreach($an in ${entityClassAnnotations})
 ${an.displayName}
+#end
+#if(${entityLombokModel} && ${superEntityClass})
+@EqualsAndHashCode(callSuper = true)
 #end
 #if(${superEntityClass})
 public class ${entity} extends ${superEntityClass}#if(${activeRecord})<${entity}>#end {
