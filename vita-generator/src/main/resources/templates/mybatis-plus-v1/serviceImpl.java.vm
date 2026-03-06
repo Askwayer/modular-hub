@@ -1,7 +1,7 @@
 package ${package.ServiceImpl};
 
+import cn.hutool.core.bean.BeanUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import ${commonPackage}.exception.GlobalErrorCode;
 import ${commonPackage}.exception.ServiceException;
 import ${commonPackage}.page.PageResponse;
@@ -12,6 +12,10 @@ import ${package.Entity}.${entity};
 import ${package.Mapper}.${table.mapperName};
 import ${package.Service}.${table.serviceName};
 import ${superServiceImplClassPackage};
+import ${voPackage}.${entity}DetailVo;
+import ${voPackage}.${entity}ListVo;
+import ${voPackage}.${entity}PageVo;
+import jakarta.annotation.Resource;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -34,6 +38,9 @@ open class ${table.serviceImplName} : ${superServiceImplClass}<${table.mapperNam
 #else
 public class ${table.serviceImplName} extends ${superServiceImplClass}<${table.mapperName}, ${entity}> implements ${table.serviceName} {
 
+    @Resource
+    private ${table.mapperName} ${table.entityPath}Mapper;
+
     /**
      * 新增数据并返回主键ID。
      *
@@ -47,7 +54,7 @@ public class ${table.serviceImplName} extends ${superServiceImplClass}<${table.m
         }
         ${entity} data = new ${entity}();
         BeanUtils.copyProperties(createDto, data);
-        save(data);
+        ${table.entityPath}Mapper.insert(data);
         return data.getId();
     }
 
@@ -64,7 +71,7 @@ public class ${table.serviceImplName} extends ${superServiceImplClass}<${table.m
         getRequiredEntity(updateDto.getId());
         ${entity} data = new ${entity}();
         BeanUtils.copyProperties(updateDto, data);
-        updateById(data);
+        ${table.entityPath}Mapper.updateById(data);
     }
 
     /**
@@ -75,45 +82,49 @@ public class ${table.serviceImplName} extends ${superServiceImplClass}<${table.m
     @Override
     public void delete(Long id) {
         getRequiredEntity(id);
-        removeById(id);
+        ${table.entityPath}Mapper.deleteById(id);
     }
 
     /**
      * 查询单条数据。
      *
      * @param id 主键ID
-     * @return 实体对象
+     * @return 详情对象
      */
     @Override
-    public ${entity} get(Long id) {
-        return getRequiredEntity(id);
+    public ${entity}DetailVo get(Long id) {
+        ${entity} data = getRequiredEntity(id);
+        return BeanUtil.copyProperties(data, ${entity}DetailVo.class);
     }
 
     /**
      * 列表查询。
      *
      * @param searchDto 查询条件
-     * @return 实体列表
+     * @return 列表VO
      */
     @Override
-    public List<${entity}> list(${entity}SearchDto searchDto) {
-        return list(buildQueryWrapper(searchDto));
+    public List<${entity}ListVo> list(${entity}SearchDto searchDto) {
+        List<${entity}> dataList = ${table.entityPath}Mapper.selectList(buildQueryWrapper(searchDto));
+        return BeanUtil.copyToList(dataList, ${entity}ListVo.class);
     }
 
     /**
      * 分页查询。
      *
      * @param searchDto 分页查询条件
-     * @return 分页实体结果
+     * @return 分页VO结果
      */
     @Override
-    public PageResponse<${entity}> page(${entity}SearchDto searchDto) {
+    public PageResponse<${entity}PageVo> page(${entity}SearchDto searchDto) {
         if (searchDto == null) {
             searchDto = new ${entity}SearchDto();
         }
-        Page<${entity}> mpPage = Page.of(searchDto.getPageNum(), searchDto.getPageSize());
-        Page<${entity}> result = page(mpPage, buildQueryWrapper(searchDto));
-        return new PageResponse<>(result.getRecords(), result.getTotal());
+        PageResponse<${entity}> selectPage = ${table.entityPath}Mapper.selectPage(searchDto, buildQueryWrapper(searchDto));
+        PageResponse<${entity}PageVo> pageResponse = new PageResponse<>();
+        pageResponse.setList(BeanUtil.copyToList(selectPage.getList(), ${entity}PageVo.class));
+        pageResponse.setTotal(selectPage.getTotal());
+        return pageResponse;
     }
 
     /**
@@ -141,7 +152,7 @@ public class ${table.serviceImplName} extends ${superServiceImplClass}<${table.m
         if (id == null) {
             throw new ServiceException(GlobalErrorCode.BAD_REQUEST);
         }
-        ${entity} data = getById(id);
+        ${entity} data = ${table.entityPath}Mapper.selectById(id);
         if (data == null) {
             throw new ServiceException(GlobalErrorCode.NOT_FOUND);
         }

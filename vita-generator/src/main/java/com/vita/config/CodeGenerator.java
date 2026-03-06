@@ -76,6 +76,11 @@ public class CodeGenerator {
     private final static String DEFAULT_TARGET_MODULE = "vita-service";
 
     /**
+     * 默认控制器模块（与当前 sysUser 模块保持一致）
+     */
+    private final static String DEFAULT_CONTROLLER_MODULE = "vita-admin";
+
+    /**
      * 默认业务模块（用于父包、路由和 mapper 目录）
      */
     private final static String DEFAULT_BUSINESS_MODULE = "system";
@@ -99,20 +104,25 @@ public class CodeGenerator {
         logger.info("模块化生成配置: {}" , moduleConfig);
 
         // 输出目录和包配置
-        String outputJavaDir = moduleConfig.targetModule() + "/src/main/java";
+        String domainOutputJavaDir = moduleConfig.targetModule() + "/src/main/java";
+        String controllerOutputJavaDir = moduleConfig.controllerModule() + "/src/main/java";
         // mapper.xml 输出目录，放在 resources 目录下，按照业务模块进行分组
         String outputMapperDir = moduleConfig.targetModule() + "/src/main/resources/mapper/" + moduleConfig.businessModule();
-        // 父包配置，格式为 basePackage.businessModule，如 com.vita.system
-        String parentPackage = moduleConfig.basePackage() + "." + moduleConfig.businessModule();
-        // 模块包配置，格式为 basePackage.businessModule.domainModule，如 com.vita.system.sysUser
-        String modulePackage = parentPackage + "." + moduleConfig.domainModule();
+        // 领域包配置，格式为 basePackage.businessModule.domainModule，如 com.vita.system.sysUser
+        String domainPackagePrefix = moduleConfig.businessModule() + "." + moduleConfig.domainModule();
+        String modulePackage = moduleConfig.basePackage() + "." + domainPackagePrefix;
+        // 控制器包配置，格式为 basePackage.controller.businessModule，如 com.vita.controller.system
+        String controllerPackage = "controller." + moduleConfig.businessModule();
+        // 控制器输出目录需要指定到包路径，否则会落在 java 根目录
+        String controllerOutputDir = controllerOutputJavaDir + "/" + moduleConfig.basePackage().replace("." , "/")
+                + "/" + controllerPackage.replace("." , "/");
 
         // 1.配置数据源
         FastAutoGenerator.create(dataSourceConfig)
                 // 2、全局配置
                 .globalConfig(builder -> builder
                         // 输出目录
-                        .outputDir(outputJavaDir)
+                        .outputDir(domainOutputJavaDir)
                         // 设置作者
                         .author(AUTHOR)
                         .disableOpenDir()
@@ -122,15 +132,19 @@ public class CodeGenerator {
                         .commentDate(() -> new SimpleDateFormat("yyyy-MM-dd HH:mm:ss" ).format(new Date()))) // 设置注释日期（默认值）,example: () -> LocalDateTime.now().format(DateTimeFormatter.ISO_DATE)
                 // 3、包配置
                 .packageConfig(builder -> {
-                    builder.parent(parentPackage) // 设置父包名（默认值 com.baomidou）
-                            .moduleName(moduleConfig.domainModule()) // 设置父包模块名（默认值）
-                            .entity("entity" ) // 设置 Entity 包名（默认值）
-                            .service("service" ) // 设置 Service 包名（默认值）
-                            .serviceImpl("service.impl" ) // 置 Service Impl 包名（默认值）设
-                            .mapper("mapper" ) // 设置 Mapper 包名（默认值）
+                    Map<OutputFile, String> pathInfo = new HashMap<>();
+                    pathInfo.put(OutputFile.xml, outputMapperDir);
+                    pathInfo.put(OutputFile.controller, controllerOutputDir);
+
+                    builder.parent(moduleConfig.basePackage())
+                            .moduleName("")
+                            .entity(domainPackagePrefix + ".entity")
+                            .service(domainPackagePrefix + ".service")
+                            .serviceImpl(domainPackagePrefix + ".service.impl")
+                            .mapper(domainPackagePrefix + ".mapper")
                             .xml("mapper" ) // 设置 Mapper XML 包名（默认值）
-                            .controller("controller" ) // 设置 Controller 包名（默认值）
-                            .pathInfo(Collections.singletonMap(OutputFile.xml, outputMapperDir));    //配置 mapper.xml 路径信息：项目的 resources 目录下
+                            .controller(controllerPackage)
+                            .pathInfo(pathInfo);
                 })
                 //4、策略配置
                 .strategyConfig(builder -> {
@@ -207,24 +221,24 @@ public class CodeGenerator {
 
                     List<CustomFile> customFiles = new ArrayList<>();
                     // 增加dto类
-                    customFiles.add(new CustomFile.Builder().packageName("dto" ).fileName("CreateDto.java" )
+                    customFiles.add(new CustomFile.Builder().packageName(domainPackagePrefix + ".dto" ).fileName("CreateDto.java" )
                             .templatePath("/templates/mybatis-plus-v1/dto/createDto.java.vm" ).enableFileOverride().build());
-                    customFiles.add(new CustomFile.Builder().packageName("dto" ).fileName("UpdateDto.java" )
+                    customFiles.add(new CustomFile.Builder().packageName(domainPackagePrefix + ".dto" ).fileName("UpdateDto.java" )
                             .templatePath("/templates/mybatis-plus-v1/dto/updateDto.java.vm" ).enableFileOverride().build());
-                    customFiles.add(new CustomFile.Builder().packageName("dto" ).fileName("DeletedDto.java" )
+                    customFiles.add(new CustomFile.Builder().packageName(domainPackagePrefix + ".dto" ).fileName("DeletedDto.java" )
                             .templatePath("/templates/mybatis-plus-v1/dto/deletedDto.java.vm" ).enableFileOverride().build());
-                    customFiles.add(new CustomFile.Builder().packageName("dto" ).fileName("SearchDto.java" )
+                    customFiles.add(new CustomFile.Builder().packageName(domainPackagePrefix + ".dto" ).fileName("SearchDto.java" )
                             .templatePath("/templates/mybatis-plus-v1/dto/searchDto.java.vm" ).enableFileOverride().build());
                     // 增加vo类
-                    customFiles.add(new CustomFile.Builder().packageName("vo" ).fileName("DetailVo.java" )
+                    customFiles.add(new CustomFile.Builder().packageName(domainPackagePrefix + ".vo" ).fileName("DetailVo.java" )
                             .templatePath("/templates/mybatis-plus-v1/vo/detailVo.java.vm" ).enableFileOverride().build());
-                    customFiles.add(new CustomFile.Builder().packageName("vo" ).fileName("ListVo.java" )
+                    customFiles.add(new CustomFile.Builder().packageName(domainPackagePrefix + ".vo" ).fileName("ListVo.java" )
                             .templatePath("/templates/mybatis-plus-v1/vo/listVo.java.vm" ).enableFileOverride().build());
-                    customFiles.add(new CustomFile.Builder().packageName("vo" ).fileName("PageVo.java" )
+                    customFiles.add(new CustomFile.Builder().packageName(domainPackagePrefix + ".vo" ).fileName("PageVo.java" )
                             .templatePath("/templates/mybatis-plus-v1/vo/pageVo.java.vm" ).enableFileOverride().build());
 
                     // 增加model类
-                    customFiles.add(new CustomFile.Builder().packageName("model" ).fileName("Model.java" )
+                    customFiles.add(new CustomFile.Builder().packageName(domainPackagePrefix + ".model" ).fileName("Model.java" )
                             .templatePath("/templates/mybatis-plus-v1/model/model.java.vm" ).enableFileOverride().build());
                     // 增加convert类
                     consumer.customFile(customFiles);
@@ -283,16 +297,18 @@ public class CodeGenerator {
      * 模块配置记录类，封装了生成器的核心配置项，并提供加载逻辑从系统属性或环境变量中读取配置
      *
      * @param targetModule   目标模块，生成代码的输出目录，默认为 "vita-service"
+     * @param controllerModule 控制器模块，控制器输出目录，默认为 "vita-admin"
      * @param businessModule 业务模块，用于包结构和路由前缀，默认为 "system"
-     * @param domainModule   领域模块，用于 packageConfig.moduleName，默认为 "sysUser"
+     * @param domainModule   领域模块，用于领域包名，默认为 "sysUser"
      * @param basePackage    基础包，用于生成代码的父包，默认为 "com.vita"
      * @param routePrefix    路由前缀，用于生成控制器的路由，默认为业务模块名，并会进行规范化处理
      */
-    private record ModuleConfig(String targetModule, String businessModule, String domainModule, String basePackage,
-                                String routePrefix) {
+    private record ModuleConfig(String targetModule, String controllerModule, String businessModule,
+                                String domainModule, String basePackage, String routePrefix) {
 
         private static ModuleConfig load() {
             String targetModule = readConfig("vita.codegen.targetModule" , "VITA_CODEGEN_TARGET_MODULE" , DEFAULT_TARGET_MODULE);
+            String controllerModule = readConfig("vita.codegen.controllerModule" , "VITA_CODEGEN_CONTROLLER_MODULE" , DEFAULT_CONTROLLER_MODULE);
             String businessModule = readConfig("vita.codegen.businessModule" , "VITA_CODEGEN_BUSINESS_MODULE" , DEFAULT_BUSINESS_MODULE);
             String domainModule = readConfig("vita.codegen.domainModule" , "VITA_CODEGEN_DOMAIN_MODULE" , DEFAULT_DOMAIN_MODULE);
             String basePackage = readConfig("vita.codegen.basePackage" , "VITA_CODEGEN_BASE_PACKAGE" , DEFAULT_BASE_PACKAGE);
@@ -302,6 +318,7 @@ public class CodeGenerator {
             );
             return new ModuleConfig(
                     targetModule.trim(),
+                    controllerModule.trim(),
                     businessModule.trim(),
                     domainModule.trim(),
                     basePackage.trim(),
@@ -313,8 +330,8 @@ public class CodeGenerator {
         public String toString() {
             return String.format(
                     Locale.ROOT,
-                    "targetModule=%s, businessModule=%s, domainModule=%s, basePackage=%s, routePrefix=%s" ,
-                    targetModule, businessModule, domainModule, basePackage, routePrefix
+                    "targetModule=%s, controllerModule=%s, businessModule=%s, domainModule=%s, basePackage=%s, routePrefix=%s" ,
+                    targetModule, controllerModule, businessModule, domainModule, basePackage, routePrefix
             );
         }
     }

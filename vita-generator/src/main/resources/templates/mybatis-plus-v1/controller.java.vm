@@ -5,19 +5,14 @@ import ${commonPackage}.page.PageResponse;
 import ${dtoPackage}.${entity}CreateDto;
 import ${dtoPackage}.${entity}SearchDto;
 import ${dtoPackage}.${entity}UpdateDto;
-import ${package.Entity}.${entity};
 import ${package.Service}.${table.serviceName};
 import ${voPackage}.${entity}DetailVo;
 import ${voPackage}.${entity}ListVo;
 import ${voPackage}.${entity}PageVo;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
-import org.springframework.beans.BeanUtils;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
-import java.security.Provider;
-import java.util.ArrayList;
 import java.util.List;
 
 #if(${superControllerClassPackage})
@@ -96,12 +91,7 @@ public class ${table.controllerName} {
      */
     @GetMapping("/getDetail")
     public CommonResult<${entity}DetailVo> getDetail(@RequestParam("id") Long id) {
-        ${entity} data = ${table.entityPath}Service.get(id);
-        ${entity}DetailVo detailVo = new ${entity}DetailVo();
-        if (data != null) {
-            BeanUtils.copyProperties(data, detailVo);
-        }
-        return CommonResult.success(detailVo);
+        return CommonResult.success(${table.entityPath}Service.get(id));
     }
 
     /**
@@ -112,7 +102,7 @@ public class ${table.controllerName} {
      */
     @GetMapping("/list")
     public CommonResult<List<${entity}ListVo>> list(@Valid ${entity}SearchDto searchDto) {
-        return CommonResult.success(toListVoList(${table.entityPath}Service.list(searchDto)));
+        return CommonResult.success(${table.entityPath}Service.list(searchDto));
     }
 
     /**
@@ -123,46 +113,7 @@ public class ${table.controllerName} {
      */
     @GetMapping("/page")
     public CommonResult<PageResponse<${entity}PageVo>> page(@Valid ${entity}SearchDto searchDto) {
-        PageResponse<${entity}> pageData = ${table.entityPath}Service.page(searchDto);
-        return CommonResult.success(new PageResponse<>(toPageVoList(pageData.getList()), pageData.getTotal()));
-    }
-
-    /**
-     * 将实体列表转换为列表VO。
-     *
-     * @param dataList 实体列表
-     * @return 列表VO
-     */
-    private List<${entity}ListVo> toListVoList(List<${entity}> dataList) {
-        List<${entity}ListVo> listVoList = new ArrayList<>();
-        if (dataList == null || dataList.isEmpty()) {
-            return listVoList;
-        }
-        for (${entity} data : dataList) {
-            ${entity}ListVo listVo = new ${entity}ListVo();
-            BeanUtils.copyProperties(data, listVo);
-            listVoList.add(listVo);
-        }
-        return listVoList;
-    }
-
-    /**
-     * 将实体列表转换为分页VO。
-     *
-     * @param dataList 实体列表
-     * @return 分页VO
-     */
-    private List<${entity}PageVo> toPageVoList(List<${entity}> dataList) {
-        List<${entity}PageVo> pageVoList = new ArrayList<>();
-        if (dataList == null || dataList.isEmpty()) {
-            return pageVoList;
-        }
-        for (${entity} data : dataList) {
-            ${entity}PageVo pageVo = new ${entity}PageVo();
-            BeanUtils.copyProperties(data, pageVo);
-            pageVoList.add(pageVo);
-        }
-        return pageVoList;
+        return CommonResult.success(${table.entityPath}Service.page(searchDto));
     }
 }
 #end

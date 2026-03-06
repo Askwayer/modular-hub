@@ -436,9 +436,10 @@ Vita 项目当前最适合采用 **模块化单体架构**：
 
 `vita-generator` 已支持按模块生成代码，可通过 JVM 参数覆盖默认值（默认兼容旧配置）：
 
-- `vita.codegen.targetModule`：目标模块目录（示例：`vita-admin`）
+- `vita.codegen.targetModule`：领域代码模块目录（默认：`vita-service`）
+- `vita.codegen.controllerModule`：控制器代码模块目录（默认：`vita-admin`）
 - `vita.codegen.businessModule`：业务模块标识（用于父包、路由前缀、mapper 目录）
-- `vita.codegen.domainModule`：领域模块名（用于 `packageConfig.moduleName`）
+- `vita.codegen.domainModule`：领域模块名（用于 `com.vita.<businessModule>.<domainModule>`）
 - `vita.codegen.basePackage`：基础包（示例：`com.vita`）
 - `vita.codegen.routePrefix`：接口路由前缀（默认同 `businessModule`）
 
@@ -453,7 +454,8 @@ mvn -pl vita-generator -DskipTests exec:java -Dexec.mainClass=com.vita.config.Co
 ```bash
 mvn -pl vita-generator -DskipTests exec:java \
   -Dexec.mainClass=com.vita.config.CodeGenerator \
-  -Dvita.codegen.targetModule=vita-admin \
+  -Dvita.codegen.targetModule=vita-service \
+  -Dvita.codegen.controllerModule=vita-admin \
   -Dvita.codegen.businessModule=user \
   -Dvita.codegen.domainModule=member \
   -Dvita.codegen.basePackage=com.vita \
@@ -462,14 +464,15 @@ mvn -pl vita-generator -DskipTests exec:java \
 
 输出目录示例：
 
-- Java：`<targetModule>/src/main/java/com/vita/<businessModule>/<domainModule>/...`
+- 领域代码（entity/service/mapper/dto/vo/model）：`<targetModule>/src/main/java/com/vita/<businessModule>/<domainModule>/...`
+- 控制器代码（controller）：`<controllerModule>/src/main/java/com/vita/controller/<businessModule>/...`
 - XML：`<targetModule>/src/main/resources/mapper/<businessModule>/...`
 
 ### 14.1 `mybatis-plus-v1` 与 `mybatis-plus-v2` 对齐映射
 
 - 分层结构：`controller` / `service` / `serviceImpl` / `dto` / `vo` / `model` 与 v2 保持一致。
 - Controller 方法：`create`、`update`、`delete`、`getDetail`、`list`、`page`。
-- Service 方法：`Long create(...)`、`void update(...)`、`void delete(Long id)`、`Entity get(Long id)`、`List<Entity> list(...)`、`PageResponse<Entity> page(...)`。
+- Service 方法：`Long create(...)`、`void update(...)`、`void delete(Long id)`、`DetailVo get(Long id)`、`List<ListVo> list(...)`、`PageResponse<PageVo> page(...)`。
 - DTO/VO 规则：`CreateDto`、`UpdateDto`、`SearchDto`、`DeletedDto`、`DetailVo`、`ListVo`、`PageVo`；分页查询关键字统一为 `keyword`。
 - Model 规则：`<Entity>Model extends <Entity>`。
 
