@@ -464,3 +464,26 @@ mvn -pl vita-generator -DskipTests exec:java \
 
 - Java：`<targetModule>/src/main/java/com/vita/<businessModule>/<domainModule>/...`
 - XML：`<targetModule>/src/main/resources/mapper/<businessModule>/...`
+
+### 14.1 `mybatis-plus-v1` 与 `mybatis-plus-v2` 对齐映射
+
+- 分层结构：`controller` / `service` / `serviceImpl` / `dto` / `vo` / `model` 与 v2 保持一致。
+- Controller 方法：`create`、`update`、`delete`、`getDetail`、`list`、`page`。
+- Service 方法：`Long create(...)`、`void update(...)`、`void delete(Long id)`、`Entity get(Long id)`、`List<Entity> list(...)`、`PageResponse<Entity> page(...)`。
+- DTO/VO 规则：`CreateDto`、`UpdateDto`、`SearchDto`、`DeletedDto`、`DetailVo`、`ListVo`、`PageVo`；分页查询关键字统一为 `keyword`。
+- Model 规则：`<Entity>Model extends <Entity>`。
+
+### 14.2 注释与依赖规范
+
+- 生成模板中的对象、字段、公开方法必须带 JavaDoc。
+- `serviceImpl` 中每个 `@Override` 方法必须包含用途、参数和返回值说明。
+- 清理未使用 import，避免历史遗留冗余依赖引用。
+- 对 `java.*` 类型字段，模板直接输出全限定类型，避免缺失导入导致编译失败。
+- 目标业务模块若使用 Lombok 注解（`@Data`、`@EqualsAndHashCode`），需在模块 `pom.xml` 显式引入：
+
+```xml
+<dependency>
+    <groupId>org.projectlombok</groupId>
+    <artifactId>lombok</artifactId>
+</dependency>
+```
