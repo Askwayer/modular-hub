@@ -36,6 +36,11 @@
         <module>vita-common</module>
         <module>vita-generator</module>
         <module>vita-service</module>
+        <module>vita-starters</module>
+        <module>vita-starters/vita-captch-spring-boot-starter</module>
+        <module>vita-starters/vita-file-spring-boot-starter</module>
+        <module>vita-starters/vita-i18n-spring-boot-starter</module>
+        <module>vita-starters/vita-poi-spring-boot-starter</module>
     </modules>
 
     <dependencyManagement>
