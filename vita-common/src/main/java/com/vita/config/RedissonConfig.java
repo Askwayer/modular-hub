@@ -40,9 +40,15 @@ public class RedissonConfig {
      */
     @Bean
     public RedissonClient redissonClient() {
+        // 1、创建配置
         Config config = new Config();
-        config.useSingleServer().setAddress(String.format("redis://%s:%s", redissonProperty.getHost(), redissonProperty.getPort()));
-        config.useSingleServer().setPassword(redissonProperty.getPassword());
+        config.setCodec(new org.redisson.codec.JsonJacksonCodec());
+        // 2、集群模式
+        // config.useClusterServers().addNodeAddress("127.0.0.1:7004", "127.0.0.1:7001");
+        // 根据 Config 创建出 RedissonClient 示例
+        config.useSingleServer()
+                .setAddress(String.format("redis://%s:%s", redissonProperty.getHost(), redissonProperty.getPort()))
+                .setPassword(redissonProperty.getPassword());
         return Redisson.create(config);
     }
 
