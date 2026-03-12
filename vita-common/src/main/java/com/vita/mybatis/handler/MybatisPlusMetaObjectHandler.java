@@ -41,7 +41,7 @@ public class MybatisPlusMetaObjectHandler implements MetaObjectHandler {
         this.strictInsertFill(metaObject, "isDeleted" , Boolean.class, false);
 
         // 如果启用登录用户相关字段，填充创建/更新人信息
-        LoginUserInfoModel model = LoginUserInfoModelContext.get();
+        LoginUserInfoModel model = LoginUserInfoModelContext.getLoginUserInfo();
         if (model != null) {
             this.strictInsertFill(metaObject, "createById" , Long.class, model.getId());
             this.strictInsertFill(metaObject, "createBy" , String.class, model.getUsername());
@@ -61,7 +61,7 @@ public class MybatisPlusMetaObjectHandler implements MetaObjectHandler {
         // 填充更新时间
         this.strictUpdateFill(metaObject, "updateTime" , LocalDateTime.class, LocalDateTime.now());
         // 如果启用登录用户相关字段，填充更新人信息
-        LoginUserInfoModel model = LoginUserInfoModelContext.get();
+        LoginUserInfoModel model = LoginUserInfoModelContext.getLoginUserInfo();
         if (model != null) {
             this.strictUpdateFill(metaObject, "updateById" , Long.class, model.getId());
             this.strictUpdateFill(metaObject, "updateBy" , String.class, model.getUsername());
