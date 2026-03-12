@@ -20,7 +20,7 @@ import java.util.Base64;
  * @Version: 1.0
  */
 @Slf4j
-public final class Sm4Util {
+public class Sm4Utils {
     /**
      * SM4算法相关常量
      */
@@ -47,7 +47,7 @@ public final class Sm4Util {
         }
     }
 
-    private Sm4Util() {
+    private Sm4Utils() {
     }
 
     /**
@@ -58,14 +58,14 @@ public final class Sm4Util {
      * @return 加密后的Base64字符串
      */
     public static String encryptToBase64(String plainText, String key) {
-        requireNonEmpty(plainText, "plainText" );
+        requireNonEmpty(plainText, "plainText");
         byte[] keyBytes = validateAndGetKeyBytes(key);
         try {
             Cipher cipher = buildCipher(Cipher.ENCRYPT_MODE, keyBytes);
             byte[] encryptedBytes = cipher.doFinal(plainText.getBytes(StandardCharsets.UTF_8));
             return Base64.getEncoder().encodeToString(encryptedBytes);
         } catch (GeneralSecurityException e) {
-            throw new IllegalStateException("SM4 encrypt failed" , e);
+            throw new IllegalStateException("SM4 encrypt failed", e);
         }
     }
 
@@ -77,20 +77,20 @@ public final class Sm4Util {
      * @return 解密后的明文字符串
      */
     public static String decryptFromBase64(String cipherText, String key) {
-        requireNonEmpty(cipherText, "cipherText" );
+        requireNonEmpty(cipherText, "cipherText");
         byte[] keyBytes = validateAndGetKeyBytes(key);
         final byte[] encryptedBytes;
         try {
             encryptedBytes = Base64.getDecoder().decode(cipherText);
         } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("cipherText is not valid Base64" , e);
+            throw new IllegalArgumentException("cipherText is not valid Base64", e);
         }
         try {
             Cipher cipher = buildCipher(Cipher.DECRYPT_MODE, keyBytes);
             byte[] plainBytes = cipher.doFinal(encryptedBytes);
             return new String(plainBytes, StandardCharsets.UTF_8);
         } catch (GeneralSecurityException e) {
-            throw new IllegalStateException("SM4 decrypt failed" , e);
+            throw new IllegalStateException("SM4 decrypt failed", e);
         }
     }
 
@@ -116,10 +116,10 @@ public final class Sm4Util {
      * @return 符合要求的密钥字节数组
      */
     private static byte[] validateAndGetKeyBytes(String key) {
-        requireNonEmpty(key, "key" );
+        requireNonEmpty(key, "key");
         byte[] keyBytes = key.getBytes(StandardCharsets.UTF_8);
         if (keyBytes.length != KEY_LENGTH_BYTES) {
-            throw new IllegalArgumentException("key must be exactly 16 bytes in UTF-8" );
+            throw new IllegalArgumentException("key must be exactly 16 bytes in UTF-8");
         }
         return keyBytes;
     }
@@ -133,7 +133,7 @@ public final class Sm4Util {
      */
     private static void requireNonEmpty(String value, String name) {
         if (value == null || value.isEmpty()) {
-            throw new IllegalArgumentException(name + " must not be empty" );
+            throw new IllegalArgumentException(name + " must not be empty");
         }
     }
 
@@ -143,9 +143,9 @@ public final class Sm4Util {
         String plainText = "Hello, SM4!";
         // 执行加密并输出密文String cipherText = encryptToBase64(plainText, key);
         String cipherText = encryptToBase64(plainText, key);
-        log.info("加密输出: {}" , cipherText);
+        log.info("加密输出: {}", cipherText);
         // 执行解密并输出明文String decryptedText = decryptFromBase64(cipherText, key);
         String decryptedText = decryptFromBase64(cipherText, key);
-        log.info("解密输出：{}" , decryptedText);
+        log.info("解密输出：{}", decryptedText);
     }
 }
