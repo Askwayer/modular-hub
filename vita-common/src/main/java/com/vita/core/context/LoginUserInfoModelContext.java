@@ -14,46 +14,46 @@ import org.slf4j.LoggerFactory;
  */
 public class LoginUserInfoModelContext {
 
-    private static final Logger LOG = LoggerFactory.getLogger(LoginUserInfoModelContext.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(LoginUserInfoModelContext.class);
 
-    private static final ThreadLocal<LoginUserInfoModel> loginUserInfoModelThreadLocal = new ThreadLocal<>();
+    private static final ThreadLocal<LoginUserInfoModel> loginUserInfoThreadLocal = new ThreadLocal<>();
 
     /**
-     * 获取当前登陆会员信息
-     *
-     * @return LoginInfoVo
+     * 获取当前登录用户
      */
-    public static LoginUserInfoModel get() {
-        return loginUserInfoModelThreadLocal.get();
+    public static LoginUserInfoModel getLoginUserInfo() {
+        return loginUserInfoThreadLocal.get();
     }
 
     /**
-     * 设置当前登陆会员信息
+     * 设置当前登录用户信息
      *
-     * @param loginUserInfoModel 登录用户信息模型
+     * @param model 登录用户信息模型
      */
-    public static void setLoginInfo(LoginUserInfoModel loginUserInfoModel) {
-        loginUserInfoModelThreadLocal.set(loginUserInfoModel);
+    public static void setLoginUserInfo(LoginUserInfoModel model) {
+        loginUserInfoThreadLocal.set(model);
     }
 
     /**
-     * 清理当前登陆会员信息
+     * 清除当前登录用户信息
      */
-    public static void clear() {
-        loginUserInfoModelThreadLocal.remove();
+    public static void removeLoginUserInfo() {
+        loginUserInfoThreadLocal.remove();
     }
 
     /**
-     * 获取当前登陆会员ID
+     * 获取当前登录用户ID
      *
-     * @return id
+     * @return 登录用户ID
      */
-    public static Long getId() {
-        try {
-            return loginUserInfoModelThreadLocal.get().getId();
-        } catch (Exception e) {
-            LOG.error("获取会员ID失败" , e);
-            throw e;
+    public static Long getLoginUserId() {
+
+        LoginUserInfoModel model = loginUserInfoThreadLocal.get();
+        if (model != null) {
+            return model.getId();
+        } else {
+            LOGGER.warn("当前线程没有登录用户信息");
+            return null;
         }
     }
 }
