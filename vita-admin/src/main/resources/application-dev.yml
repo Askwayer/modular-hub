@@ -5,7 +5,6 @@ server:
 
 # 服务配置
 spring:
-
   # 数据库连接
   datasource:
     dynamic:
@@ -24,12 +23,11 @@ spring:
           username: root
           password: WQO6D9ax#f*QPJup
 
-
   data:
     # redis 配置
     redis:
       # 自动装配
-      enabled: false
+      enabled: true
       # 是否启用 Redis
       open: true
       # 地址
@@ -73,10 +71,7 @@ mybatis-plus:
 
 # 打印所有的sql日志：sql, 参数, 结果
 logging:
-  config: classpath:logback-spring.xml
+  config: classpath:logback.xml
   level:
-    com.vita: info
-    org:
-      apache:
-        ibatis: info  # 打印 MyBatis 内部执行的 SQL 语句
-    org.mybatis: info  # 打印 MyBatis 执行的 SQL
+    root: info
+    com.vita: debug
