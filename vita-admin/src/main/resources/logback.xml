@@ -29,6 +29,11 @@
             <pattern>${LOG_PATTERN}</pattern>
             <charset>UTF-8</charset>
         </encoder>
+        <filter class="ch.qos.logback.classic.filter.LevelFilter">
+            <level>ERROR</level>
+            <onMatch>DENY</onMatch>
+            <onMismatch>NEUTRAL</onMismatch>
+        </filter>
         <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
             <level>INFO</level>
         </filter>
@@ -68,7 +73,7 @@
     </appender>
 
     <!-- 项目包日志级别 -->
-    <logger name="com.xxx.project" level="INFO"/>
+    <logger name="com.vita" level="INFO"/>
     <logger name="org.springframework" level="WARN"/>
     <logger name="sys-access" level="INFO" additivity="false">
         <appender-ref ref="FILE_ACCESS"/>

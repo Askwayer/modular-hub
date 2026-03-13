@@ -9,6 +9,8 @@ import cn.dev33.satoken.stp.StpLogic;
 import cn.dev33.satoken.stp.StpUtil;
 import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
+import com.vita.interceptor.RequestTraceInterceptor;
+import jakarta.annotation.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
@@ -28,6 +30,9 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 public class SaTokenConfigure implements WebMvcConfigurer {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(SaTokenConfigure.class);
+
+    @Resource
+    private RequestTraceInterceptor requestTraceInterceptor;
 
     /**
      * Sa-Token 整合 jwt (Simple 简单模式)
@@ -69,6 +74,9 @@ public class SaTokenConfigure implements WebMvcConfigurer {
      */
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
+        registry.addInterceptor(requestTraceInterceptor)
+                .addPathPatterns("/**");
+
         // 注册 Sa-Token 拦截器，定义详细认证规则
         registry.addInterceptor(new SaInterceptor(handle -> {
                     // 检查是否已登录
