@@ -20,6 +20,9 @@ import org.springframework.stereotype.Component;
 @Component
 public class SpringUtils implements BeanFactoryPostProcessor, ApplicationContextAware {
 
+    public SpringUtils() {
+    }
+
     /**
      * Spring应用上下文环境
      */
