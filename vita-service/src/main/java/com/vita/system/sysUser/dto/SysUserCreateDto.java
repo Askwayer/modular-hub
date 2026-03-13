@@ -1,5 +1,6 @@
 package com.vita.system.sysUser.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
 
 import java.time.LocalDateTime;
@@ -67,6 +68,7 @@ public class SysUserCreateDto {
     /**
      * 上次登录时间
      */
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime loginTime;
 
     /**
@@ -77,6 +79,7 @@ public class SysUserCreateDto {
     /**
      * 密码最后更新时间
      */
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime pwdUpdateDate;
 
     /**

@@ -2,7 +2,7 @@ package com.vita.system.SysOperLog.support;
 
 import com.vita.log.model.OperLogRecord;
 import com.vita.log.service.OperLogPersistence;
-import com.vita.system.SysOperLog.entity.SysOperLog;
+import com.vita.system.SysOperLog.dto.SysOperLogCreateDto;
 import com.vita.system.SysOperLog.service.ISysOperLogService;
 import jakarta.annotation.Resource;
 import org.springframework.beans.BeanUtils;
@@ -28,8 +28,8 @@ public class SysOperLogPersistenceHandler implements OperLogPersistence {
             return;
         }
 
-        SysOperLog sysOperLog = new SysOperLog();
-        BeanUtils.copyProperties(record, sysOperLog);
-        sysOperLogService.save(sysOperLog);
+        SysOperLogCreateDto createDto = new SysOperLogCreateDto();
+        BeanUtils.copyProperties(record, createDto);
+        sysOperLogService.create(createDto);
     }
 }
