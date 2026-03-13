@@ -1,17 +1,18 @@
 package com.vita.system.sysUser.dto;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
 import java.time.LocalDateTime;
 
 /**
+ * @version 1.0
  * @BelongsProject: vita
  * @BelongsPackage: com.vita.system.sysUser.dto
  * @Author znk
  * @CreateTime 2026-03-06 21:44:32
  * @Description: 用户信息表 创建 DTO
- * @version 1.0
  */
 @Data
 public class SysUserCreateDto {
@@ -28,11 +29,13 @@ public class SysUserCreateDto {
     /**
      * 用户名称
      */
+    @NotBlank(message = "【用户名称】不能为空")
     private String userName;
 
     /**
      * 密码
      */
+    @NotBlank(message = "【密码】不能为空")
     private String password;
 
     /**

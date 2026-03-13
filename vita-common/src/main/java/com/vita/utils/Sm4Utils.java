@@ -2,6 +2,7 @@ package com.vita.utils;
 
 import lombok.extern.slf4j.Slf4j;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.springframework.beans.factory.annotation.Value;
 
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
@@ -21,6 +22,12 @@ import java.util.Base64;
  */
 @Slf4j
 public class Sm4Utils {
+
+    /**
+     * sm4 用于加密的密钥字符串，必须是16字节（128位）的UTF-8编码
+     */
+    private static final String key = "Vita-4LQyrt4PbJE";
+
     /**
      * SM4算法相关常量
      */
@@ -54,10 +61,9 @@ public class Sm4Utils {
      * 使用SM4算法加密明文，并将结果编码为Base64字符串
      *
      * @param plainText 要加密的明文字符串
-     * @param key       用于加密的密钥字符串，必须是16字节（128位）的UTF-8编码
      * @return 加密后的Base64字符串
      */
-    public static String encryptToBase64(String plainText, String key) {
+    public static String encryptToBase64(String plainText) {
         requireNonEmpty(plainText, "plainText");
         byte[] keyBytes = validateAndGetKeyBytes(key);
         try {
@@ -73,10 +79,9 @@ public class Sm4Utils {
      * 使用SM4算法解密Base64编码的密文，并返回解密后的明文字符串
      *
      * @param cipherText 要解密的Base64编码的密文字符串
-     * @param key        用于解密的密钥字符串，必须是16字节（128位）的UTF-8编码
      * @return 解密后的明文字符串
      */
-    public static String decryptFromBase64(String cipherText, String key) {
+    public static String decryptFromBase64(String cipherText) {
         requireNonEmpty(cipherText, "cipherText");
         byte[] keyBytes = validateAndGetKeyBytes(key);
         final byte[] encryptedBytes;
@@ -142,10 +147,10 @@ public class Sm4Utils {
         // 待加密明文String plainText = "Hello, SM4!";
         String plainText = "Hello, SM4!";
         // 执行加密并输出密文String cipherText = encryptToBase64(plainText, key);
-        String cipherText = encryptToBase64(plainText, key);
+        String cipherText = encryptToBase64(plainText);
         log.info("加密输出: {}", cipherText);
         // 执行解密并输出明文String decryptedText = decryptFromBase64(cipherText, key);
-        String decryptedText = decryptFromBase64(cipherText, key);
+        String decryptedText = decryptFromBase64(cipherText);
         log.info("解密输出：{}", decryptedText);
     }
 }

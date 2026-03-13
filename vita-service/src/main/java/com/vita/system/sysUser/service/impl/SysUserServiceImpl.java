@@ -15,6 +15,7 @@ import com.vita.system.sysUser.service.ISysUserService;
 import com.vita.system.sysUser.vo.SysUserDetailVo;
 import com.vita.system.sysUser.vo.SysUserListVo;
 import com.vita.system.sysUser.vo.SysUserPageVo;
+import com.vita.utils.Sm4Utils;
 import jakarta.annotation.Resource;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
@@ -49,6 +50,7 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         }
         SysUser data = new SysUser();
         BeanUtils.copyProperties(createDto, data);
+        data.setPassword(Sm4Utils.encryptToBase64(data.getPassword()));
         sysUserMapper.insert(data);
         return data.getId();
     }
