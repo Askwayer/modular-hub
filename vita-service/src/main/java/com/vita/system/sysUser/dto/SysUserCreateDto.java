@@ -2,6 +2,8 @@ package com.vita.system.sysUser.dto;
 
 import lombok.Data;
 
+import java.time.LocalDateTime;
+
 /**
  * @BelongsProject: vita
  * @BelongsPackage: com.vita.system.sysUser.dto
@@ -65,7 +67,7 @@ public class SysUserCreateDto {
     /**
      * 上次登录时间
      */
-    private java.time.LocalDateTime loginTime;
+    private LocalDateTime loginTime;
 
     /**
      * 登录地址
@@ -75,7 +77,7 @@ public class SysUserCreateDto {
     /**
      * 密码最后更新时间
      */
-    private java.time.LocalDateTime pwdUpdateDate;
+    private LocalDateTime pwdUpdateDate;
 
     /**
      * 备注

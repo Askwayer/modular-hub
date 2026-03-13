@@ -2,6 +2,8 @@ package com.vita.system.sysUser.vo;
 
 import lombok.Data;
 
+import java.time.LocalDateTime;
+
 /**
  * @BelongsProject: vita
  * @BelongsPackage: com.vita.system.sysUser.vo
@@ -65,7 +67,7 @@ public class SysUserListVo {
     /**
      * 上次登录时间
      */
-    private java.time.LocalDateTime loginTime;
+    private LocalDateTime loginTime;
 
     /**
      * 登录地址

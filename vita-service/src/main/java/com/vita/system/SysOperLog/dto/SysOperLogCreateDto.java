@@ -2,13 +2,15 @@ package com.vita.system.SysOperLog.dto;
 
 import lombok.Data;
 
+import java.time.LocalDateTime;
+
 /**
+ * @version 1.0
  * @BelongsProject: vita
  * @BelongsPackage: com.vita.system.SysOperLog.dto
  * @Author znk
  * @CreateTime 2026-03-12 21:45:20
  * @Description: 系统操作日志表 创建 DTO
- * @version 1.0
  */
 @Data
 public class SysOperLogCreateDto {
@@ -90,6 +92,6 @@ public class SysOperLogCreateDto {
     /**
      * 操作时间
      */
-    private java.time.LocalDateTime operTime;
+    private LocalDateTime operTime;
 
 }
