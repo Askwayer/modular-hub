@@ -3,7 +3,7 @@ package com.vita.controller.system;
 import com.vita.core.CommonResult;
 import com.vita.core.controller.BaseController;
 import com.vita.core.page.PageResponse;
-import com.vita.nnotation.Log;
+import com.vita.annotation.Log;
 import com.vita.system.sysUser.dto.SysUserCreateDto;
 import com.vita.system.sysUser.dto.SysUserSearchDto;
 import com.vita.system.sysUser.dto.SysUserUpdateDto;

@@ -22,6 +22,11 @@ public class SysOperLogPersistenceHandler implements OperLogPersistence {
     @Resource
     private ISysOperLogService sysOperLogService;
 
+    /**
+     * 持久化审计日志。
+     *
+     * @param record 审计日志记录
+     */
     @Override
     public void persist(OperLogRecord record) {
         if (record == null) {
