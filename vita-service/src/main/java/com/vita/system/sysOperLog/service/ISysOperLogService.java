@@ -1,20 +1,20 @@
-package com.vita.system.SysOperLog.service;
+package com.vita.system.sysOperLog.service;
 
 import com.vita.core.page.PageResponse;
-import com.vita.system.SysOperLog.dto.SysOperLogCreateDto;
-import com.vita.system.SysOperLog.dto.SysOperLogSearchDto;
-import com.vita.system.SysOperLog.dto.SysOperLogUpdateDto;
-import com.vita.system.SysOperLog.entity.SysOperLog;
+import com.vita.system.sysOperLog.dto.SysOperLogCreateDto;
+import com.vita.system.sysOperLog.dto.SysOperLogSearchDto;
+import com.vita.system.sysOperLog.dto.SysOperLogUpdateDto;
+import com.vita.system.sysOperLog.entity.SysOperLog;
 import com.baomidou.mybatisplus.extension.service.IService;
-import com.vita.system.SysOperLog.vo.SysOperLogDetailVo;
-import com.vita.system.SysOperLog.vo.SysOperLogListVo;
-import com.vita.system.SysOperLog.vo.SysOperLogPageVo;
+import com.vita.system.sysOperLog.vo.SysOperLogDetailVo;
+import com.vita.system.sysOperLog.vo.SysOperLogListVo;
+import com.vita.system.sysOperLog.vo.SysOperLogPageVo;
 
 import java.util.List;
 
 /**
  * @BelongsProject: vita
- * @BelongsPackage: com.vita.system.SysOperLog.service
+ * @BelongsPackage: com.vita.system.sysOperLog.service
  * @Author znk
  * @CreateTime 2026-03-12 21:45:20
  * @Description: 系统操作日志表 Service 接口

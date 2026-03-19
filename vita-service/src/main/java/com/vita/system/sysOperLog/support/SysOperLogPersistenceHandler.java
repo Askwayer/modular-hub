@@ -1,9 +1,9 @@
-package com.vita.system.SysOperLog.support;
+package com.vita.system.sysOperLog.support;
 
 import com.vita.log.model.OperLogRecord;
 import com.vita.log.service.OperLogPersistence;
-import com.vita.system.SysOperLog.dto.SysOperLogCreateDto;
-import com.vita.system.SysOperLog.service.ISysOperLogService;
+import com.vita.system.sysOperLog.dto.SysOperLogCreateDto;
+import com.vita.system.sysOperLog.service.ISysOperLogService;
 import jakarta.annotation.Resource;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Component;

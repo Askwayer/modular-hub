@@ -1,12 +1,13 @@
 package com.vita.utils;
 
 import cn.hutool.core.text.CharSequenceUtil;
+import com.alibaba.fastjson2.JSON;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
 import org.springframework.beans.BeanUtils;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.multipart.MultipartFile;
 
-import jakarta.servlet.ServletRequest;
-import jakarta.servlet.ServletResponse;
 import java.io.File;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -14,20 +15,8 @@ import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.time.temporal.TemporalAccessor;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Date;
-import java.util.IdentityHashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
-
-import com.alibaba.fastjson2.JSON;
 
 /**
  * @BelongsProject: be-vita
@@ -49,7 +38,6 @@ import com.alibaba.fastjson2.JSON;
  *     <li>文件流/请求响应对象过滤</li>
  *     <li>循环引用检测</li>
  * </ul>
- *
  * @Version: 1.0
  */
 public final class LogUtils {
@@ -101,7 +89,7 @@ public final class LogUtils {
      *     <li>最终序列化为 JSON 字符串并按最大长度截断</li>
      * </ol>
      *
-     * @param args Controller 或 AOP 切面中获取到的方法入参
+     * @param args          Controller 或 AOP 切面中获取到的方法入参
      * @param excludeFields 额外需要脱敏的字段名数组，可为空
      * @return 处理后的请求日志字符串；若无可记录内容则返回 null
      */
@@ -230,9 +218,9 @@ public final class LogUtils {
      *     <li>处理循环引用</li>
      * </ul>
      *
-     * @param value 待清洗对象
+     * @param value      待清洗对象
      * @param maskFields 脱敏字段集合
-     * @param visited 已访问对象集合，用于防止循环引用
+     * @param visited    已访问对象集合，用于防止循环引用
      * @return 清洗后的对象，可直接用于 JSON 序列化
      */
     private static Object sanitizeValue(Object value,
@@ -398,5 +386,18 @@ public final class LogUtils {
             return value;
         }
         return value.substring(0, MAX_LOG_LENGTH - TRUNCATE_SUFFIX.length()) + TRUNCATE_SUFFIX;
+    }
+
+    /**
+     * 生成日志块字符串，格式为 [内容]。
+     *
+     * @param msg 日志内容
+     * @return 格式化后的日志块字符串；若内容为 null 则返回 []
+     */
+    public static String getBlock(Object msg) {
+        if (msg == null) {
+            msg = "";
+        }
+        return "[" + msg.toString() + "]";
     }
 }

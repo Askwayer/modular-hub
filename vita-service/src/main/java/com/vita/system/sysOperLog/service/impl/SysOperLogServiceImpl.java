@@ -1,4 +1,4 @@
-package com.vita.system.SysOperLog.service.impl;
+package com.vita.system.sysOperLog.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.StrUtil;
@@ -7,15 +7,15 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
 import com.vita.core.page.PageResponse;
-import com.vita.system.SysOperLog.dto.SysOperLogCreateDto;
-import com.vita.system.SysOperLog.dto.SysOperLogSearchDto;
-import com.vita.system.SysOperLog.dto.SysOperLogUpdateDto;
-import com.vita.system.SysOperLog.entity.SysOperLog;
-import com.vita.system.SysOperLog.mapper.SysOperLogMapper;
-import com.vita.system.SysOperLog.service.ISysOperLogService;
-import com.vita.system.SysOperLog.vo.SysOperLogDetailVo;
-import com.vita.system.SysOperLog.vo.SysOperLogListVo;
-import com.vita.system.SysOperLog.vo.SysOperLogPageVo;
+import com.vita.system.sysOperLog.dto.SysOperLogCreateDto;
+import com.vita.system.sysOperLog.dto.SysOperLogSearchDto;
+import com.vita.system.sysOperLog.dto.SysOperLogUpdateDto;
+import com.vita.system.sysOperLog.entity.SysOperLog;
+import com.vita.system.sysOperLog.mapper.SysOperLogMapper;
+import com.vita.system.sysOperLog.service.ISysOperLogService;
+import com.vita.system.sysOperLog.vo.SysOperLogDetailVo;
+import com.vita.system.sysOperLog.vo.SysOperLogListVo;
+import com.vita.system.sysOperLog.vo.SysOperLogPageVo;
 import jakarta.annotation.Resource;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
@@ -25,7 +25,7 @@ import java.util.List;
 /**
  * @version 1.0
  * @BelongsProject: vita
- * @BelongsPackage: com.vita.system.SysOperLog.service.impl
+ * @BelongsPackage: com.vita.system.sysOperLog.service.impl
  * @Author znk
  * @CreateTime 2026-03-12 21:45:20
  * @Description: 系统操作日志表 Service 实现
