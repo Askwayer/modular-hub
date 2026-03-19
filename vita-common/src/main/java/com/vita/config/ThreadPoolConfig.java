@@ -25,6 +25,12 @@ public class ThreadPoolConfig {
     // 核心线程池大小
     private final int corePoolSize = 50;
 
+    private static final int OPER_LOG_CORE_POOL_SIZE = 4;
+
+    private static final int OPER_LOG_MAX_POOL_SIZE = 16;
+
+    private static final int OPER_LOG_QUEUE_CAPACITY = 500;
+
     // 线程池维护线程所允许的空闲时间
     private int keepAliveSeconds = 300;
 
@@ -76,5 +82,21 @@ public class ThreadPoolConfig {
         };
     }
 
-}
+    /**
+     * 系统操作日志专用线程池。
+     */
+    @Bean(name = "operLogTaskExecutor")
+    public ThreadPoolTaskExecutor operLogTaskExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(OPER_LOG_CORE_POOL_SIZE);
+        executor.setMaxPoolSize(OPER_LOG_MAX_POOL_SIZE);
+        executor.setQueueCapacity(OPER_LOG_QUEUE_CAPACITY);
+        executor.setKeepAliveSeconds(keepAliveSeconds);
+        executor.setThreadNamePrefix("oper-log-");
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(30);
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+        return executor;
+    }
 
+}

@@ -4,7 +4,7 @@ import com.vita.core.context.LoginUserInfoModelContext;
 import com.vita.core.model.LoginUserInfoModel;
 import com.vita.interceptor.RequestTraceInterceptor;
 import com.vita.log.model.OperLogRecord;
-import com.vita.log.service.OperLogPersistence;
+import com.vita.log.service.OperLogAsyncExecutor;
 import com.vita.annotation.Log;
 import com.vita.utils.LogUtils;
 import com.vita.utils.ServletUtils;
@@ -16,10 +16,7 @@ import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.annotation.Pointcut;
 import org.aspectj.lang.reflect.MethodSignature;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.core.NamedThreadLocal;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.ServletRequestAttributes;
@@ -34,18 +31,14 @@ import java.time.LocalDateTime;
 @Component
 public class LogAspect {
 
-    private static final Logger LOG = LoggerFactory.getLogger(LogAspect.class);
-
-    private static final Logger ACCESS_LOGGER = LoggerFactory.getLogger("sys-access");
-
     private static final String[] EXCLUDE_PROPERTIES = {"password", "oldPassword", "newPassword", "confirmPassword"};
 
     private static final ThreadLocal<Long> TIME_THREADLOCAL = new NamedThreadLocal<>("sys-oper-log-cost");
 
-    private final ObjectProvider<OperLogPersistence> operLogPersistenceProvider;
+    private final OperLogAsyncExecutor operLogAsyncExecutor;
 
-    public LogAspect(ObjectProvider<OperLogPersistence> operLogPersistenceProvider) {
-        this.operLogPersistenceProvider = operLogPersistenceProvider;
+    public LogAspect(OperLogAsyncExecutor operLogAsyncExecutor) {
+        this.operLogAsyncExecutor = operLogAsyncExecutor;
     }
 
     @Pointcut("execution(public * com.vita..controller..*Controller.*(..))")
@@ -88,8 +81,7 @@ public class LogAspect {
                     throwable,
                     System.currentTimeMillis() - startTime
             );
-            writeAccessLog(record);
-            persistOperLog(record);
+            operLogAsyncExecutor.submit(MDC.get(RequestTraceInterceptor.REQUEST_ID_KEY), record);
         }
     }
 
@@ -124,36 +116,6 @@ public class LogAspect {
         record.setCostTime(costTime);
         record.setOperTime(LocalDateTime.now());
         return record;
-    }
-
-    private void writeAccessLog(OperLogRecord record) {
-        ACCESS_LOGGER.info(
-                "requestId={} module={} businessType={} status={} requestMethod={} operUrl={} operIp={} operUserId={} operName={} costTime={} errorMsg={}",
-                MDC.get(RequestTraceInterceptor.REQUEST_ID_KEY),
-                record.getModule(),
-                record.getBusinessType(),
-                record.getStatus(),
-                record.getRequestMethod(),
-                record.getOperUrl(),
-                record.getOperIp(),
-                record.getOperUserId(),
-                record.getOperName(),
-                record.getCostTime(),
-                record.getErrorMsg()
-        );
-    }
-
-    private void persistOperLog(OperLogRecord record) {
-        OperLogPersistence operLogPersistence = operLogPersistenceProvider.getIfAvailable();
-        if (operLogPersistence == null) {
-            return;
-        }
-
-        try {
-            operLogPersistence.persist(record);
-        } catch (Exception ex) {
-            LOG.error("保存系统操作日志失败, requestId={}", MDC.get(RequestTraceInterceptor.REQUEST_ID_KEY), ex);
-        }
     }
 
     private Method resolveMethod(ProceedingJoinPoint proceedingJoinPoint) {
