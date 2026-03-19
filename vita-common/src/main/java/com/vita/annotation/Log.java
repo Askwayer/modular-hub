@@ -1,10 +1,10 @@
-package com.vita.nnotation;
+package com.vita.annotation;
 
 import java.lang.annotation.*;
 
 /**
  * @BelongsProject: be-vita
- * @BelongsPackage: com.vita.nnotation
+ * @BelongsPackage: com.vita.annotation
  * @Author: znk
  * @CreateTime: 2026-03-12  21:41:04
  * @Description: 日志注解，用于标记需要记录日志的方法

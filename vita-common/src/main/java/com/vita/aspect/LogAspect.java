@@ -5,7 +5,7 @@ import com.vita.core.model.LoginUserInfoModel;
 import com.vita.interceptor.RequestTraceInterceptor;
 import com.vita.log.model.OperLogRecord;
 import com.vita.log.service.OperLogPersistence;
-import com.vita.nnotation.Log;
+import com.vita.annotation.Log;
 import com.vita.utils.LogUtils;
 import com.vita.utils.ServletUtils;
 import com.vita.utils.ip.IpUtils;
@@ -52,7 +52,7 @@ public class LogAspect {
     public void controllerPointcut() {
     }
 
-    @Pointcut("@annotation(com.vita.nnotation.Log)")
+    @Pointcut("@annotation(com.vita.annotation.Log)")
     public void controllerLogPointcut() {
     }
 
