@@ -1,71 +1,88 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<configuration>
-    <!-- 修改一下路径-->
-    <property name="PATH" value="./log"/>
+<configuration scan="true" scanPeriod="60 seconds">
 
-    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
-        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+    <!-- 日志目录 -->
+    <property name="LOG_HOME" value="./logs/vita-admin"/>
+
+    <!-- 日志格式 -->
+    <property name="LOG_PATTERN"
+              value="【%level】%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %logger{50} - [%method,%line] - %X{requestId} - %msg%n"/>
+
+    <!-- 控制台 -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
             <charset>UTF-8</charset>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %highlight(%-5level) %blue(%-50logger{50}:%-4line) %thread %green(%-18X{LOG_ID}) %msg%n</pattern>
         </encoder>
     </appender>
 
-    <!-- TRACE_FILE：用 SizeAndTimeBasedRollingPolicy + encoder -->
-    <appender name="TRACE_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>${PATH}/trace.log</file>
-
+    <!-- 普通业务日志 -->
+    <appender name="FILE_INFO" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_HOME}/sys-info.log</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
-            <fileNamePattern>${PATH}/trace.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
-            <maxFileSize>10MB</maxFileSize>
-            <maxHistory>5</maxHistory>
+            <fileNamePattern>${LOG_HOME}/sys-info.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>128MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>10GB</totalSizeCap>
         </rollingPolicy>
-
-        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
             <charset>UTF-8</charset>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level %-50logger{50}:%-4line %green(%-18X{LOG_ID}) %msg%n</pattern>
         </encoder>
-    </appender>
-
-    <!-- ERROR_FILE：用 SizeAndTimeBasedRollingPolicy + encoder -->
-    <appender name="ERROR_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>${PATH}/error.log</file>
-
         <filter class="ch.qos.logback.classic.filter.LevelFilter">
             <level>ERROR</level>
-            <onMatch>ACCEPT</onMatch>
-            <onMismatch>DENY</onMismatch>
+            <onMatch>DENY</onMatch>
+            <onMismatch>NEUTRAL</onMismatch>
         </filter>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>INFO</level>
+        </filter>
+    </appender>
 
+    <!-- 错误日志 -->
+    <appender name="FILE_ERROR" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_HOME}/sys-error.log</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
-            <fileNamePattern>${PATH}/error.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
-            <maxFileSize>10MB</maxFileSize>
-            <maxHistory>5</maxHistory>
+            <fileNamePattern>${LOG_HOME}/sys-error.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>128MB</maxFileSize>
+            <maxHistory>60</maxHistory>
+            <totalSizeCap>10GB</totalSizeCap>
         </rollingPolicy>
-
-        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
             <charset>UTF-8</charset>
-            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level %-50logger{50}:%-4line %green(%-18X{LOG_ID}) %msg%n</pattern>
+        </encoder>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>ERROR</level>
+        </filter>
+    </appender>
+
+    <!-- 审计日志 -->
+    <appender name="FILE_ACCESS" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_HOME}/sys-access.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_HOME}/sys-access.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>128MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>10GB</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+            <charset>UTF-8</charset>
         </encoder>
     </appender>
 
-    <appender name="ASYNC_STDOUT" class="ch.qos.logback.classic.AsyncAppender">
-        <queueSize>1024</queueSize>
-        <discardingThreshold>0</discardingThreshold>
-        <includeCallerData>true</includeCallerData>
-        <appender-ref ref="STDOUT"/>
-    </appender>
+    <!-- 项目包日志级别 -->
+    <logger name="com.vita" level="INFO"/>
+    <logger name="org.springframework" level="WARN"/>
+    <logger name="sys-access" level="INFO" additivity="false">
+        <appender-ref ref="FILE_ACCESS"/>
+    </logger>
 
-    <appender name="ASYNC_TRACE_FILE" class="ch.qos.logback.classic.AsyncAppender">
-        <queueSize>1024</queueSize>
-        <discardingThreshold>0</discardingThreshold>
-        <includeCallerData>true</includeCallerData>
-        <appender-ref ref="TRACE_FILE"/>
-    </appender>
-
+    <!-- 根日志 -->
     <root level="INFO">
-        <appender-ref ref="ASYNC_STDOUT"/>
-        <appender-ref ref="ASYNC_TRACE_FILE"/>
-        <appender-ref ref="ERROR_FILE"/>
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="FILE_INFO"/>
+        <appender-ref ref="FILE_ERROR"/>
     </root>
-
 </configuration>

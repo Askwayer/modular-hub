@@ -3,6 +3,7 @@ package com.vita.property;
 import lombok.Data;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.annotation.Configurable;
+import org.springframework.context.annotation.Configuration;
 
 /**
  * @BelongsProject: be-vita
@@ -13,7 +14,7 @@ import org.springframework.beans.factory.annotation.Configurable;
  * @Version: 1.0
  */
 @Data
-@Configurable
+@Configuration
 public class RedissonProperty {
 
     /**

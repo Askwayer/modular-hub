@@ -71,7 +71,7 @@ mybatis-plus:
 
 # 打印所有的sql日志：sql, 参数, 结果
 logging:
-  config: classpath:logback.xml
+  config: classpath:logback-spring.xml
   level:
     root: info
     com.vita: debug

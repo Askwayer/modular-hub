@@ -10,9 +10,10 @@ import jakarta.annotation.Resource;
 import org.redisson.Redisson;
 import org.redisson.api.RedissonClient;
 import org.redisson.config.Config;
-import org.springframework.beans.factory.annotation.Configurable;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.cache.annotation.EnableCaching;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -27,7 +28,7 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
  * @Description: RedissonConfig Redisson 配置类
  * @Version: 1.0
  */
-@Configurable
+@Configuration
 @EnableCaching
 @ConditionalOnExpression("${spring.data.redis.enabled:false}")
 public class RedissonConfig {
@@ -59,9 +60,10 @@ public class RedissonConfig {
      * @throws Exception 异常
      */
     @Bean
+    @ConditionalOnMissingBean(name = "redisTemplate")
     @SuppressWarnings(value = {"unchecked", "rawtypes"})
-    public RedisTemplate<Object, Object> redisTemplate(RedisConnectionFactory connectionFactory) {
-        RedisTemplate<Object, Object> template = new RedisTemplate<>();
+    public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory connectionFactory) {
+        RedisTemplate<String, Object> template = new RedisTemplate<>();
         template.setConnectionFactory(connectionFactory);
         ObjectMapper mapper = new ObjectMapper();
         mapper.setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.ANY);

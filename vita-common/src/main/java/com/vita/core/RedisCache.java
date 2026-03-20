@@ -1,8 +1,7 @@
 package com.vita.core;
 
-import com.vita.property.RedisOpenProperty;
-import org.springframework.context.annotation.DependsOn;
-import org.springframework.data.redis.core.*;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Component;
 
