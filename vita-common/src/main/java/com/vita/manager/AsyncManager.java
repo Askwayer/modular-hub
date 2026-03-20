@@ -73,6 +73,14 @@ public class AsyncManager {
         }
     }
 
+    /**
+     * 将系统异步任务分发到对应的执行器中执行。
+     * <p>
+     * 根据任务配置解析目标线程池，并提交任务执行；当线程池拒绝接收任务时，
+     * 回退到调用线程直接执行，确保任务尽可能被处理。
+     *
+     * @param task 系统异步任务
+     */
     private void dispatch(SystemAsyncTask task) {
         Executor executor = resolveExecutor(task.getExecutorType());
         try {
@@ -82,6 +90,12 @@ public class AsyncManager {
         }
     }
 
+    /**
+     * 根据任务配置解析对应的执行器。
+     *
+     * @param executorType 执行器类型
+     * @return 匹配的线程池执行器
+     */
     private Executor resolveExecutor(SystemAsyncTaskExecutorType executorType) {
         return switch (executorType) {
             case OPER_LOG -> operLogTaskExecutor;
@@ -89,6 +103,12 @@ public class AsyncManager {
         };
     }
 
+    /**
+     * 当线程池拒绝任务时，回退到调用线程直接执行。
+     *
+     * @param task 系统异步任务
+     * @param ex   拒绝执行异常
+     */
     private void fallback(SystemAsyncTask task, RejectedExecutionException ex) {
         LOG.warn(
                 "系统异步任务提交失败，回退到调用线程执行, taskName={}, executorType={}",
