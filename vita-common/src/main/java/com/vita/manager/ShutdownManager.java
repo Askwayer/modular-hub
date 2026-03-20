@@ -10,13 +10,19 @@ import org.springframework.stereotype.Component;
  * @BelongsPackage: com.vita.manager
  * @Author: znk
  * @CreateTime: 2026-03-19  15:35:43
- * @Description: 确保应用退出时能关闭后台线程
+ * @Description: 确保系统异步任务调度器在应用退出时完成必要的关闭动作
  * @Version: 1.0
  */
 @Component
 public class ShutdownManager {
 
-    private static final Logger logger = LoggerFactory.getLogger("sys-access");
+    private static final Logger LOG = LoggerFactory.getLogger(ShutdownManager.class);
+
+    private final AsyncManager asyncManager;
+
+    public ShutdownManager(AsyncManager asyncManager) {
+        this.asyncManager = asyncManager;
+    }
 
     @PreDestroy
     public void destroy() {
@@ -28,11 +34,10 @@ public class ShutdownManager {
      */
     private void shutdownAsyncManager() {
         try {
-            logger.info("====关闭后台任务任务线程池====");
-            AsyncManager.me().shutdown();
+            LOG.info("====关闭系统异步任务调度器====");
+            asyncManager.shutdown();
         } catch (Exception e) {
-            logger.error(e.getMessage(), e);
+            LOG.error("关闭系统异步任务调度器失败", e);
         }
     }
 }
-

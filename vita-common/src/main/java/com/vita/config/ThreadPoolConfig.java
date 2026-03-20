@@ -25,14 +25,15 @@ public class ThreadPoolConfig {
     // 核心线程池大小
     private final int corePoolSize = 50;
 
+    // 线程池维护线程所允许的空闲时间
+    private int keepAliveSeconds = 300;
+
+    // 日志线程池相关配置
     private static final int OPER_LOG_CORE_POOL_SIZE = 4;
 
     private static final int OPER_LOG_MAX_POOL_SIZE = 16;
 
     private static final int OPER_LOG_QUEUE_CAPACITY = 500;
-
-    // 线程池维护线程所允许的空闲时间
-    private int keepAliveSeconds = 300;
 
     /**
      * 线程池任务执行器

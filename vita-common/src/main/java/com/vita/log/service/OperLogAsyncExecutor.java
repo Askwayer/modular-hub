@@ -1,28 +1,27 @@
 package com.vita.log.service;
 
 import com.vita.log.model.OperLogRecord;
+import com.vita.manager.AsyncManager;
 import com.vita.manager.factory.AsyncFactory;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
-import java.util.concurrent.Executor;
-import java.util.concurrent.RejectedExecutionException;
-
 /**
- * 系统操作日志异步执行器，负责提交并兜底执行异步日志任务。
+ * 系统操作日志场景执行器，负责日志快照收口、依赖解析与统一任务投递。
+ *
+ * @author zhuningkang
  */
 @Component
 public class OperLogAsyncExecutor {
 
-    private final Executor operLogTaskExecutor;
+    private final AsyncManager asyncManager;
 
     private final ObjectProvider<OperLogPersistence> operLogPersistenceProvider;
 
-    public OperLogAsyncExecutor(@Qualifier("operLogTaskExecutor") Executor operLogTaskExecutor,
+    public OperLogAsyncExecutor(AsyncManager asyncManager,
                                 ObjectProvider<OperLogPersistence> operLogPersistenceProvider) {
-        this.operLogTaskExecutor = operLogTaskExecutor;
+        this.asyncManager = asyncManager;
         this.operLogPersistenceProvider = operLogPersistenceProvider;
     }
 
@@ -38,14 +37,15 @@ public class OperLogAsyncExecutor {
         }
 
         OperLogPersistence operLogPersistence = operLogPersistenceProvider.getIfAvailable();
-        Runnable task = AsyncFactory.recordOper(requestId, snapshot(record), operLogPersistence);
-        try {
-            operLogTaskExecutor.execute(task);
-        } catch (RejectedExecutionException ex) {
-            task.run();
-        }
+        asyncManager.execute(AsyncFactory.recordOper(requestId, snapshot(record), operLogPersistence));
     }
 
+    /**
+     * 创建操作日志记录的快照，避免异步执行过程中数据被修改。
+     *
+     * @param source 日志记录源对象
+     * @return 日志记录快照
+     */
     private OperLogRecord snapshot(OperLogRecord source) {
         OperLogRecord target = new OperLogRecord();
         BeanUtils.copyProperties(source, target);

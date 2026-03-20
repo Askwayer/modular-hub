@@ -90,6 +90,19 @@ public class LogAspect {
         TIME_THREADLOCAL.remove();
     }
 
+    /**
+     * 构建操作日志记录对象，并聚合当前请求上下文、用户信息、执行结果与耗时信息。
+     *
+     * @param log           日志注解，提供模块、业务类型及响应数据记录开关等配置
+     * @param request       HTTP 请求对象，可能为 null（如非 Web 上下文）
+     * @param method        当前被拦截的方法对象
+     * @param loginUserInfo 当前登录用户信息，未登录或无法获取时为 null
+     * @param requestParam  已序列化的请求参数日志内容
+     * @param result        方法正常返回结果
+     * @param throwable     方法执行异常，正常执行时为 null
+     * @param costTime      方法执行耗时（毫秒）
+     * @return 组装完成的操作日志记录对象
+     */
     private OperLogRecord buildOperLogRecord(Log log,
                                              HttpServletRequest request,
                                              Method method,
@@ -118,6 +131,13 @@ public class LogAspect {
         return record;
     }
 
+    /**
+     * 解析被 AOP 代理的方法对象，优先返回目标类上的实际方法定义，
+     * 以兼容 CGLIB 与 JDK 动态代理场景。
+     *
+     * @param proceedingJoinPoint 当前切点上下文
+     * @return 目标方法对象；若目标类未找到同签名方法，则回退为签名中的方法
+     */
     private Method resolveMethod(ProceedingJoinPoint proceedingJoinPoint) {
         MethodSignature signature = (MethodSignature) proceedingJoinPoint.getSignature();
         Method method = signature.getMethod();
