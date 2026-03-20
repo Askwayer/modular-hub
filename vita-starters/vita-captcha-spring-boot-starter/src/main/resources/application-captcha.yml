@@ -1,35 +1,28 @@
 vita:
   captcha:
     enabled: true
-    captcha-type: slide
-    store: auto
-    key-prefix: "auth:captcha:"
-    ttl: 3m
-    max-failures: 5
-
+    # 验证码类型 char=图形文本验证码 math=图形答案验证码 slide=拼图滑动验证码 all_slide=全滑动验证码
+    captcha-type: all_slide
+    # AES 密钥，必须为 16 位
+    aes-secret: vita123456789012
+    # AES IV，必须为 16 位
+    aes-iv: vita123456789012
+    # 有效期，单位分钟
+    expired: 3
     slide:
-      width: 320
-      height: 80
-      tolerance: 6
-      min-track-points: 3
-      handle-width: 44
-      track-color: 224,229,238
-      goal-color: 94,129,255
-
-    # 切换图形文本验证码示例
-    # captcha-type: char
-    # char:
-    #   width: 160
-    #   height: 50
-    #   length: 6
-    #   case-sensitive: true
-    #   char-string: ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789
-
-    # 切换图形答案验证码示例
-    # captcha-type: math
-    # math:
-    #   width: 180
-    #   height: 50
-    #   min-number: 1
-    #   max-number: 30
-    #   operators: +,-
+      # 拼图验证码允许偏差
+      deviation: 3
+      # 背景图源路径，支持网络路径和本地路径模板（如 /data/captcha/%s.jpg）
+      back-img: https://loyer.wang/view/ftp/wallpaper/%s.jpg
+      # 背景图可访问网络路径，本地文件时必须配置为公网可访问地址模板
+      back-img-url: https://loyer.wang/view/ftp/wallpaper/%s.jpg
+      # 图片宽度
+      img-width: 320
+      # 图片高度
+      img-height: 155
+      # 滑动块宽度
+      block-width: 65
+      # 滑动块高度
+      block-height: 55
+      # 滑动块圆形比率
+      block-radius: 9

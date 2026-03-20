@@ -26,31 +26,6 @@ vita:
   copyrightYear: 2026
   # 获取地址开关
   addressEnabled: true
-  captcha:
-    enabled: true
-    captcha-type: slide
-    ttl: 3m
-    max-failures: 5
-    store: auto
-    slide:
-      width: 320
-      height: 80
-      tolerance: 6
-      min-track-points: 3
-      handle-width: 44
-    # 切换图形文本验证码示例
-    # captcha-type: char
-    # char:
-    #   width: 160
-    #   height: 50
-    #   length: 6
-    # 切换图形答案验证码示例
-    # captcha-type: math
-    # math:
-    #   width: 180
-    #   height: 50
-    #   min-number: 1
-    #   max-number: 30
 
 ############## Sa-Token 配置 (文档: https://sa-token.cc) ##############
 sa-token:
