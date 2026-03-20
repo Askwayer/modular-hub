@@ -1,0 +1,70 @@
+package com.vita.system.sysIpBlock.service;
+
+import com.vita.core.page.PageResponse;
+import com.vita.system.sysIpBlock.dto.SysIpBlockCreateDto;
+import com.vita.system.sysIpBlock.dto.SysIpBlockSearchDto;
+import com.vita.system.sysIpBlock.dto.SysIpBlockUpdateDto;
+import com.vita.system.sysIpBlock.entity.SysIpBlock;
+import com.baomidou.mybatisplus.extension.service.IService;
+import com.vita.system.sysIpBlock.vo.SysIpBlockDetailVo;
+import com.vita.system.sysIpBlock.vo.SysIpBlockListVo;
+import com.vita.system.sysIpBlock.vo.SysIpBlockPageVo;
+
+import java.util.List;
+
+/**
+ * @BelongsProject: vita
+ * @BelongsPackage: com.vita.system.sysIpBlock.service
+ * @Author znk
+ * @CreateTime 2026-03-21 00:23:39
+ * @Description: IP封禁表 Service 接口
+ * @version 1.0
+ */
+public interface ISysIpBlockService extends IService<SysIpBlock> {
+
+    /**
+     * 新增数据。
+     *
+     * @param createDto 创建请求对象
+     * @return 新增记录ID
+     */
+    Long create(SysIpBlockCreateDto createDto);
+
+    /**
+     * 更新数据。
+     *
+     * @param updateDto 更新请求对象
+     */
+    void update(SysIpBlockUpdateDto updateDto);
+
+    /**
+     * 删除数据。
+     *
+     * @param id 主键ID
+     */
+    void delete(Long id);
+
+    /**
+     * 查询单条数据。
+     *
+     * @param id 主键ID
+     * @return 详情对象
+     */
+    SysIpBlockDetailVo get(Long id);
+
+    /**
+     * 列表查询。
+     *
+     * @param searchDto 查询条件
+     * @return 列表VO
+     */
+    List<SysIpBlockListVo> list(SysIpBlockSearchDto searchDto);
+
+    /**
+     * 分页查询。
+     *
+     * @param searchDto 分页查询条件
+     * @return 分页VO结果
+     */
+    PageResponse<SysIpBlockPageVo> page(SysIpBlockSearchDto searchDto);
+}
