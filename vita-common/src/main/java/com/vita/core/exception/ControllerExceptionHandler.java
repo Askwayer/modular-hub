@@ -3,6 +3,7 @@ package com.vita.core.exception;
 import com.vita.core.CommonResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.validation.BindException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -20,6 +21,11 @@ import org.springframework.web.bind.annotation.ResponseBody;
 public class ControllerExceptionHandler {
 
     private static final Logger LOG = LoggerFactory.getLogger(ControllerExceptionHandler.class);
+    private final ObjectProvider<ExceptionMessageResolver> exceptionMessageResolverProvider;
+
+    public ControllerExceptionHandler(ObjectProvider<ExceptionMessageResolver> exceptionMessageResolverProvider) {
+        this.exceptionMessageResolverProvider = exceptionMessageResolverProvider;
+    }
 
     /**
      * 校验异常统一处理
@@ -30,8 +36,10 @@ public class ControllerExceptionHandler {
     @ExceptionHandler(value = BindException.class)
     @ResponseBody
     public CommonResult validExceptionHandler(BindException e) {
-        LOG.warn("参数校验失败：{}" , e.getBindingResult().getAllErrors().get(0).getDefaultMessage());
-        return CommonResult.error(e.getBindingResult().getAllErrors().get(0).getDefaultMessage());
+        String message = e.getBindingResult().getAllErrors().get(0).getDefaultMessage();
+        String resolvedMessage = resolveValidationMessage(message);
+        LOG.warn("参数校验失败：{}" , resolvedMessage);
+        return CommonResult.error(resolvedMessage);
     }
 
     /**
@@ -43,14 +51,35 @@ public class ControllerExceptionHandler {
     @ExceptionHandler(value = ServiceException.class)
     @ResponseBody
     public CommonResult validExceptionHandler(ServiceException e) {
-        LOG.warn("业务异常：{}" , e.getMessage());
-        return CommonResult.error(e.getCode(), e.getMessage());
+        String resolvedMessage = resolveServiceMessage(e);
+        LOG.warn("业务异常：{}" , resolvedMessage);
+        return CommonResult.error(e.getCode(), resolvedMessage);
     }
 
     @ExceptionHandler(value = Exception.class)
     @ResponseBody
     public CommonResult validExceptionHandler(Exception e) {
         LOG.error("系统异常：" , e);
-        return CommonResult.error(GlobalErrorCode.INTERNAL_SERVER_ERROR);
+        return CommonResult.error(
+                GlobalErrorCode.INTERNAL_SERVER_ERROR.getCode(),
+                resolveErrorCodeMessage(GlobalErrorCode.INTERNAL_SERVER_ERROR)
+        );
+    }
+
+    private String resolveValidationMessage(String message) {
+        ExceptionMessageResolver resolver = exceptionMessageResolverProvider.getIfAvailable();
+        return resolver == null ? message : resolver.resolveValidationMessage(message);
+    }
+
+    private String resolveServiceMessage(ServiceException exception) {
+        ExceptionMessageResolver resolver = exceptionMessageResolverProvider.getIfAvailable();
+        return resolver == null
+                ? exception.getMessage()
+                : resolver.resolveServiceMessage(exception.getCode(), exception.getMessage());
+    }
+
+    private String resolveErrorCodeMessage(ErrorCode errorCode) {
+        ExceptionMessageResolver resolver = exceptionMessageResolverProvider.getIfAvailable();
+        return resolver == null ? errorCode.getMsg() : resolver.resolveErrorCode(errorCode);
     }
 }
