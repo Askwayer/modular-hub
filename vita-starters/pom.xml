@@ -13,7 +13,7 @@
     <description>Starters Spring Boot</description>
 
     <modules>
-        <module>vita-captch-spring-boot-starter</module>
+        <module>vita-captcha-spring-boot-starter</module>
         <module>vita-file-spring-boot-starter</module>
         <module>vita-i18n-spring-boot-starter</module>
         <module>vita-poi-spring-boot-starter</module>
@@ -21,14 +21,14 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <vita.starters.version>1..0.0-SNAPSHOT</vita.starters.version>
+        <vita.starters.version>1.0.0-SNAPSHOT</vita.starters.version>
     </properties>
 
     <dependencyManagement>
         <dependencies>
             <dependency>
                 <groupId>com.vita</groupId>
-                <artifactId>vita-captch-spring-boot-starter</artifactId>
+                <artifactId>vita-captcha-spring-boot-starter</artifactId>
                 <version>${vita.starters.version}</version>
             </dependency>
             <dependency>
