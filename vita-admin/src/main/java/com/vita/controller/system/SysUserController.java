@@ -3,6 +3,7 @@ package com.vita.controller.system;
 import com.vita.core.CommonResult;
 import com.vita.core.controller.BaseController;
 import com.vita.core.page.PageResponse;
+import com.vita.annotation.Log;
 import com.vita.system.sysUser.dto.SysUserCreateDto;
 import com.vita.system.sysUser.dto.SysUserSearchDto;
 import com.vita.system.sysUser.dto.SysUserUpdateDto;
@@ -44,6 +45,7 @@ public class SysUserController extends BaseController {
      * @param createDto 创建请求对象
      * @return 新增记录ID
      */
+    @Log(module = "系统用户", businessType = "CREATE", saveResponseData = false)
     @PostMapping("/add" )
     public CommonResult<Long> create(@RequestBody @Valid SysUserCreateDto createDto) {
         return CommonResult.success(sysUserService.create(createDto));
@@ -55,6 +57,7 @@ public class SysUserController extends BaseController {
      * @param updateDto 更新请求对象
      * @return 更新结果
      */
+    @Log(module = "admin", businessType = "UPDATE", saveResponseData = false)
     @PostMapping("/update" )
     public CommonResult<Boolean> update(@RequestBody @Valid SysUserUpdateDto updateDto) {
         sysUserService.update(updateDto);
@@ -67,6 +70,7 @@ public class SysUserController extends BaseController {
      * @param id 主键ID
      * @return 删除结果
      */
+    @Log(module = "admin", businessType = "DELETE", saveResponseData = false)
     @DeleteMapping("/delete" )
     public CommonResult<Boolean> delete(@RequestParam("id" ) Long id) {
         sysUserService.delete(id);
