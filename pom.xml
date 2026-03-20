@@ -14,6 +14,7 @@
 
     <properties>
         <vita.version>1.0.0-SNAPSHOT</vita.version>
+        <vita.starters.version>1.0.0-SNAPSHOT</vita.starters.version>
         <java.version>17</java.version>
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
@@ -33,11 +34,11 @@
     </properties>
 
     <modules>
-        <module>vita-admin</module>
         <module>vita-common</module>
-        <module>vita-generator</module>
         <module>vita-service</module>
+        <module>vita-generator</module>
         <module>vita-starters</module>
+        <module>vita-admin</module>
     </modules>
 
     <dependencyManagement>
@@ -164,6 +165,13 @@
                 <groupId>com.vita</groupId>
                 <artifactId>vita-service</artifactId>
                 <version>${vita.version}</version>
+            </dependency>
+
+            <!-- vita-starters -->
+            <dependency>
+                <groupId>com.vita</groupId>
+                <artifactId>vita-captcha-spring-boot-starter</artifactId>
+                <version>${vita.starters.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
