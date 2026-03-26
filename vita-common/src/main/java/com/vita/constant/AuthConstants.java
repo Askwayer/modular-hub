@@ -1,5 +1,7 @@
 package com.vita.constant;
 
+import java.time.format.DateTimeFormatter;
+
 /**
  * @BelongsProject: be-vita
  * @BelongsPackage: com.vita.constant
@@ -10,5 +12,61 @@ package com.vita.constant;
  */
 public class AuthConstants {
 
+    /**
+     * 常量工具类不允许实例化。
+     */
+    private AuthConstants() {
+        // 实例化
+    }
+
+    /**
+     * Sa-Token Session 中缓存登录用户信息的键名。
+     */
     public static final String LOGIN_USER_INFO = "LOGIN_USER_INFO";
+
+    /**
+     * IP 封禁标记在 Redis 中的统一前缀。
+     */
+    public static final String IP_BLOCK_KEY_PREFIX = "auth:ip:block:";
+
+    /**
+     * 用户名最小长度。
+     */
+    public static final int USERNAME_MIN_LENGTH = 4;
+
+    /**
+     * 用户名最大长度。
+     */
+    public static final int USERNAME_MAX_LENGTH = 32;
+
+    /**
+     * 密码最小长度。
+     */
+    public static final int PASSWORD_MIN_LENGTH = 8;
+
+    /**
+     * 密码最大长度。
+     */
+    public static final int PASSWORD_MAX_LENGTH = 64;
+
+    /**
+     * 登录失败时的统一提示文案。
+     */
+    public static final String LOGIN_FAIL_MESSAGE = "用户名或密码错误";
+
+    /**
+     * 登录时间格式化器。
+     */
+    public static final DateTimeFormatter LOGIN_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+
+    /**
+     * 构建指定 IP 的封禁缓存键。
+     *
+     * @param ip IP 地址
+     * @return Redis 键
+     */
+    public static String buildIpBlockKey(String ip) {
+        return IP_BLOCK_KEY_PREFIX + ip;
+    }
 }

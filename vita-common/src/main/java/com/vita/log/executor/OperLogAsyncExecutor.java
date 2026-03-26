@@ -1,6 +1,7 @@
-package com.vita.log.service;
+package com.vita.log.executor;
 
 import com.vita.log.model.OperLogRecord;
+import com.vita.log.persistence.OperLogPersistence;
 import com.vita.manager.AsyncManager;
 import com.vita.manager.factory.AsyncFactory;
 import org.springframework.beans.BeanUtils;

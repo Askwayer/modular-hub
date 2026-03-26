@@ -5,12 +5,7 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 /**
- * @BelongsProject: vita
- * @BelongsPackage: com.vita.log.model
- * @Author znk
- * @CreateTime 2026-03-12
- * @Description: 审计日志记录模型，供 common 层采集并由下游适配层持久化。
- * @version 1.0
+ * 操作日志快照，供 common 层采集并由下游持久化适配器落库。
  */
 @Data
 public class OperLogRecord {
