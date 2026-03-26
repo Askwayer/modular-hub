@@ -5,19 +5,25 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 
 /**
+ * @version 1.0
  * @BelongsProject: vita
  * @BelongsPackage: com.vita.system.sysIpBlock.dto
  * @Author znk
  * @CreateTime 2026-03-21 00:23:39
  * @Description: IP封禁表 搜索 DTO
- * @version 1.0
  */
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class SysIpBlockSearchDto extends PageRequest {
 
     /**
-     * 关键字。
+     * IP地址
      */
-    private String keyword;
+    private String ip;
+
+    /**
+     * 状态：0-生效 1-失效
+     */
+    private Boolean status;
+
 }

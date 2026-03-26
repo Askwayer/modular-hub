@@ -1,8 +1,11 @@
 package com.vita.system.sysIpBlock.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
-import cn.hutool.core.util.StrUtil;
+import cn.hutool.core.text.CharSequenceUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.vita.constant.AuthConstants;
+import com.vita.core.RedisCache;
 import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
 import com.vita.core.page.PageResponse;
@@ -12,29 +15,42 @@ import com.vita.system.sysIpBlock.dto.SysIpBlockUpdateDto;
 import com.vita.system.sysIpBlock.entity.SysIpBlock;
 import com.vita.system.sysIpBlock.mapper.SysIpBlockMapper;
 import com.vita.system.sysIpBlock.service.ISysIpBlockService;
-import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.vita.system.sysIpBlock.vo.SysIpBlockDetailVo;
 import com.vita.system.sysIpBlock.vo.SysIpBlockListVo;
 import com.vita.system.sysIpBlock.vo.SysIpBlockPageVo;
+import jakarta.annotation.PostConstruct;
 import jakarta.annotation.Resource;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
+import java.util.Collection;
 import java.util.List;
 
 /**
+ * @version 1.0
  * @BelongsProject: vita
  * @BelongsPackage: com.vita.system.sysIpBlock.service.impl
  * @Author znk
  * @CreateTime 2026-03-21 00:23:39
  * @Description: IP封禁表 Service 实现
- * @version 1.0
  */
 @Service
 public class SysIpBlockServiceImpl extends ServiceImpl<SysIpBlockMapper, SysIpBlock> implements ISysIpBlockService {
 
     @Resource
     private SysIpBlockMapper sysIpBlockMapper;
+
+    @Resource
+    private RedisCache redisCache;
+
+    /**
+     * 初始化封禁IP缓存
+     */
+    @PostConstruct
+    public void initBlockedIpCache() {
+        loadBlockedIpCache();
+    }
 
     /**
      * 新增数据并返回主键ID。
@@ -50,6 +66,7 @@ public class SysIpBlockServiceImpl extends ServiceImpl<SysIpBlockMapper, SysIpBl
         SysIpBlock data = new SysIpBlock();
         BeanUtils.copyProperties(createDto, data);
         sysIpBlockMapper.insert(data);
+        syncBlockCache(null, data);
         return data.getId();
     }
 
@@ -63,10 +80,13 @@ public class SysIpBlockServiceImpl extends ServiceImpl<SysIpBlockMapper, SysIpBl
         if (updateDto == null || updateDto.getId() == null) {
             throw new ServiceException(GlobalErrorCode.BAD_REQUEST);
         }
-        getRequiredEntity(updateDto.getId());
+        SysIpBlock existed = getRequiredEntity(updateDto.getId());
         SysIpBlock data = new SysIpBlock();
         BeanUtils.copyProperties(updateDto, data);
         sysIpBlockMapper.updateById(data);
+        data.setIp(StringUtils.hasText(data.getIp()) ? data.getIp() : existed.getIp());
+        data.setStatus(data.getStatus() != null ? data.getStatus() : existed.getStatus());
+        syncBlockCache(existed, data);
     }
 
     /**
@@ -76,8 +96,9 @@ public class SysIpBlockServiceImpl extends ServiceImpl<SysIpBlockMapper, SysIpBl
      */
     @Override
     public void delete(Long id) {
-        getRequiredEntity(id);
+        SysIpBlock existed = getRequiredEntity(id);
         sysIpBlockMapper.deleteById(id);
+        syncBlockCache(existed, null);
     }
 
     /**
@@ -123,6 +144,48 @@ public class SysIpBlockServiceImpl extends ServiceImpl<SysIpBlockMapper, SysIpBl
     }
 
     /**
+     * 判断指定 IP 是否被封禁。
+     *
+     * @param ip IP地址
+     * @return true-已封禁
+     */
+    @Override
+    public boolean isBlocked(String ip) {
+        if (CharSequenceUtil.isBlank(ip)) {
+            return false;
+        }
+        String cacheKey = AuthConstants.buildIpBlockKey(ip);
+        Object cacheValue = redisCache.getCacheObject(cacheKey);
+        if (cacheValue != null) {
+            return true;
+        }
+        SysIpBlock sysIpBlock = sysIpBlockMapper.selectOne(new LambdaQueryWrapper<SysIpBlock>()
+                .eq(SysIpBlock::getIp, ip)
+                .eq(SysIpBlock::getStatus, Boolean.FALSE));
+        if (sysIpBlock == null) {
+            return false;
+        }
+        writeBlockCache(sysIpBlock);
+        return true;
+    }
+
+    /**
+     * 启动时装载生效封禁IP到缓存。
+     */
+    @Override
+    public void loadBlockedIpCache() {
+        Collection<String> cacheKeys = redisCache.keys(AuthConstants.IP_BLOCK_KEY_PREFIX + "*");
+        if (!cacheKeys.isEmpty()) {
+            redisCache.deleteObject(cacheKeys);
+        }
+        List<SysIpBlock> blockedList = sysIpBlockMapper.selectList(new LambdaQueryWrapper<SysIpBlock>()
+                .eq(SysIpBlock::getStatus, Boolean.FALSE));
+        for (SysIpBlock sysIpBlock : blockedList) {
+            writeBlockCache(sysIpBlock);
+        }
+    }
+
+    /**
      * 构造列表查询条件。
      *
      * @param searchDto 查询条件
@@ -130,8 +193,10 @@ public class SysIpBlockServiceImpl extends ServiceImpl<SysIpBlockMapper, SysIpBl
      */
     private LambdaQueryWrapper<SysIpBlock> buildQueryWrapper(SysIpBlockSearchDto searchDto) {
         LambdaQueryWrapper<SysIpBlock> queryWrapper = new LambdaQueryWrapper<>();
-        if (searchDto != null && StrUtil.isNotBlank(searchDto.getKeyword())) {
-            // TODO 根据业务字段补充关键字查询条件
+        if (searchDto != null && CharSequenceUtil.isNotBlank(searchDto.getIp())) {
+            queryWrapper.like(SysIpBlock::getIp, searchDto.getIp());
+        } else if (searchDto != null && searchDto.getStatus() != null) {
+            queryWrapper.eq(SysIpBlock::getStatus, searchDto.getStatus());
         }
         queryWrapper.orderByDesc(SysIpBlock::getId);
         return queryWrapper;
@@ -152,5 +217,42 @@ public class SysIpBlockServiceImpl extends ServiceImpl<SysIpBlockMapper, SysIpBl
             throw new ServiceException(GlobalErrorCode.NOT_FOUND);
         }
         return data;
+    }
+
+    /**
+     * 同步封禁IP缓存
+     *
+     * @param oldData 历史数据
+     * @param newData 新数据
+     */
+    private void syncBlockCache(SysIpBlock oldData, SysIpBlock newData) {
+        if (oldData != null && StringUtils.hasText(oldData.getIp())) {
+            redisCache.deleteObject(AuthConstants.buildIpBlockKey(oldData.getIp()));
+        }
+        if (newData != null && isEffective(newData)) {
+            writeBlockCache(newData);
+        }
+    }
+
+    /**
+     * 写入封禁IP缓存
+     *
+     * @param sysIpBlock IP封禁实体对象
+     */
+    private void writeBlockCache(SysIpBlock sysIpBlock) {
+        if (sysIpBlock == null || !StringUtils.hasText(sysIpBlock.getIp()) || !isEffective(sysIpBlock)) {
+            return;
+        }
+        redisCache.setCacheObject(AuthConstants.buildIpBlockKey(sysIpBlock.getIp()), sysIpBlock.getId());
+    }
+
+    /**
+     * 判断封禁IP是否生效
+     *
+     * @param sysIpBlock IP封禁实体对象
+     * @return 0-生效/1-失效
+     */
+    private boolean isEffective(SysIpBlock sysIpBlock) {
+        return Boolean.FALSE.equals(sysIpBlock.getStatus());
     }
 }
