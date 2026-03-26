@@ -1,24 +1,25 @@
 package com.vita.system.sysUser.service;
 
+import com.baomidou.mybatisplus.extension.service.IService;
 import com.vita.core.page.PageResponse;
 import com.vita.system.sysUser.dto.SysUserCreateDto;
 import com.vita.system.sysUser.dto.SysUserSearchDto;
 import com.vita.system.sysUser.dto.SysUserUpdateDto;
 import com.vita.system.sysUser.entity.SysUser;
-import com.baomidou.mybatisplus.extension.service.IService;
 import com.vita.system.sysUser.vo.SysUserDetailVo;
 import com.vita.system.sysUser.vo.SysUserListVo;
 import com.vita.system.sysUser.vo.SysUserPageVo;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
+ * @version 1.0
  * @BelongsProject: vita
  * @BelongsPackage: com.vita.system.sysUser.service
  * @Author znk
  * @CreateTime 2026-03-06 21:44:32
  * @Description: 用户信息表 Service 接口
- * @version 1.0
  */
 public interface ISysUserService extends IService<SysUser> {
 
@@ -67,4 +68,21 @@ public interface ISysUserService extends IService<SysUser> {
      * @return 分页VO结果
      */
     PageResponse<SysUserPageVo> page(SysUserSearchDto searchDto);
+
+    /**
+     * 按用户名查询用户。
+     *
+     * @param userName 用户名
+     * @return 用户实体
+     */
+    SysUser getByUserName(String userName);
+
+    /**
+     * 更新登录信息。
+     *
+     * @param userId       用户ID
+     * @param loginTime    登录时间
+     * @param loginAddress 登录IP
+     */
+    void updateLoginInfo(Long userId, LocalDateTime loginTime, String loginAddress);
 }

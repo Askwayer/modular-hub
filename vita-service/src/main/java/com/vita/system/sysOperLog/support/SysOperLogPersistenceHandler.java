@@ -1,7 +1,7 @@
 package com.vita.system.sysOperLog.support;
 
 import com.vita.log.model.OperLogRecord;
-import com.vita.log.service.OperLogPersistence;
+import com.vita.log.persistence.OperLogPersistence;
 import com.vita.system.sysOperLog.dto.SysOperLogCreateDto;
 import com.vita.system.sysOperLog.service.ISysOperLogService;
 import jakarta.annotation.Resource;
@@ -9,12 +9,9 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Component;
 
 /**
- * @version 1.0
- * @BelongsProject: vita
- * @BelongsPackage: com.vita.log.model
- * @Author znk
- * @CreateTime 2026-03-12
- * @Description: 审计日志持久化适配器，将 common 层采集结果转换为 SysOperLog 实体。
+ * 操作日志持久化适配器，将 common 层采集结果转换为系统操作日志实体。
+ *
+ * @author zhuningkang
  */
 @Component
 public class SysOperLogPersistenceHandler implements OperLogPersistence {

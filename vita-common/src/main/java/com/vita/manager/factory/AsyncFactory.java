@@ -1,8 +1,10 @@
 package com.vita.manager.factory;
 
-import com.vita.log.model.OperLogRecord;
-import com.vita.log.service.OperLogPersistence;
 import com.vita.interceptor.RequestTraceInterceptor;
+import com.vita.log.model.LoginAuditRecord;
+import com.vita.log.model.OperLogRecord;
+import com.vita.log.persistence.LoginAuditPersistence;
+import com.vita.log.persistence.OperLogPersistence;
 import com.vita.manager.task.SystemAsyncTask;
 import com.vita.manager.task.SystemAsyncTaskExecutorType;
 import org.slf4j.Logger;
@@ -21,6 +23,8 @@ public class AsyncFactory {
 
     private static final String SYSTEM_OPER_LOG_TASK_NAME = "system-oper-log";
 
+    private static final String SYSTEM_LOGIN_LOG_TASK_NAME = "system-login-log";
+
     private static final Logger ACCESS_LOGGER = LoggerFactory.getLogger("sys-access");
 
     private static final Logger LOG = LoggerFactory.getLogger(AsyncFactory.class);
@@ -31,8 +35,8 @@ public class AsyncFactory {
     /**
      * 操作日志记录
      *
-     * @param requestId 请求ID
-     * @param operLog 操作日志信息
+     * @param requestId          请求ID
+     * @param operLog            操作日志信息
      * @param operLogPersistence 操作日志持久化器
      * @return 系统操作日志异步任务定义
      */
@@ -66,6 +70,48 @@ public class AsyncFactory {
                         }
                     } catch (Exception ex) {
                         LOG.error("异步保存系统操作日志失败, requestId={}", requestId, ex);
+                    } finally {
+                        MDC.remove(RequestTraceInterceptor.REQUEST_ID_KEY);
+                    }
+                }
+        );
+    }
+
+    /**
+     * 登录审计记录。
+     *
+     * @param requestId        请求ID
+     * @param loginAuditRecord 登录审计快照
+     * @param loginAuditPersistence 登录审计持久化器
+     * @return 系统登录审计异步任务定义
+     */
+    public static SystemAsyncTask recordLogin(final String requestId,
+                                              final LoginAuditRecord loginAuditRecord,
+                                              final LoginAuditPersistence loginAuditPersistence) {
+        return SystemAsyncTask.immediate(
+                SYSTEM_LOGIN_LOG_TASK_NAME,
+                SystemAsyncTaskExecutorType.OPER_LOG,
+                () -> {
+                    try {
+                        if (requestId != null) {
+                            MDC.put(RequestTraceInterceptor.REQUEST_ID_KEY, requestId);
+                        }
+                        ACCESS_LOGGER.info(
+                                "requestId={} event=login userName={} status={} ip={} location={} browser={} os={} msg={}",
+                                requestId,
+                                loginAuditRecord.getUserName(),
+                                loginAuditRecord.getStatus(),
+                                loginAuditRecord.getIpaddr(),
+                                loginAuditRecord.getLoginLocation(),
+                                loginAuditRecord.getBrowser(),
+                                loginAuditRecord.getOs(),
+                                loginAuditRecord.getMsg()
+                        );
+                        if (loginAuditPersistence != null) {
+                            loginAuditPersistence.persist(loginAuditRecord);
+                        }
+                    } catch (Exception ex) {
+                        LOG.error("异步保存登录审计失败, requestId={}", requestId, ex);
                     } finally {
                         MDC.remove(RequestTraceInterceptor.REQUEST_ID_KEY);
                     }
