@@ -1,6 +1,7 @@
 package com.vita.system.sysUser.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.text.CharSequenceUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.vita.core.exception.GlobalErrorCode;
@@ -19,8 +20,8 @@ import com.vita.utils.Sm4Utils;
 import jakarta.annotation.Resource;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -125,6 +126,39 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
     }
 
     /**
+     * 按用户名查询用户。
+     *
+     * @param userName 用户名
+     * @return 用户实体
+     */
+    @Override
+    public SysUser getByUserName(String userName) {
+        if (CharSequenceUtil.isBlank(userName)) {
+            return null;
+        }
+        return sysUserMapper.selectOne(SysUser::getUserName, userName);
+    }
+
+    /**
+     * 更新登录信息。
+     *
+     * @param userId       用户ID
+     * @param loginTime    登录时间
+     * @param loginAddress 登录IP
+     */
+    @Override
+    public void updateLoginInfo(Long userId, LocalDateTime loginTime, String loginAddress) {
+        if (userId == null) {
+            throw new ServiceException(GlobalErrorCode.BAD_REQUEST);
+        }
+        SysUser updateData = new SysUser();
+        updateData.setId(userId);
+        updateData.setLoginTime(loginTime);
+        updateData.setLoginAddress(loginAddress);
+        sysUserMapper.updateById(updateData);
+    }
+
+    /**
      * 构造列表查询条件。
      *
      * @param searchDto 查询条件
@@ -132,8 +166,19 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
      */
     private LambdaQueryWrapper<SysUser> buildQueryWrapper(SysUserSearchDto searchDto) {
         LambdaQueryWrapper<SysUser> queryWrapper = new LambdaQueryWrapper<>();
-        if (searchDto != null && StringUtils.hasText(searchDto.getKeyword())) {
-            // TODO 根据业务字段补充关键字查询条件
+        if (searchDto != null) {
+            if (searchDto.getDeptId() != null) {
+                queryWrapper.eq(SysUser::getDeptId, searchDto.getDeptId());
+            }
+            if (CharSequenceUtil.isNotBlank(searchDto.getNickName())) {
+                queryWrapper.like(SysUser::getNickName, searchDto.getNickName());
+            }
+            if (CharSequenceUtil.isNotBlank(searchDto.getMobile())) {
+                queryWrapper.like(SysUser::getMobile, searchDto.getMobile());
+            }
+            if (CharSequenceUtil.isNotBlank(searchDto.getStatus())) {
+                queryWrapper.eq(SysUser::getStatus, searchDto.getStatus());
+            }
         }
         queryWrapper.orderByDesc(SysUser::getId);
         return queryWrapper;

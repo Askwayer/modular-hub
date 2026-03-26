@@ -24,6 +24,11 @@ public class LoginUserInfoModel {
     private String username;
 
     /**
+     * 昵称
+     */
+    private String nickName;
+
+    /**
      * 部门 ID
      */
     private Long deptId;
@@ -57,6 +62,16 @@ public class LoginUserInfoModel {
      * 令牌前缀（如 Bearer，便于前端组合完整请求头）
      */
     private String tokenPrefix;
+
+    /**
+     * 头像地址
+     */
+    private String avatarUrl;
+
+    /**
+     * 是否超级管理员
+     */
+    private String isSuper;
 
     /**
      * 登录 IP 地址

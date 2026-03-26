@@ -2,6 +2,7 @@ package com.vita.interceptor;
 
 import cn.dev33.satoken.exception.SaTokenContextException;
 import cn.dev33.satoken.stp.StpUtil;
+import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.text.CharSequenceUtil;
 import cn.hutool.core.util.IdUtil;
 import com.vita.constant.AuthConstants;
@@ -79,6 +80,10 @@ public class RequestTraceInterceptor implements HandlerInterceptor {
         Object sessionValue = StpUtil.getSession().get(AuthConstants.LOGIN_USER_INFO);
         if (sessionValue instanceof LoginUserInfoModel model) {
             LoginUserInfoModelContext.setLoginUserInfo(model);
+            return;
+        }
+        if (sessionValue != null) {
+            LoginUserInfoModelContext.setLoginUserInfo(BeanUtil.toBean(sessionValue, LoginUserInfoModel.class));
         }
     }
 
