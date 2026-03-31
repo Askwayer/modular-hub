@@ -68,7 +68,7 @@ public class CodeGenerator {
     /**
      * 生成器配置 - TABLE NAME
      */
-    private static final String[] TABLE_NAMES = {"sys_ip_block"};
+    private static final String[] TABLE_NAMES = {"sys_role"};
 
     /**
      * 默认目标模块（兼容旧配置）
@@ -88,7 +88,7 @@ public class CodeGenerator {
     /**
      * 默认领域模块（用于 packageConfig.moduleName）
      */
-    private static final String DEFAULT_DOMAIN_MODULE = "sysIpBlock";
+    private static final String DEFAULT_DOMAIN_MODULE = "sysRole";
 
     /**
      * 默认基础包（兼容旧配置 com.vita.system + sysUser）
