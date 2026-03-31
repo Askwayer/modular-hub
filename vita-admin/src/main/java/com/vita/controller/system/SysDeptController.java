@@ -1,0 +1,109 @@
+package com.vita.controller.system;
+
+import com.vita.core.CommonResult;
+import com.vita.core.page.PageResponse;
+import com.vita.system.sysDept.dto.SysDeptCreateDto;
+import com.vita.system.sysDept.dto.SysDeptSearchDto;
+import com.vita.system.sysDept.dto.SysDeptUpdateDto;
+import com.vita.system.sysDept.service.ISysDeptService;
+import com.vita.system.sysDept.vo.SysDeptDetailVo;
+import com.vita.system.sysDept.vo.SysDeptListVo;
+import com.vita.system.sysDept.vo.SysDeptPageVo;
+import jakarta.validation.Valid;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+import com.vita.core.controller.BaseController;
+
+/**
+ * @BelongsProject: vita
+ * @BelongsPackage: com.vita.controller.system
+ * @Author znk
+ * @CreateTime 2026-03-31 16:29:38
+ * @Description: 部门表 控制器
+ * @version 1.0
+ */
+@Validated
+@RestController
+@RequestMapping("/system/sysDept")
+public class SysDeptController extends BaseController {
+
+    /**
+     * 部门表 服务。
+     */
+    private final ISysDeptService sysDeptService;
+
+    public SysDeptController(ISysDeptService sysDeptService) {
+        this.sysDeptService = sysDeptService;
+    }
+
+    /**
+     * 新增数据。
+     *
+     * @param createDto 创建请求对象
+     * @return 新增记录ID
+     */
+    @PostMapping("/add")
+    public CommonResult<Long> create(@RequestBody @Valid SysDeptCreateDto createDto) {
+        return CommonResult.success(sysDeptService.create(createDto));
+    }
+
+    /**
+     * 更新数据。
+     *
+     * @param updateDto 更新请求对象
+     * @return 更新结果
+     */
+    @PostMapping("/update")
+    public CommonResult<Boolean> update(@RequestBody @Valid SysDeptUpdateDto updateDto) {
+        sysDeptService.update(updateDto);
+        return CommonResult.success(true);
+    }
+
+    /**
+     * 删除数据。
+     *
+     * @param id 主键ID
+     * @return 删除结果
+     */
+    @DeleteMapping("/delete")
+    public CommonResult<Boolean> delete(@RequestParam("id") Long id) {
+        sysDeptService.delete(id);
+        return CommonResult.success(true);
+    }
+
+    /**
+     * 查询详情。
+     *
+     * @param id 主键ID
+     * @return 详情对象
+     */
+    @GetMapping("/getDetail")
+    public CommonResult<SysDeptDetailVo> getDetail(@RequestParam("id") Long id) {
+        return CommonResult.success(sysDeptService.get(id));
+    }
+
+    /**
+     * 列表查询。
+     *
+     * @param searchDto 查询条件
+     * @return 列表数据
+     */
+    @GetMapping("/list")
+    public CommonResult<List<SysDeptListVo>> list(@Valid SysDeptSearchDto searchDto) {
+        return CommonResult.success(sysDeptService.list(searchDto));
+    }
+
+    /**
+     * 分页查询。
+     *
+     * @param searchDto 分页查询条件
+     * @return 分页数据
+     */
+    @GetMapping("/page")
+    public CommonResult<PageResponse<SysDeptPageVo>> page(@Valid SysDeptSearchDto searchDto) {
+        return CommonResult.success(sysDeptService.page(searchDto));
+    }
+}

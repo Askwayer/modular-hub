@@ -176,7 +176,7 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
             if (CharSequenceUtil.isNotBlank(searchDto.getMobile())) {
                 queryWrapper.like(SysUser::getMobile, searchDto.getMobile());
             }
-            if (CharSequenceUtil.isNotBlank(searchDto.getStatus())) {
+            if (searchDto.getStatus() != null) {
                 queryWrapper.eq(SysUser::getStatus, searchDto.getStatus());
             }
         }

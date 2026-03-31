@@ -55,14 +55,19 @@ public class SysUserListVo {
     private String gender;
 
     /**
-     * 状态(0-正常,1-禁用)
+     * 状态 1启用 0禁用
      */
-    private String status;
+    private Byte status;
 
     /**
-     * 是否为超级管理员(0-否,1-是)
+     * 是否超级管理员 1是 0否
      */
-    private String isSuper;
+    private Byte isSuperAdmin;
+
+    /**
+     * 是否系统内置 1是 0否
+     */
+    private Byte isSystem;
 
     /**
      * 上次登录时间

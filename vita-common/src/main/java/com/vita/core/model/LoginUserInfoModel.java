@@ -69,9 +69,14 @@ public class LoginUserInfoModel {
     private String avatarUrl;
 
     /**
-     * 是否超级管理员
+     * 是否超级管理员 1是 0否
      */
-    private String isSuper;
+    private Byte isSuperAdmin;
+
+    /**
+     * 是否系统内置 1是 0否
+     */
+    private Byte isSystem;
 
     /**
      * 登录 IP 地址
