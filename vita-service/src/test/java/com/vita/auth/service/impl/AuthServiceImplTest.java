@@ -194,7 +194,7 @@ class AuthServiceImplTest {
         verify(authTokenService).logout();
     }
 
-    private SysUser buildUser(String userName, String status) {
+    private SysUser buildUser(String userName, Byte status) {
         SysUser user = new SysUser();
         user.setId(1L);
         user.setUserName(userName);

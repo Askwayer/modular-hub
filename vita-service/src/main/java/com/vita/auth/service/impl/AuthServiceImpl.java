@@ -13,6 +13,7 @@ import com.vita.constant.Constants;
 import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
 import com.vita.core.model.LoginUserInfoModel;
+import com.vita.enums.CommonStatusEnum;
 import com.vita.log.model.RequestClientInfo;
 import com.vita.log.resolver.RequestClientInfoResolver;
 import com.vita.log.service.LoginAuditService;
@@ -233,7 +234,7 @@ public class AuthServiceImpl implements IAuthService {
         if (Objects.equals(user.getIsDeleted(), Boolean.TRUE)) {
             throw new ServiceException(GlobalErrorCode.UNAUTHORIZED.getCode(), AuthConstants.LOGIN_FAIL_MESSAGE);
         }
-        if (Objects.equals(user.getStatus(), Constants.DISABLED)) {
+        if (CommonStatusEnum.isDisabled(user.getStatus())) {
             throw new ServiceException(GlobalErrorCode.FORBIDDEN.getCode(), "账号已被禁用");
         }
     }

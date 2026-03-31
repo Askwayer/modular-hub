@@ -1,6 +1,5 @@
 package com.vita.system.sysUser.dto;
 
-import com.baomidou.mybatisplus.annotation.TableField;
 import com.vita.core.page.PageRequest;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -35,9 +34,9 @@ public class SysUserSearchDto extends PageRequest {
 
 
     /**
-     * 状态(0-正常,1-禁用)
+     * 状态 1启用 0禁用
      */
-    private String status;
+    private Byte status;
 
 
 }

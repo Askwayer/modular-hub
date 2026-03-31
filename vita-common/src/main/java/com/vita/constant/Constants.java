@@ -1,5 +1,7 @@
 package com.vita.constant;
 
+import com.vita.enums.CommonStatusEnum;
+
 import java.util.Locale;
 
 /**
@@ -65,10 +67,10 @@ public class Constants {
     /**
      * 通用启用标识
      */
-    public static final String ENABLED = "0";
+    public static final Byte ENABLED = CommonStatusEnum.ENABLED.getCode();
 
     /**
      * 通用禁用标识
      */
-    public static final String DISABLED = "1";
+    public static final Byte DISABLED = CommonStatusEnum.DISABLED.getCode();
 }

@@ -9,6 +9,7 @@ import com.vita.core.RedisCache;
 import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
 import com.vita.core.page.PageResponse;
+import com.vita.enums.CommonStatusEnum;
 import com.vita.system.sysIpBlock.dto.SysIpBlockCreateDto;
 import com.vita.system.sysIpBlock.dto.SysIpBlockSearchDto;
 import com.vita.system.sysIpBlock.dto.SysIpBlockUpdateDto;
@@ -161,7 +162,7 @@ public class SysIpBlockServiceImpl extends ServiceImpl<SysIpBlockMapper, SysIpBl
         }
         SysIpBlock sysIpBlock = sysIpBlockMapper.selectOne(new LambdaQueryWrapper<SysIpBlock>()
                 .eq(SysIpBlock::getIp, ip)
-                .eq(SysIpBlock::getStatus, Boolean.FALSE));
+                .eq(SysIpBlock::getStatus, CommonStatusEnum.ENABLED.getCode()));
         if (sysIpBlock == null) {
             return false;
         }
@@ -170,7 +171,7 @@ public class SysIpBlockServiceImpl extends ServiceImpl<SysIpBlockMapper, SysIpBl
     }
 
     /**
-     * 启动时装载生效封禁IP到缓存。
+     * 启动时装载启用的封禁IP到缓存。
      */
     @Override
     public void loadBlockedIpCache() {
@@ -179,7 +180,7 @@ public class SysIpBlockServiceImpl extends ServiceImpl<SysIpBlockMapper, SysIpBl
             redisCache.deleteObject(cacheKeys);
         }
         List<SysIpBlock> blockedList = sysIpBlockMapper.selectList(new LambdaQueryWrapper<SysIpBlock>()
-                .eq(SysIpBlock::getStatus, Boolean.FALSE));
+                .eq(SysIpBlock::getStatus, CommonStatusEnum.ENABLED.getCode()));
         for (SysIpBlock sysIpBlock : blockedList) {
             writeBlockCache(sysIpBlock);
         }
@@ -229,7 +230,7 @@ public class SysIpBlockServiceImpl extends ServiceImpl<SysIpBlockMapper, SysIpBl
         if (oldData != null && StringUtils.hasText(oldData.getIp())) {
             redisCache.deleteObject(AuthConstants.buildIpBlockKey(oldData.getIp()));
         }
-        if (newData != null && isEffective(newData)) {
+        if (newData != null && isEnabled(newData)) {
             writeBlockCache(newData);
         }
     }
@@ -240,19 +241,19 @@ public class SysIpBlockServiceImpl extends ServiceImpl<SysIpBlockMapper, SysIpBl
      * @param sysIpBlock IP封禁实体对象
      */
     private void writeBlockCache(SysIpBlock sysIpBlock) {
-        if (sysIpBlock == null || !StringUtils.hasText(sysIpBlock.getIp()) || !isEffective(sysIpBlock)) {
+        if (sysIpBlock == null || !StringUtils.hasText(sysIpBlock.getIp()) || !isEnabled(sysIpBlock)) {
             return;
         }
         redisCache.setCacheObject(AuthConstants.buildIpBlockKey(sysIpBlock.getIp()), sysIpBlock.getId());
     }
 
     /**
-     * 判断封禁IP是否生效
+     * 判断封禁IP记录是否启用
      *
      * @param sysIpBlock IP封禁实体对象
-     * @return 0-生效/1-失效
+     * @return true-启用
      */
-    private boolean isEffective(SysIpBlock sysIpBlock) {
-        return Boolean.FALSE.equals(sysIpBlock.getStatus());
+    private boolean isEnabled(SysIpBlock sysIpBlock) {
+        return sysIpBlock != null && CommonStatusEnum.isEnabled(sysIpBlock.getStatus());
     }
 }

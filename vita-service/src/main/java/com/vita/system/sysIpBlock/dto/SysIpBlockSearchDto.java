@@ -22,8 +22,8 @@ public class SysIpBlockSearchDto extends PageRequest {
     private String ip;
 
     /**
-     * 状态：0-生效 1-失效
+     * 状态 1启用 0禁用
      */
-    private Boolean status;
+    private Byte status;
 
 }

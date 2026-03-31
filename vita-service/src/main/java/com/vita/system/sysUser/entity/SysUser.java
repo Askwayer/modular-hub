@@ -70,10 +70,10 @@ public class SysUser extends BaseEntity {
     private String gender;
 
     /**
-     * 状态(0-正常,1-禁用)
+     * 状态 1启用 0禁用
      */
     @TableField("status")
-    private String status;
+    private Byte status;
 
     /**
      * 是否为超级管理员(0-否,1-是)

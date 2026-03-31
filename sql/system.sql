@@ -68,7 +68,7 @@ CREATE TABLE `sys_user`
     `email`           varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci          DEFAULT NULL COMMENT '邮箱',
     `avatar_url`      varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci          DEFAULT NULL COMMENT '头像',
     `gender`          char(1) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci               DEFAULT '2' COMMENT '性别(0-女,1-男,2-其他)',
-    `status`          char(1) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci               DEFAULT '0' COMMENT '状态(0-正常,1-禁用)',
+    `status`          tinyint                                                       NOT NULL DEFAULT '1' COMMENT '状态 1启用 0禁用',
     `is_super`        char(1) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci               DEFAULT '0' COMMENT '是否为超级管理员(0-否,1-是)',
     `login_time`      datetime                                                               DEFAULT NULL COMMENT '上次登录时间',
     `login_address`   varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci          DEFAULT NULL COMMENT '登录地址',
@@ -126,7 +126,7 @@ CREATE TABLE `sys_ip_block`
 (
     `id`           bigint                                 NOT NULL AUTO_INCREMENT COMMENT 'ID',
     `ip`           varchar(64) COLLATE utf8mb4_general_ci NOT NULL COMMENT 'IP地址',
-    `status`       tinyint(1) NOT NULL DEFAULT '1' COMMENT '状态：0-生效 1-失效',
+    `status`       tinyint(1) NOT NULL DEFAULT '1' COMMENT '状态 1启用 0禁用',
     `start_time`   datetime                               NOT NULL COMMENT '开始时间',
     `end_time`     datetime                                DEFAULT NULL COMMENT '结束时间，永久封禁为空',
     `tenant_id`    bigint                                  DEFAULT NULL COMMENT '租户ID',

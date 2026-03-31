@@ -1,6 +1,7 @@
 package com.vita.system.sysIpBlock.service.impl;
 
 import com.vita.constant.AuthConstants;
+import com.vita.constant.Constants;
 import com.vita.core.RedisCache;
 import com.vita.system.sysIpBlock.dto.SysIpBlockCreateDto;
 import com.vita.system.sysIpBlock.dto.SysIpBlockUpdateDto;
@@ -47,7 +48,7 @@ class SysIpBlockServiceImplTest {
 
         SysIpBlockCreateDto createDto = new SysIpBlockCreateDto();
         createDto.setIp("10.0.0.1");
-        createDto.setStatus(Boolean.FALSE);
+        createDto.setStatus(Constants.ENABLED);
 
         Long id = sysIpBlockService.create(createDto);
 
@@ -60,13 +61,13 @@ class SysIpBlockServiceImplTest {
         SysIpBlock existed = new SysIpBlock();
         existed.setId(1L);
         existed.setIp("10.0.0.1");
-        existed.setStatus(Boolean.FALSE);
+        existed.setStatus(Constants.ENABLED);
         when(sysIpBlockMapper.selectById(1L)).thenReturn(existed);
 
         SysIpBlockUpdateDto updateDto = new SysIpBlockUpdateDto();
         updateDto.setId(1L);
         updateDto.setIp("10.0.0.2");
-        updateDto.setStatus(Boolean.FALSE);
+        updateDto.setStatus(Constants.ENABLED);
 
         sysIpBlockService.update(updateDto);
 
@@ -79,7 +80,7 @@ class SysIpBlockServiceImplTest {
         SysIpBlock existed = new SysIpBlock();
         existed.setId(1L);
         existed.setIp("10.0.0.1");
-        existed.setStatus(Boolean.FALSE);
+        existed.setStatus(Constants.ENABLED);
         when(sysIpBlockMapper.selectById(1L)).thenReturn(existed);
 
         sysIpBlockService.delete(1L);
@@ -93,7 +94,7 @@ class SysIpBlockServiceImplTest {
         SysIpBlock existed = new SysIpBlock();
         existed.setId(2L);
         existed.setIp("10.0.0.1");
-        existed.setStatus(Boolean.FALSE);
+        existed.setStatus(Constants.ENABLED);
         when(sysIpBlockMapper.selectOne(any())).thenReturn(existed);
 
         boolean blocked = sysIpBlockService.isBlocked("10.0.0.1");
@@ -108,11 +109,11 @@ class SysIpBlockServiceImplTest {
         SysIpBlock first = new SysIpBlock();
         first.setId(1L);
         first.setIp("10.0.0.1");
-        first.setStatus(Boolean.FALSE);
+        first.setStatus(Constants.ENABLED);
         SysIpBlock second = new SysIpBlock();
         second.setId(2L);
         second.setIp("10.0.0.2");
-        second.setStatus(Boolean.FALSE);
+        second.setStatus(Constants.ENABLED);
         when(sysIpBlockMapper.selectList(any())).thenReturn(List.of(first, second));
 
         sysIpBlockService.loadBlockedIpCache();
