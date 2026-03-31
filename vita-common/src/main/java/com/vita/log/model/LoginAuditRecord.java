@@ -1,6 +1,9 @@
 package com.vita.log.model;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
@@ -10,6 +13,9 @@ import java.time.LocalDateTime;
  * @author zhuningkang
  */
 @Data
+@AllArgsConstructor
+@NoArgsConstructor
+@Builder
 public class LoginAuditRecord {
 
     /**

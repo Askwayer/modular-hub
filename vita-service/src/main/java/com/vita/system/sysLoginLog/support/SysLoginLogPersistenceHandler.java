@@ -13,6 +13,8 @@ import java.util.Objects;
 
 /**
  * 登录审计持久化适配器，将 common 层登录审计快照转换为系统登录日志实体。
+ *
+ * @author zhuningkang
  */
 @Component
 public class SysLoginLogPersistenceHandler implements LoginAuditPersistence {
