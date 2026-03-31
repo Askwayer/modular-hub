@@ -69,7 +69,8 @@ CREATE TABLE `sys_user`
     `avatar_url`      varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci          DEFAULT NULL COMMENT '头像',
     `gender`          char(1) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci               DEFAULT '2' COMMENT '性别(0-女,1-男,2-其他)',
     `status`          tinyint                                                       NOT NULL DEFAULT '1' COMMENT '状态 1启用 0禁用',
-    `is_super`        char(1) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci               DEFAULT '0' COMMENT '是否为超级管理员(0-否,1-是)',
+    `is_super_admin`  tinyint                                                       NOT NULL DEFAULT '0' COMMENT '是否超级管理员 1是 0否',
+    `is_system`       tinyint                                                       NOT NULL DEFAULT '0' COMMENT '是否系统内置 1是 0否',
     `login_time`      datetime                                                               DEFAULT NULL COMMENT '上次登录时间',
     `login_address`   varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci          DEFAULT NULL COMMENT '登录地址',
     `pwd_update_date` datetime                                                               DEFAULT NULL COMMENT '密码最后更新时间',
@@ -143,3 +144,29 @@ CREATE TABLE `sys_ip_block`
     KEY            `idx_ip_status` (`ip`,`status`),
     KEY            `idx_end_time` (`end_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='IP封禁表';
+
+
+CREATE TABLE `sys_role`
+(
+    `id`              bigint      NOT NULL COMMENT '角色ID',
+    `role_name`       varchar(64) NOT NULL COMMENT '角色名称',
+    `role_code`       varchar(64) NOT NULL COMMENT '角色编码',
+    `role_sort`       int         NOT NULL DEFAULT 0 COMMENT '显示顺序',
+    `status`          tinyint     NOT NULL DEFAULT 1 COMMENT '状态 1启用 0禁用',
+    `data_scope_type` varchar(32) NOT NULL DEFAULT 'SELF' COMMENT '数据范围 ALL/DEPT_AND_CHILD/DEPT_SELF/SELF/CUSTOM',
+    `is_system`       tinyint     NOT NULL DEFAULT 0 COMMENT '是否系统内置 1是 0否',
+    `is_super_admin`  tinyint     NOT NULL DEFAULT 0 COMMENT '是否超级管理员角色 1是 0否',
+    `is_deleted`      tinyint(1) DEFAULT '0' COMMENT '是否删除(0-否,1-是)',
+    `tenant_id`       bigint                                                                 DEFAULT NULL COMMENT '租户ID',
+    `create_time`     datetime                                                      NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '新增时间',
+    `create_by_id`    bigint                                                                 DEFAULT NULL COMMENT '新增用户ID',
+    `create_by`       varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci           DEFAULT NULL COMMENT '新增用户名称',
+    `update_time`     datetime                                                               DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `update_by_id`    bigint                                                                 DEFAULT NULL COMMENT '更新用户ID',
+    `update_by`       varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci           DEFAULT NULL COMMENT '更新用户名称',
+    `version`         bigint                                                                 DEFAULT '0' COMMENT '乐观锁',
+    `remark`          varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci          DEFAULT NULL COMMENT '备注',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_role_code` (`role_code`, `is_deleted`),
+    KEY               `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='角色表';

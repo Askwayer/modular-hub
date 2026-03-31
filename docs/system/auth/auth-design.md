@@ -333,7 +333,8 @@ CREATE TABLE `sys_user`
     `avatar_url`      varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci          DEFAULT NULL COMMENT '头像',
     `gender`          char(1) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci               DEFAULT '2' COMMENT '性别(0-女,1-男,2-其他)',
     `status`          tinyint                                                       NOT NULL DEFAULT '1' COMMENT '状态 1启用 0禁用',
-    `is_super`        char(1) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci               DEFAULT '0' COMMENT '是否为超级管理员(0-否,1-是)',
+    `is_super_admin`  tinyint                                                       NOT NULL DEFAULT '0' COMMENT '是否超级管理员 1是 0否',
+    `is_system`       tinyint                                                       NOT NULL DEFAULT '0' COMMENT '是否系统内置 1是 0否',
     `login_time`      datetime                                                               DEFAULT NULL COMMENT '上次登录时间',
     `login_address`   varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci          DEFAULT NULL COMMENT '登录地址',
     `pwd_update_date` datetime                                                               DEFAULT NULL COMMENT '密码最后更新时间',
@@ -502,7 +503,8 @@ POST /api/auth/login
       "userName": "admin",
       "nickName": "系统管理员",
       "avatarUrl": "",
-      "isSuper": "1"
+      "isSuperAdmin": 1,
+      "isSystem": 0
     }
   }
 }

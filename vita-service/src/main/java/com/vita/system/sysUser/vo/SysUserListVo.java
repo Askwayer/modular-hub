@@ -60,9 +60,14 @@ public class SysUserListVo {
     private Byte status;
 
     /**
-     * 是否为超级管理员(0-否,1-是)
+     * 是否超级管理员 1是 0否
      */
-    private String isSuper;
+    private Byte isSuperAdmin;
+
+    /**
+     * 是否系统内置 1是 0否
+     */
+    private Byte isSystem;
 
     /**
      * 上次登录时间

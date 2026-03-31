@@ -74,6 +74,8 @@ class AuthServiceImplTest {
         assertEquals(7200L, loginVo.getExpiresIn());
         assertEquals("admin", loginVo.getUserInfo().getUsername());
         assertEquals("系统管理员", loginVo.getUserInfo().getNickName());
+        assertEquals(Constants.ENABLED, loginVo.getUserInfo().getIsSuperAdmin());
+        assertEquals(Constants.DISABLED, loginVo.getUserInfo().getIsSystem());
         verify(loginAuditService).record("admin", 1L, requestClientInfo, Constants.SUCCESS, Constants.LOGIN_SUCCESS);
         verify(authTokenService).storeLoginUserInfo(any(LoginUserInfoModel.class));
         verify(authTokenService).login(1L);
@@ -201,7 +203,8 @@ class AuthServiceImplTest {
         user.setNickName("系统管理员");
         user.setPassword(com.vita.utils.Sm4Utils.encryptToBase64("12345678"));
         user.setStatus(status);
-        user.setIsSuper("1");
+        user.setIsSuperAdmin(Constants.ENABLED);
+        user.setIsSystem(Constants.DISABLED);
         return user;
     }
 

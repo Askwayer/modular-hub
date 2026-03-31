@@ -269,7 +269,8 @@ public class AuthServiceImpl implements IAuthService {
         loginUserInfo.setTokenName(authTokenService.getTokenName());
         loginUserInfo.setTokenPrefix(authTokenService.getTokenPrefix());
         loginUserInfo.setAvatarUrl(user.getAvatarUrl());
-        loginUserInfo.setIsSuper(user.getIsSuper());
+        loginUserInfo.setIsSuperAdmin(user.getIsSuperAdmin());
+        loginUserInfo.setIsSystem(user.getIsSystem());
         loginUserInfo.setLoginAddress(requestClientInfo.getIp());
         loginUserInfo.setLoginLocation(requestClientInfo.getLocation());
         loginUserInfo.setBrowser(requestClientInfo.getBrowser());
