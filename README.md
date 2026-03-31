@@ -22,20 +22,20 @@ Vita 是一个基于 **Spring Boot** 构建的后端项目，整体采用 **模�
 ### 设计原则
 
 1. **高内聚、低耦合**
-   - 每个模块聚焦单一职责
-   - 禁止跨模块随意访问内部实现
+    - 每个模块聚焦单一职责
+    - 禁止跨模块随意访问内部实现
 
 2. **统一基础能力下沉**
-   - 通用能力沉淀到 `vita-common` 或 `vita-starters`
-   - 避免业务模块重复封装公共逻辑
+    - 通用能力沉淀到 `vita-common` 或 `vita-starters`
+    - 避免业务模块重复封装公共逻辑
 
 3. **面向演进设计**
-   - 当前以单体模式运行，降低运维成本
-   - 未来可按业务边界逐步拆分为独立微服务
+    - 当前以单体模式运行，降低运维成本
+    - 未来可按业务边界逐步拆分为独立微服务
 
 4. **先业务闭环，再逐步拆分**
-   - 优先保证业务快速上线
-   - 当某个模块出现独立扩容、独立部署、独立数据库的需求时，再考虑服务化拆分
+    - 优先保证业务快速上线
+    - 当某个模块出现独立扩容、独立部署、独立数据库的需求时，再考虑服务化拆分
 
 ### 这种架构的优势
 
@@ -63,13 +63,13 @@ Vita 是一个基于 **Spring Boot** 构建的后端项目，整体采用 **模�
 
 ### 3.1 模块定位说明
 
-| 模块名 | 功能简介 | 职责与说明 |
-|:--|:--|:--|
+| 模块名             | 功能简介    | 职责与说明                                                             |
+|:----------------|:--------|:------------------------------------------------------------------|
 | `vita-starters` | 自定义启动模块 | 封装通用基础设施能力，例如验证码、文件存储、短信、邮件、日志审计、链路追踪、限流等，可通过 Spring Boot 自动装配复用。 |
-| `vita-common` | 公共基础模块 | 存放通用返回体、异常体系、工具类、常量、枚举、基础配置、通用 VO/DTO/BaseEntity 等公共内容。 |
-| `vita-auth` | 认证授权模块 | 提供登录、登出、Token 管理、权限校验、用户上下文、角色权限能力，可为 admin 与 app 提供统一认证鉴权支持。 |
-| `vita-admin` | 管理端模块 | 面向后台管理用户，负责系统配置、运营管理、内容管理、订单管理、用户管理、报表等后台业务。 |
-| `vita-app` | 客户端模块 | 面向外部用户，承载注册登录、商品浏览、订单交易、支付、用户中心等对外业务能力，是未来最可能独立拆分的业务域。 |
+| `vita-common`   | 公共基础模块  | 存放通用返回体、异常体系、工具类、常量、枚举、基础配置、通用 VO/DTO/BaseEntity 等公共内容。           |
+| `vita-auth`     | 认证授权模块  | 提供登录、登出、Token 管理、权限校验、用户上下文、角色权限能力，可为 admin 与 app 提供统一认证鉴权支持。     |
+| `vita-admin`    | 管理端模块   | 面向后台管理用户，负责系统配置、运营管理、内容管理、订单管理、用户管理、报表等后台业务。                      |
+| `vita-app`      | 客户端模块   | 面向外部用户，承载注册登录、商品浏览、订单交易、支付、用户中心等对外业务能力，是未来最可能独立拆分的业务域。            |
 
 ### 3.2 关于 `vita-starters` 模块
 
@@ -214,6 +214,22 @@ application-prod.yml
 - 构建后台管理基础功能
 - 完成用户管理、角色管理、菜单管理、字典管理等
 - 逐步承载运营侧业务
+
+#### 权限模型设计建议
+
+- 设计权限模型时建议采用 RBAC（基于角色的访问控制），并预留未来可能的权限维度扩展，例如部门范围权限等。
+
+```text
+sys_user
+  └── sys_user_role
+         └── sys_role
+                ├── sys_role_menu
+                │      └── sys_menu
+                ├── sys_role_permission
+                │      └── sys_permission
+                └── sys_role_dept_scope
+                       └── sys_dept
+```
 
 ### 第四阶段：客户端能力建设
 
@@ -464,7 +480,8 @@ mvn -pl vita-generator -DskipTests exec:java \
 
 输出目录示例：
 
-- 领域代码（entity/service/mapper/dto/vo/model）：`<targetModule>/src/main/java/com/vita/<businessModule>/<domainModule>/...`
+- 领域代码（entity/service/mapper/dto/vo/model）：
+  `<targetModule>/src/main/java/com/vita/<businessModule>/<domainModule>/...`
 - 控制器代码（controller）：`<controllerModule>/src/main/java/com/vita/controller/<businessModule>/...`
 - XML：`<targetModule>/src/main/resources/mapper/<businessModule>/...`
 
@@ -472,8 +489,10 @@ mvn -pl vita-generator -DskipTests exec:java \
 
 - 分层结构：`controller` / `service` / `serviceImpl` / `dto` / `vo` / `model` 与 v2 保持一致。
 - Controller 方法：`create`、`update`、`delete`、`getDetail`、`list`、`page`。
-- Service 方法：`Long create(...)`、`void update(...)`、`void delete(Long id)`、`DetailVo get(Long id)`、`List<ListVo> list(...)`、`PageResponse<PageVo> page(...)`。
-- DTO/VO 规则：`CreateDto`、`UpdateDto`、`SearchDto`、`DeletedDto`、`DetailVo`、`ListVo`、`PageVo`；分页查询关键字统一为 `keyword`。
+- Service 方法：`Long create(...)`、`void update(...)`、`void delete(Long id)`、`DetailVo get(Long id)`、
+  `List<ListVo> list(...)`、`PageResponse<PageVo> page(...)`。
+- DTO/VO 规则：`CreateDto`、`UpdateDto`、`SearchDto`、`DeletedDto`、`DetailVo`、`ListVo`、`PageVo`；分页查询关键字统一为
+  `keyword`。
 - Model 规则：`<Entity>Model extends <Entity>`。
 
 ### 14.2 注释与依赖规范
@@ -485,6 +504,7 @@ mvn -pl vita-generator -DskipTests exec:java \
 - 目标业务模块若使用 Lombok 注解（`@Data`、`@EqualsAndHashCode`），需在模块 `pom.xml` 显式引入：
 
 ```xml
+
 <dependency>
     <groupId>org.projectlombok</groupId>
     <artifactId>lombok</artifactId>
