@@ -57,12 +57,6 @@ public class SysRole extends BaseEntity {
     private Byte isSystem;
 
     /**
-     * 是否超级管理员角色 1是 0否
-     */
-    @TableField("is_super_admin")
-    private Byte isSuperAdmin;
-
-    /**
      * 备注
      */
     @TableField("remark")

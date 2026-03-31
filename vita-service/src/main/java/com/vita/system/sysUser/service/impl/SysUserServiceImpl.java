@@ -7,6 +7,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
 import com.vita.core.page.PageResponse;
+import com.vita.enums.CommonStatusEnum;
 import com.vita.system.sysUser.dto.SysUserCreateDto;
 import com.vita.system.sysUser.dto.SysUserSearchDto;
 import com.vita.system.sysUser.dto.SysUserUpdateDto;
@@ -49,6 +50,7 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         if (createDto == null) {
             throw new ServiceException(GlobalErrorCode.BAD_REQUEST);
         }
+        validateSingleSuperAdmin(null, createDto.getIsSuperAdmin());
         SysUser data = new SysUser();
         BeanUtils.copyProperties(createDto, data);
         data.setPassword(Sm4Utils.encryptToBase64(data.getPassword()));
@@ -66,7 +68,9 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         if (updateDto == null || updateDto.getId() == null) {
             throw new ServiceException(GlobalErrorCode.BAD_REQUEST);
         }
-        getRequiredEntity(updateDto.getId());
+        SysUser existed = getRequiredEntity(updateDto.getId());
+        Byte targetIsSuperAdmin = updateDto.getIsSuperAdmin() != null ? updateDto.getIsSuperAdmin() : existed.getIsSuperAdmin();
+        validateSingleSuperAdmin(updateDto.getId(), targetIsSuperAdmin);
         SysUser data = new SysUser();
         BeanUtils.copyProperties(updateDto, data);
         sysUserMapper.updateById(data);
@@ -199,5 +203,25 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
             throw new ServiceException(GlobalErrorCode.NOT_FOUND);
         }
         return data;
+    }
+
+    /**
+     * 超级管理员语义只保留在用户维度，并且全局只允许存在一个超级管理员用户。
+     *
+     * @param currentUserId 当前编辑用户ID，新增时为空
+     * @param isSuperAdmin  目标超级管理员标记
+     */
+    private void validateSingleSuperAdmin(Long currentUserId, Byte isSuperAdmin) {
+        if (!CommonStatusEnum.isEnabled(isSuperAdmin)) {
+            return;
+        }
+        LambdaQueryWrapper<SysUser> queryWrapper = new LambdaQueryWrapper<SysUser>()
+                .eq(SysUser::getIsSuperAdmin, CommonStatusEnum.ENABLED.getCode());
+        if (currentUserId != null) {
+            queryWrapper.ne(SysUser::getId, currentUserId);
+        }
+        if (sysUserMapper.selectCount(queryWrapper) > 0) {
+            throw new ServiceException(GlobalErrorCode.BAD_REQUEST.getCode(), "系统仅允许存在一个超级管理员用户");
+        }
     }
 }

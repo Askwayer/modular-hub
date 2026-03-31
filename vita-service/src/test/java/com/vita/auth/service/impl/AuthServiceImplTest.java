@@ -15,6 +15,7 @@ import com.vita.system.sysUser.entity.SysUser;
 import com.vita.system.sysUser.service.ISysUserService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.ObjectProvider;
@@ -72,13 +73,16 @@ class AuthServiceImplTest {
         assertEquals("jwt-token", loginVo.getTokenValue());
         assertEquals("Bearer", loginVo.getTokenPrefix());
         assertEquals(7200L, loginVo.getExpiresIn());
-        assertEquals("admin", loginVo.getUserInfo().getUsername());
-        assertEquals("系统管理员", loginVo.getUserInfo().getNickName());
-        assertEquals(Constants.ENABLED, loginVo.getUserInfo().getIsSuperAdmin());
-        assertEquals(Constants.DISABLED, loginVo.getUserInfo().getIsSystem());
+        assertEquals(1L, loginVo.getUserId());
+        assertEquals("admin", loginVo.getUsername());
+        assertEquals("系统管理员", loginVo.getNickName());
+
+        ArgumentCaptor<LoginUserInfoModel> loginUserInfoCaptor = ArgumentCaptor.forClass(LoginUserInfoModel.class);
         verify(loginAuditService).record("admin", 1L, requestClientInfo, Constants.SUCCESS, Constants.LOGIN_SUCCESS);
-        verify(authTokenService).storeLoginUserInfo(any(LoginUserInfoModel.class));
+        verify(authTokenService).storeLoginUserInfo(loginUserInfoCaptor.capture());
         verify(authTokenService).login(1L);
+        assertEquals(Constants.ENABLED, loginUserInfoCaptor.getValue().getIsSuperAdmin());
+        assertEquals(Constants.DISABLED, loginUserInfoCaptor.getValue().getIsSystem());
     }
 
     @Test
