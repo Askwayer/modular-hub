@@ -157,7 +157,6 @@ CREATE TABLE `sys_role`
     `status`          tinyint     NOT NULL                                          DEFAULT 1 COMMENT '状态 1启用 0禁用',
     `data_scope_type` varchar(32) NOT NULL                                          DEFAULT 'SELF' COMMENT '数据范围 ALL/DEPT_AND_CHILD/DEPT_SELF/SELF/CUSTOM',
     `is_system`       tinyint     NOT NULL                                          DEFAULT 0 COMMENT '是否系统内置 1是 0否',
-    `is_super_admin`  tinyint     NOT NULL                                          DEFAULT 0 COMMENT '是否超级管理员角色 1是 0否',
     `is_deleted`      tinyint(1) DEFAULT '0' COMMENT '是否删除(0-否,1-是)',
     `tenant_id`       bigint                                                        DEFAULT NULL COMMENT '租户ID',
     `create_time`     datetime    NOT NULL                                          DEFAULT CURRENT_TIMESTAMP COMMENT '新增时间',

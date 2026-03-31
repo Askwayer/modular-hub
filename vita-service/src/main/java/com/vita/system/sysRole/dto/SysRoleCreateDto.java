@@ -43,11 +43,6 @@ public class SysRoleCreateDto {
     private Byte isSystem;
 
     /**
-     * 是否超级管理员角色 1是 0否
-     */
-    private Byte isSuperAdmin;
-
-    /**
      * 备注
      */
     private String remark;
