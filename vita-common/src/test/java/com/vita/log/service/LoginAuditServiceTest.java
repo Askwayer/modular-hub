@@ -73,9 +73,23 @@ class LoginAuditServiceTest {
         }
 
         @Override
-        public void submit(String requestId, LoginAuditRecord record) {
+        public void submit(String requestId,
+                           String userName,
+                           Long userId,
+                           RequestClientInfo requestClientInfo,
+                           String status,
+                           String message) {
             this.requestId = requestId;
-            this.record = record;
+            this.record = new LoginAuditRecord();
+            this.record.setUserId(userId);
+            this.record.setUserName(userName);
+            this.record.setIpaddr(requestClientInfo.getIp());
+            this.record.setLoginLocation(requestClientInfo.getLocation());
+            this.record.setBrowser(requestClientInfo.getBrowser());
+            this.record.setOs(requestClientInfo.getOs());
+            this.record.setStatus(status);
+            this.record.setMsg(message);
+            this.record.setLoginTime(requestClientInfo.getRequestTime());
         }
 
         private void reset() {

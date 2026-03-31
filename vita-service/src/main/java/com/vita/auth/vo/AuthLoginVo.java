@@ -35,8 +35,19 @@ public class AuthLoginVo {
     private Long expiresIn;
 
     /**
-     * 当前登录用户信息
+     * 当前登录用户ID
      */
-    private LoginUserInfoModel userInfo;
+    private Long userId;
+
+    /**
+     * 当前登录用户名称
+     */
+    private String username;
+
+    /**
+     * 当前登录用户昵称
+     */
+    private String nickName;
+
 
 }

@@ -218,7 +218,9 @@ public class AuthServiceImpl implements IAuthService {
         authLoginVo.setTokenValue(loginUserInfo.getToken());
         authLoginVo.setTokenPrefix(loginUserInfo.getTokenPrefix());
         authLoginVo.setExpiresIn(authTokenService.getTokenTimeout());
-        authLoginVo.setUserInfo(loginUserInfo);
+        authLoginVo.setUserId(user.getId());
+        authLoginVo.setUsername(user.getUserName());
+        authLoginVo.setNickName(user.getNickName());
         return authLoginVo;
     }
 

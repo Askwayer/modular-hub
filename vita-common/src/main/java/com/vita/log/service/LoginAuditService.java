@@ -2,13 +2,14 @@ package com.vita.log.service;
 
 import com.vita.interceptor.RequestTraceInterceptor;
 import com.vita.log.executor.LoginAuditAsyncExecutor;
-import com.vita.log.model.LoginAuditRecord;
 import com.vita.log.model.RequestClientInfo;
 import org.slf4j.MDC;
 import org.springframework.stereotype.Component;
 
 /**
  * 登录审计服务，负责组装登录审计快照并提交异步执行。
+ *
+ * @Author znk
  */
 @Component
 public class LoginAuditService {
@@ -37,18 +38,7 @@ public class LoginAuditService {
             return;
         }
 
-        LoginAuditRecord loginAuditRecord = new LoginAuditRecord();
-        loginAuditRecord.setUserId(userId);
-        loginAuditRecord.setUserName(userName);
-        loginAuditRecord.setIpaddr(requestClientInfo.getIp());
-        loginAuditRecord.setLoginLocation(requestClientInfo.getLocation());
-        loginAuditRecord.setBrowser(requestClientInfo.getBrowser());
-        loginAuditRecord.setOs(requestClientInfo.getOs());
-        loginAuditRecord.setStatus(status);
-        loginAuditRecord.setMsg(message);
-        loginAuditRecord.setLoginTime(requestClientInfo.getRequestTime());
-
         String requestId = MDC.get(RequestTraceInterceptor.REQUEST_ID_KEY);
-        loginAuditAsyncExecutor.submit(requestId, loginAuditRecord);
+        loginAuditAsyncExecutor.submit(requestId, userName, userId, requestClientInfo, status, message);
     }
 }
