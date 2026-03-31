@@ -2,7 +2,7 @@ name: Notify Feishu Card On Merge Main
 
 on:
   pull_request_target:
-    types: [closed]
+    types: [ closed ]
     branches:
       - main
 
@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Build Feishu signed payload
+      - name: Build payload
         env:
           FEISHU_SECRET: ${{ secrets.FEISHU_SECRET }}
           REPO: ${{ github.repository }}
@@ -33,6 +33,7 @@ jobs:
 
           timestamp = str(int(time.time()))
           secret = os.environ["FEISHU_SECRET"]
+
           string_to_sign = f"{timestamp}\n{secret}".encode("utf-8")
           sign = base64.b64encode(
               hmac.new(string_to_sign, digestmod=hashlib.sha256).digest()
@@ -59,8 +60,66 @@ jobs:
                           "tag": "div",
                           "text": {
                               "tag": "lark_md",
-                              "content": f"**仓库**：{os.environ['REPO']}\n**PR**：#{os.environ['PR_NUMBER']} {os.environ['PR_TITLE']}"
+                              "content": (
+                                  f"**仓库**：{os.environ['REPO']}\n"
+                                  f"**PR**：#{os.environ['PR_NUMBER']} {os.environ['PR_TITLE']}\n"
+                                  f"**关键词**：GitHub"
+                              )
                           }
+                      },
+                      {
+                          "tag": "div",
+                          "fields": [
+                              {
+                                  "is_short": True,
+                                  "text": {
+                                      "tag": "lark_md",
+                                      "content": f"**目标分支**\n{os.environ['BASE_REF']}"
+                                  }
+                              },
+                              {
+                                  "is_short": True,
+                                  "text": {
+                                      "tag": "lark_md",
+                                      "content": f"**来源分支**\n{os.environ['HEAD_REF']}"
+                                  }
+                              },
+                              {
+                                  "is_short": True,
+                                  "text": {
+                                      "tag": "lark_md",
+                                      "content": f"**发起人**\n{os.environ['PR_AUTHOR']}"
+                                  }
+                              },
+                              {
+                                  "is_short": True,
+                                  "text": {
+                                      "tag": "lark_md",
+                                      "content": f"**合并人**\n{os.environ['MERGED_BY']}"
+                                  }
+                              }
+                          ]
+                      },
+                      {
+                          "tag": "div",
+                          "text": {
+                              "tag": "lark_md",
+                              "content": f"**合并时间**：{os.environ['MERGE_TIME']}"
+                          }
+                      },
+                      {
+                          "tag": "action",
+                          "actions": [
+                              {
+                                  "tag": "button",
+                                  "text": {
+                                      "tag": "plain_text",
+                                      "content": "查看 PR"
+                                  },
+                                  "type": "primary",
+                                  "url": os.environ["PR_URL"]
+                              }
+                          ]
                       }
                   ]
               }
@@ -70,7 +129,10 @@ jobs:
               json.dump(payload, f, ensure_ascii=False)
           PY
 
-      - name: Send message to Feishu
+      - name: Print payload
+        run: cat payload.json
+
+      - name: Send to Feishu
         env:
           FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
         run: |
