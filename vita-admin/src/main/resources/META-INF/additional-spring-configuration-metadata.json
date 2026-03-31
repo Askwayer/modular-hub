@@ -14,6 +14,11 @@
       "name": "vita.name",
       "type": "java.lang.String",
       "description": "Description for vita.name."
+    },
+    {
+      "name": "spring.data.redis.lettuce.pool.heartbeat",
+      "type": "java.lang.String",
+      "description": "Description for spring.data.redis.lettuce.pool.heartbeat."
     }
   ]
 }
