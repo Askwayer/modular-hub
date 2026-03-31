@@ -143,9 +143,9 @@ public class Sm4Utils {
     }
 
     public static void main(String[] args) {
-        String key = "1234567890abcdef";
+        String key = "Vita-4LQyrt4PbJE";
         // 待加密明文String plainText = "Hello, SM4!";
-        String plainText = "Hello, SM4!";
+        String plainText = "admin123";
         // 执行加密并输出密文String cipherText = encryptToBase64(plainText, key);
         String cipherText = encryptToBase64(plainText);
         log.info("加密输出: {}", cipherText);
