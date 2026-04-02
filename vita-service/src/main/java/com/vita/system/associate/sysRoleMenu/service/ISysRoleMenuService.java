@@ -13,12 +13,12 @@ import com.vita.system.associate.sysRoleMenu.vo.SysRoleMenuPageVo;
 import java.util.List;
 
 /**
+ * @version 1.0
  * @BelongsProject: vita
  * @BelongsPackage: com.vita.system.associate.sysRoleMenu.service
  * @Author znk
  * @CreateTime 2026-03-31 16:40:21
  * @Description: 角色菜单关联表 Service 接口
- * @version 1.0
  */
 public interface ISysRoleMenuService extends IService<SysRoleMenu> {
 
@@ -67,4 +67,12 @@ public interface ISysRoleMenuService extends IService<SysRoleMenu> {
      * @return 分页VO结果
      */
     PageResponse<SysRoleMenuPageVo> page(SysRoleMenuSearchDto searchDto);
+
+    /**
+     * 查询角色菜单ID集合。
+     *
+     * @param roleIds 角色ID集合
+     * @return 菜单ID集合
+     */
+    List<Long> getMenuIdsByRoleIds(List<Long> roleIds);
 }

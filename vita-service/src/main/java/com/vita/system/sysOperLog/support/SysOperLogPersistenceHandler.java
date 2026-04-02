@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 /**
  * 操作日志持久化适配器，将 common 层采集结果转换为系统操作日志实体。
  *
- * @author zhuningkang
+ * @author znk
  */
 @Component
 public class SysOperLogPersistenceHandler implements OperLogPersistence {

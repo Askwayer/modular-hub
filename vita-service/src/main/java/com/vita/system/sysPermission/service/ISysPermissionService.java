@@ -67,4 +67,13 @@ public interface ISysPermissionService extends IService<SysPermission> {
      * @return 分页VO结果
      */
     PageResponse<SysPermissionPageVo> page(SysPermissionSearchDto searchDto);
+
+    /**
+     * 根据权限ID和状态查询权限码集合。
+     *
+     * @param permissionIds 权限ID集合
+     * @param status 权限状态，可为空
+     * @return 权限码集合
+     */
+    List<String> getPermissionCodesByIds(List<Long> permissionIds, Byte status);
 }

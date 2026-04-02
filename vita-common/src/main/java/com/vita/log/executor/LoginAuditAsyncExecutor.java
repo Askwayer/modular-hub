@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 /**
  * 登录审计异步执行器，负责快照收口、持久化扩展点解析与统一任务投递。
  *
- * @author zhuningkang
+ * @author znk
  */
 @Component
 public class LoginAuditAsyncExecutor {

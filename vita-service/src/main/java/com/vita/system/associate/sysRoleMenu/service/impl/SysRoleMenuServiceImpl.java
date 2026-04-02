@@ -1,18 +1,19 @@
 package com.vita.system.associate.sysRoleMenu.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
 import com.vita.core.page.PageResponse;
+import com.vita.mybatis.LambdaQueryWrapperX;
 import com.vita.system.associate.sysRoleMenu.dto.SysRoleMenuCreateDto;
 import com.vita.system.associate.sysRoleMenu.dto.SysRoleMenuSearchDto;
 import com.vita.system.associate.sysRoleMenu.dto.SysRoleMenuUpdateDto;
 import com.vita.system.associate.sysRoleMenu.entity.SysRoleMenu;
 import com.vita.system.associate.sysRoleMenu.mapper.SysRoleMenuMapper;
 import com.vita.system.associate.sysRoleMenu.service.ISysRoleMenuService;
-import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.vita.system.associate.sysRoleMenu.vo.SysRoleMenuDetailVo;
 import com.vita.system.associate.sysRoleMenu.vo.SysRoleMenuListVo;
 import com.vita.system.associate.sysRoleMenu.vo.SysRoleMenuPageVo;
@@ -23,12 +24,12 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 
 /**
+ * @version 1.0
  * @BelongsProject: vita
  * @BelongsPackage: com.vita.system.associate.sysRoleMenu.service.impl
  * @Author znk
  * @CreateTime 2026-03-31 16:40:21
  * @Description: 角色菜单关联表 Service 实现
- * @version 1.0
  */
 @Service
 public class SysRoleMenuServiceImpl extends ServiceImpl<SysRoleMenuMapper, SysRoleMenu> implements ISysRoleMenuService {
@@ -123,13 +124,31 @@ public class SysRoleMenuServiceImpl extends ServiceImpl<SysRoleMenuMapper, SysRo
     }
 
     /**
+     * 查询角色菜单ID集合。
+     *
+     * @param roleIds 角色ID集合
+     * @return 菜单ID集合
+     */
+    @Override
+    public List<Long> getMenuIdsByRoleIds(List<Long> roleIds) {
+        if (CollUtil.isEmpty(roleIds)) {
+            return CollUtil.newArrayList();
+        }
+        List<Long> menuIds = sysRoleMenuMapper.selectMenuIdsByRoleIds(roleIds);
+        if (CollUtil.isEmpty(menuIds)) {
+            return CollUtil.newArrayList();
+        }
+        return menuIds;
+    }
+
+    /**
      * 构造列表查询条件。
      *
      * @param searchDto 查询条件
      * @return 查询条件构造器
      */
-    private LambdaQueryWrapper<SysRoleMenu> buildQueryWrapper(SysRoleMenuSearchDto searchDto) {
-        LambdaQueryWrapper<SysRoleMenu> queryWrapper = new LambdaQueryWrapper<>();
+    private LambdaQueryWrapperX<SysRoleMenu> buildQueryWrapper(SysRoleMenuSearchDto searchDto) {
+        LambdaQueryWrapperX<SysRoleMenu> queryWrapper = new LambdaQueryWrapperX<>();
         if (searchDto != null && StrUtil.isNotBlank(searchDto.getKeyword())) {
             // TODO 根据业务字段补充关键字查询条件
         }

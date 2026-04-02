@@ -1,8 +1,8 @@
 package com.vita.auth.service;
 
 import com.vita.auth.dto.AuthLoginDto;
+import com.vita.auth.vo.AuthInfoVo;
 import com.vita.auth.vo.AuthLoginVo;
-import com.vita.core.model.LoginUserInfoModel;
 
 /**
  * @BelongsProject: be-vita
@@ -32,5 +32,5 @@ public interface IAuthService {
      *
      * @return 当前登录用户快照
      */
-    LoginUserInfoModel getCurrentUserInfo();
+    AuthInfoVo getCurrentUserInfo();
 }

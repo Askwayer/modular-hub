@@ -2,7 +2,6 @@ package com.vita.system.sysIpBlock.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.text.CharSequenceUtil;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.vita.constant.AuthConstants;
 import com.vita.core.RedisCache;
@@ -10,6 +9,7 @@ import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
 import com.vita.core.page.PageResponse;
 import com.vita.enums.CommonStatusEnum;
+import com.vita.mybatis.LambdaQueryWrapperX;
 import com.vita.system.sysIpBlock.dto.SysIpBlockCreateDto;
 import com.vita.system.sysIpBlock.dto.SysIpBlockSearchDto;
 import com.vita.system.sysIpBlock.dto.SysIpBlockUpdateDto;
@@ -160,7 +160,7 @@ public class SysIpBlockServiceImpl extends ServiceImpl<SysIpBlockMapper, SysIpBl
         if (cacheValue != null) {
             return true;
         }
-        SysIpBlock sysIpBlock = sysIpBlockMapper.selectOne(new LambdaQueryWrapper<SysIpBlock>()
+        SysIpBlock sysIpBlock = sysIpBlockMapper.selectOne(new LambdaQueryWrapperX<SysIpBlock>()
                 .eq(SysIpBlock::getIp, ip)
                 .eq(SysIpBlock::getStatus, CommonStatusEnum.ENABLED.getCode()));
         if (sysIpBlock == null) {
@@ -179,7 +179,7 @@ public class SysIpBlockServiceImpl extends ServiceImpl<SysIpBlockMapper, SysIpBl
         if (!cacheKeys.isEmpty()) {
             redisCache.deleteObject(cacheKeys);
         }
-        List<SysIpBlock> blockedList = sysIpBlockMapper.selectList(new LambdaQueryWrapper<SysIpBlock>()
+        List<SysIpBlock> blockedList = sysIpBlockMapper.selectList(new LambdaQueryWrapperX<SysIpBlock>()
                 .eq(SysIpBlock::getStatus, CommonStatusEnum.ENABLED.getCode()));
         for (SysIpBlock sysIpBlock : blockedList) {
             writeBlockCache(sysIpBlock);
@@ -192,12 +192,12 @@ public class SysIpBlockServiceImpl extends ServiceImpl<SysIpBlockMapper, SysIpBl
      * @param searchDto 查询条件
      * @return 查询条件构造器
      */
-    private LambdaQueryWrapper<SysIpBlock> buildQueryWrapper(SysIpBlockSearchDto searchDto) {
-        LambdaQueryWrapper<SysIpBlock> queryWrapper = new LambdaQueryWrapper<>();
+    private LambdaQueryWrapperX<SysIpBlock> buildQueryWrapper(SysIpBlockSearchDto searchDto) {
+        LambdaQueryWrapperX<SysIpBlock> queryWrapper = new LambdaQueryWrapperX<>();
         if (searchDto != null && CharSequenceUtil.isNotBlank(searchDto.getIp())) {
             queryWrapper.like(SysIpBlock::getIp, searchDto.getIp());
-        } else if (searchDto != null && searchDto.getStatus() != null) {
-            queryWrapper.eq(SysIpBlock::getStatus, searchDto.getStatus());
+        } else if (searchDto != null) {
+            queryWrapper.eqIfPresent(SysIpBlock::getStatus, searchDto.getStatus());
         }
         queryWrapper.orderByDesc(SysIpBlock::getId);
         return queryWrapper;

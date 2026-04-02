@@ -8,7 +8,7 @@ import org.springframework.core.type.AnnotatedTypeMetadata;
 /**
  * 验证码类型条件判断。
  *
- * @author zhuningkang
+ * @author znk
  */
 public final class CaptchaTypeCondition {
 

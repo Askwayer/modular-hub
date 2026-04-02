@@ -9,7 +9,7 @@ import java.util.Objects;
  *
  * <p>统一约定：1-启用，0-禁用。</p>
  *
- * @author zhuningkang
+ * @author znk
  */
 @Getter
 public enum CommonStatusEnum {

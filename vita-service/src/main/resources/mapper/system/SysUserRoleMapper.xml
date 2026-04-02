@@ -2,4 +2,13 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.vita.system.associate.sysUserRole.mapper.SysUserRoleMapper">
 
+    <select id="selectRoleIdsByUserId" resultType="java.lang.Long">
+        SELECT role_id
+        FROM sys_user_role
+        WHERE user_id = #{userId}
+          AND is_deleted = 0
+          AND role_id IS NOT NULL
+        GROUP BY role_id
+        ORDER BY MIN(id) ASC
+    </select>
 </mapper>

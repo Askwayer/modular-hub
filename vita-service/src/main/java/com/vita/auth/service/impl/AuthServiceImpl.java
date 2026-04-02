@@ -3,8 +3,11 @@ package com.vita.auth.service.impl;
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.text.CharSequenceUtil;
 import com.vita.auth.dto.AuthLoginDto;
-import com.vita.auth.service.AuthTokenService;
+import com.vita.auth.service.IAuthCommonService;
 import com.vita.auth.service.IAuthService;
+import com.vita.auth.service.IAuthTokenService;
+import com.vita.auth.vo.AuthInfoVo;
+import com.vita.auth.vo.AuthMenuVo;
 import com.vita.auth.vo.AuthLoginVo;
 import com.vita.captcha.dto.CaptchaVerifyRequestDto;
 import com.vita.captcha.service.CaptchaApplicationService;
@@ -18,6 +21,7 @@ import com.vita.log.model.RequestClientInfo;
 import com.vita.log.resolver.RequestClientInfoResolver;
 import com.vita.log.service.LoginAuditService;
 import com.vita.system.sysIpBlock.service.ISysIpBlockService;
+import com.vita.system.sysMenu.entity.SysMenu;
 import com.vita.system.sysUser.entity.SysUser;
 import com.vita.system.sysUser.service.ISysUserService;
 import com.vita.utils.Sm4Utils;
@@ -25,6 +29,8 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -40,8 +46,9 @@ public class AuthServiceImpl implements IAuthService {
 
     private final ISysUserService sysUserService;
     private final ISysIpBlockService sysIpBlockService;
+    private final IAuthCommonService authCommonService;
     private final ObjectProvider<CaptchaApplicationService> captchaApplicationServiceProvider;
-    private final AuthTokenService authTokenService;
+    private final IAuthTokenService authTokenService;
     private final RequestClientInfoResolver requestClientInfoResolver;
     private final LoginAuditService loginAuditService;
 
@@ -57,12 +64,14 @@ public class AuthServiceImpl implements IAuthService {
      */
     public AuthServiceImpl(ISysUserService sysUserService,
                            ISysIpBlockService sysIpBlockService,
+                           IAuthCommonService authCommonService,
                            ObjectProvider<CaptchaApplicationService> captchaApplicationServiceProvider,
-                           AuthTokenService authTokenService,
+                           IAuthTokenService authTokenService,
                            RequestClientInfoResolver requestClientInfoResolver,
                            LoginAuditService loginAuditService) {
         this.sysUserService = sysUserService;
         this.sysIpBlockService = sysIpBlockService;
+        this.authCommonService = authCommonService;
         this.captchaApplicationServiceProvider = captchaApplicationServiceProvider;
         this.authTokenService = authTokenService;
         this.requestClientInfoResolver = requestClientInfoResolver;
@@ -111,22 +120,20 @@ public class AuthServiceImpl implements IAuthService {
      * @return 当前登录用户快照
      */
     @Override
-    public LoginUserInfoModel getCurrentUserInfo() {
+    public AuthInfoVo getCurrentUserInfo() {
         authTokenService.checkLogin();
-        Object sessionValue = authTokenService.getStoredLoginUserInfo();
-        LoginUserInfoModel loginUserInfoModel = toLoginUserInfoModel(sessionValue);
-        if (loginUserInfoModel != null) {
-            return loginUserInfoModel;
-        }
-        Object loginId = authTokenService.getLoginId();
-        if (loginId == null) {
-            throw new ServiceException(GlobalErrorCode.UNAUTHORIZED);
-        }
-        SysUser user = sysUserService.getById(Long.valueOf(String.valueOf(loginId)));
-        if (user == null) {
-            throw new ServiceException(GlobalErrorCode.UNAUTHORIZED);
-        }
-        return buildLoginUserInfo(user, requestClientInfoResolver.resolveCurrentRequest());
+        LoginUserInfoModel loginUserInfoModel = resolveCurrentLoginUserInfo();
+        Long userId = loginUserInfoModel.getId();
+        List<String> roleCodes = getOrLoadRoleCodes(userId);
+        List<String> permissionCodes = getOrLoadPermissionCodes(userId);
+        List<SysMenu> menus = authCommonService.getMenusByUserId(userId);
+
+        AuthInfoVo authInfoVo = new AuthInfoVo();
+        authInfoVo.setUserInfo(loginUserInfoModel);
+        authInfoVo.setRoleCodes(roleCodes);
+        authInfoVo.setPermissionCodes(permissionCodes);
+        authInfoVo.setMenus(BeanUtil.copyToList(menus, AuthMenuVo.class));
+        return authInfoVo;
     }
 
     /**
@@ -281,6 +288,62 @@ public class AuthServiceImpl implements IAuthService {
         return loginUserInfo;
     }
 
+
+    /**
+     * 获取当前登录用户快照的统一入口，先尝试从会话缓存获取，未命中时重建并缓存后返回。
+     *
+     * @return
+     */
+    private LoginUserInfoModel resolveCurrentLoginUserInfo() {
+        LoginUserInfoModel loginUserInfoModel = toLoginUserInfoModel(authTokenService.getStoredLoginUserInfo());
+        if (loginUserInfoModel != null) {
+            return loginUserInfoModel;
+        }
+        Object loginId = authTokenService.getLoginId();
+        if (loginId == null) {
+            throw new ServiceException(GlobalErrorCode.UNAUTHORIZED);
+        }
+        SysUser user = sysUserService.getById(Long.valueOf(String.valueOf(loginId)));
+        if (user == null) {
+            throw new ServiceException(GlobalErrorCode.UNAUTHORIZED);
+        }
+        LoginUserInfoModel rebuiltLoginUserInfo = buildLoginUserInfo(user, requestClientInfoResolver.resolveCurrentRequest());
+        authTokenService.storeLoginUserInfo(rebuiltLoginUserInfo);
+        return rebuiltLoginUserInfo;
+    }
+
+    /**
+     * 根据用户 ID 获取当前登录用户的角色编码列表，先尝试从会话缓存获取，未命中时查询数据库后缓存并返回。
+     *
+     * @param userId
+     * @return
+     */
+    private List<String> getOrLoadRoleCodes(Long userId) {
+        List<String> roleCodes = castStringList(authTokenService.getStoredLoginRoleCodes());
+        if (!roleCodes.isEmpty()) {
+            return roleCodes;
+        }
+        roleCodes = authCommonService.getRoleCodesByUserId(userId);
+        authTokenService.storeLoginRoleCodes(roleCodes);
+        return roleCodes;
+    }
+
+    /**
+     * 根据用户 ID 获取当前登录用户的权限编码列表，先尝试从会话缓存获取，未命中时查询数据库后缓存并返回。
+     *
+     * @param userId
+     * @return
+     */
+    private List<String> getOrLoadPermissionCodes(Long userId) {
+        List<String> permissionCodes = castStringList(authTokenService.getStoredLoginPermissionCodes());
+        if (!permissionCodes.isEmpty()) {
+            return permissionCodes;
+        }
+        permissionCodes = authCommonService.getPermissionCodesByUserId(userId);
+        authTokenService.storeLoginPermissionCodes(permissionCodes);
+        return permissionCodes;
+    }
+
     /**
      * 将会话中缓存的用户对象转换为统一的登录用户模型。
      *
@@ -295,5 +358,32 @@ public class AuthServiceImpl implements IAuthService {
             return null;
         }
         return BeanUtil.toBean(sessionValue, LoginUserInfoModel.class);
+    }
+
+    /**
+     * 将任意对象安全转换为 {@code List<String>}。
+     *
+     * <p>处理规则如下：
+     * <ul>
+     *   <li>如果传入对象不是 {@code List} 类型，则返回空列表</li>
+     *   <li>如果传入对象是 {@code List}，则遍历其中元素</li>
+     *   <li>忽略列表中的 {@code null} 元素</li>
+     *   <li>非空元素统一通过 {@link String#valueOf(Object)} 转换为字符串</li>
+     * </ul>
+     *
+     * @param value 待转换的对象，预期可能为 {@code List<?>}
+     * @return 转换后的字符串列表；如果输入不是列表或列表中没有有效元素，则返回空列表
+     */
+    private List<String> castStringList(Object value) {
+        if (!(value instanceof List<?> list)) {
+            return List.of();
+        }
+        List<String> result = new ArrayList<>(list.size());
+        for (Object item : list) {
+            if (item != null) {
+                result.add(String.valueOf(item));
+            }
+        }
+        return result;
     }
 }

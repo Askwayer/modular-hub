@@ -2,6 +2,8 @@ package com.vita.auth.service;
 
 import com.vita.core.model.LoginUserInfoModel;
 
+import java.util.List;
+
 /**
  * @BelongsProject: be-vita
  * @BelongsPackage: com.vita.auth.service
@@ -10,7 +12,7 @@ import com.vita.core.model.LoginUserInfoModel;
  * @Description: 认证令牌上下文服务
  * @Version: 1.0
  */
-public interface AuthTokenService {
+public interface IAuthTokenService {
 
     /**
      * 建立当前用户的登录态。
@@ -42,6 +44,34 @@ public interface AuthTokenService {
      * @return 登录用户信息对象
      */
     Object getStoredLoginUserInfo();
+
+    /**
+     * 将登录用户角色码集合写入认证上下文。
+     *
+     * @param roleCodes 角色码集合
+     */
+    void storeLoginRoleCodes(List<String> roleCodes);
+
+    /**
+     * 读取认证上下文中的角色码集合。
+     *
+     * @return 角色码集合
+     */
+    Object getStoredLoginRoleCodes();
+
+    /**
+     * 将登录用户权限码集合写入认证上下文。
+     *
+     * @param permissionCodes 权限码集合
+     */
+    void storeLoginPermissionCodes(List<String> permissionCodes);
+
+    /**
+     * 读取认证上下文中的权限码集合。
+     *
+     * @return 权限码集合
+     */
+    Object getStoredLoginPermissionCodes();
 
     /**
      * 获取当前 token 值。

@@ -5,7 +5,7 @@ import lombok.Data;
 /**
  * 验证码校验请求 DTO。
  *
- * @author zhuningkang
+ * @author znk
  */
 @Data
 public class CaptchaVerifyRequestDto {

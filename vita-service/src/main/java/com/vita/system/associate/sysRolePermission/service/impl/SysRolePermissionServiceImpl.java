@@ -1,11 +1,12 @@
 package com.vita.system.associate.sysRolePermission.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
 import com.vita.core.page.PageResponse;
+import com.vita.mybatis.LambdaQueryWrapperX;
 import com.vita.system.associate.sysRolePermission.dto.SysRolePermissionCreateDto;
 import com.vita.system.associate.sysRolePermission.dto.SysRolePermissionSearchDto;
 import com.vita.system.associate.sysRolePermission.dto.SysRolePermissionUpdateDto;
@@ -21,6 +22,7 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
  * @BelongsProject: vita
@@ -123,13 +125,34 @@ public class SysRolePermissionServiceImpl extends ServiceImpl<SysRolePermissionM
     }
 
     /**
+     * 查询角色权限ID集合。
+     *
+     * @param roleIds 角色ID集合
+     * @return 权限ID集合
+     */
+    @Override
+    public List<Long> getPermissionIdsByRoleIds(List<Long> roleIds) {
+        if (CollUtil.isEmpty(roleIds)) {
+            return CollUtil.newArrayList();
+        }
+        return sysRolePermissionMapper.selectList(new LambdaQueryWrapperX<SysRolePermission>()
+                        .inIfPresent(SysRolePermission::getRoleId, roleIds)
+                        .orderByAsc(SysRolePermission::getId))
+                .stream()
+                .map(SysRolePermission::getPermissionId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+    }
+
+    /**
      * 构造列表查询条件。
      *
      * @param searchDto 查询条件
      * @return 查询条件构造器
      */
-    private LambdaQueryWrapper<SysRolePermission> buildQueryWrapper(SysRolePermissionSearchDto searchDto) {
-        LambdaQueryWrapper<SysRolePermission> queryWrapper = new LambdaQueryWrapper<>();
+    private LambdaQueryWrapperX<SysRolePermission> buildQueryWrapper(SysRolePermissionSearchDto searchDto) {
+        LambdaQueryWrapperX<SysRolePermission> queryWrapper = new LambdaQueryWrapperX<>();
         if (searchDto != null && StrUtil.isNotBlank(searchDto.getKeyword())) {
             // TODO 根据业务字段补充关键字查询条件
         }

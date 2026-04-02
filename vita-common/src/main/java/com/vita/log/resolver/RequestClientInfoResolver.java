@@ -16,7 +16,7 @@ import java.time.LocalDateTime;
 /**
  * 请求客户端信息解析器，负责从当前请求中提取 IP、归属地和终端信息。
  *
- * @author zhuningkang
+ * @author znk
  */
 @Component
 public class RequestClientInfoResolver {

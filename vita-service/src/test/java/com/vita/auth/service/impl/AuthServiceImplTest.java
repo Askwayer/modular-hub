@@ -1,9 +1,12 @@
 package com.vita.auth.service.impl;
 
 import com.vita.auth.dto.AuthLoginDto;
-import com.vita.auth.service.AuthTokenService;
+import com.vita.auth.service.IAuthCommonService;
+import com.vita.auth.service.IAuthTokenService;
+import com.vita.auth.vo.AuthInfoVo;
 import com.vita.auth.vo.AuthLoginVo;
 import com.vita.captcha.service.CaptchaApplicationService;
+import com.vita.constant.AuthConstants;
 import com.vita.constant.Constants;
 import com.vita.core.exception.ServiceException;
 import com.vita.core.model.LoginUserInfoModel;
@@ -11,6 +14,7 @@ import com.vita.log.model.RequestClientInfo;
 import com.vita.log.resolver.RequestClientInfoResolver;
 import com.vita.log.service.LoginAuditService;
 import com.vita.system.sysIpBlock.service.ISysIpBlockService;
+import com.vita.system.sysMenu.entity.SysMenu;
 import com.vita.system.sysUser.entity.SysUser;
 import com.vita.system.sysUser.service.ISysUserService;
 import org.junit.jupiter.api.Test;
@@ -22,9 +26,11 @@ import org.springframework.beans.factory.ObjectProvider;
 
 import java.time.LocalDateTime;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class AuthServiceImplTest {
@@ -34,11 +40,13 @@ class AuthServiceImplTest {
     @Mock
     private ISysIpBlockService sysIpBlockService;
     @Mock
+    private IAuthCommonService authCommonService;
+    @Mock
     private ObjectProvider<CaptchaApplicationService> captchaApplicationServiceProvider;
     @Mock
     private CaptchaApplicationService captchaApplicationService;
     @Mock
-    private AuthTokenService authTokenService;
+    private IAuthTokenService authTokenService;
     @Mock
     private RequestClientInfoResolver requestClientInfoResolver;
     @Mock
@@ -50,6 +58,7 @@ class AuthServiceImplTest {
         AuthServiceImpl authService = new AuthServiceImpl(
                 sysUserService,
                 sysIpBlockService,
+                authCommonService,
                 captchaApplicationServiceProvider,
                 authTokenService,
                 requestClientInfoResolver,
@@ -91,6 +100,7 @@ class AuthServiceImplTest {
         AuthServiceImpl authService = new AuthServiceImpl(
                 sysUserService,
                 sysIpBlockService,
+                authCommonService,
                 captchaApplicationServiceProvider,
                 authTokenService,
                 requestClientInfoResolver,
@@ -117,6 +127,7 @@ class AuthServiceImplTest {
         AuthServiceImpl authService = new AuthServiceImpl(
                 sysUserService,
                 sysIpBlockService,
+                authCommonService,
                 captchaApplicationServiceProvider,
                 authTokenService,
                 requestClientInfoResolver,
@@ -142,6 +153,7 @@ class AuthServiceImplTest {
         AuthServiceImpl authService = new AuthServiceImpl(
                 sysUserService,
                 sysIpBlockService,
+                authCommonService,
                 captchaApplicationServiceProvider,
                 authTokenService,
                 requestClientInfoResolver,
@@ -171,17 +183,28 @@ class AuthServiceImplTest {
         AuthServiceImpl authService = new AuthServiceImpl(
                 sysUserService,
                 sysIpBlockService,
+                authCommonService,
                 captchaApplicationServiceProvider,
                 authTokenService,
                 requestClientInfoResolver,
                 loginAuditService
         );
         LoginUserInfoModel loginUserInfoModel = new LoginUserInfoModel();
+        loginUserInfoModel.setId(1L);
         loginUserInfoModel.setUsername("admin");
+        SysMenu menu = new SysMenu();
+        menu.setId(1000L);
+        menu.setMenuName("系统管理");
         when(authTokenService.getStoredLoginUserInfo()).thenReturn(loginUserInfoModel);
+        when(authTokenService.getStoredLoginRoleCodes()).thenReturn(java.util.List.of("SUPER_ADMIN"));
+        when(authTokenService.getStoredLoginPermissionCodes()).thenReturn(java.util.List.of(AuthConstants.ALL_PERMISSION_CODE));
+        when(authCommonService.getMenusByUserId(1L)).thenReturn(java.util.List.of(menu));
 
-        LoginUserInfoModel currentUserInfo = authService.getCurrentUserInfo();
-        assertEquals("admin", currentUserInfo.getUsername());
+        AuthInfoVo currentUserInfo = authService.getCurrentUserInfo();
+        assertEquals("admin", currentUserInfo.getUserInfo().getUsername());
+        assertEquals("SUPER_ADMIN", currentUserInfo.getRoleCodes().get(0));
+        assertEquals(AuthConstants.ALL_PERMISSION_CODE, currentUserInfo.getPermissionCodes().get(0));
+        assertEquals(1000L, currentUserInfo.getMenus().get(0).getId());
         verify(authTokenService).checkLogin();
     }
 
@@ -190,6 +213,7 @@ class AuthServiceImplTest {
         AuthServiceImpl authService = new AuthServiceImpl(
                 sysUserService,
                 sysIpBlockService,
+                authCommonService,
                 captchaApplicationServiceProvider,
                 authTokenService,
                 requestClientInfoResolver,

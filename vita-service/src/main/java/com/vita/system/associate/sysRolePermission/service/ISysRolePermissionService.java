@@ -67,4 +67,12 @@ public interface ISysRolePermissionService extends IService<SysRolePermission> {
      * @return 分页VO结果
      */
     PageResponse<SysRolePermissionPageVo> page(SysRolePermissionSearchDto searchDto);
+
+    /**
+     * 查询角色权限ID集合。
+     *
+     * @param roleIds 角色ID集合
+     * @return 权限ID集合
+     */
+    List<Long> getPermissionIdsByRoleIds(List<Long> roleIds);
 }

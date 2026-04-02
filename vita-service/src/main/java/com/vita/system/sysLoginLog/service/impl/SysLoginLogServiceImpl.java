@@ -2,10 +2,10 @@ package com.vita.system.sysLoginLog.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.StrUtil;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
 import com.vita.core.page.PageResponse;
+import com.vita.mybatis.LambdaQueryWrapperX;
 import com.vita.system.sysLoginLog.dto.SysLoginLogCreateDto;
 import com.vita.system.sysLoginLog.dto.SysLoginLogSearchDto;
 import com.vita.system.sysLoginLog.dto.SysLoginLogUpdateDto;
@@ -128,8 +128,8 @@ public class SysLoginLogServiceImpl extends ServiceImpl<SysLoginLogMapper, SysLo
      * @param searchDto 查询条件
      * @return 查询条件构造器
      */
-    private LambdaQueryWrapper<SysLoginLog> buildQueryWrapper(SysLoginLogSearchDto searchDto) {
-        LambdaQueryWrapper<SysLoginLog> queryWrapper = new LambdaQueryWrapper<>();
+    private LambdaQueryWrapperX<SysLoginLog> buildQueryWrapper(SysLoginLogSearchDto searchDto) {
+        LambdaQueryWrapperX<SysLoginLog> queryWrapper = new LambdaQueryWrapperX<>();
         if (searchDto != null && StrUtil.isNotBlank(searchDto.getKeyword())) {
             // TODO 根据业务字段补充关键字查询条件
         }

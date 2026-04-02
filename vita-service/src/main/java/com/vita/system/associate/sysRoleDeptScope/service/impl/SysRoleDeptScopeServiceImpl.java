@@ -2,10 +2,10 @@ package com.vita.system.associate.sysRoleDeptScope.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.StrUtil;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
 import com.vita.core.page.PageResponse;
+import com.vita.mybatis.LambdaQueryWrapperX;
 import com.vita.system.associate.sysRoleDeptScope.dto.SysRoleDeptScopeCreateDto;
 import com.vita.system.associate.sysRoleDeptScope.dto.SysRoleDeptScopeSearchDto;
 import com.vita.system.associate.sysRoleDeptScope.dto.SysRoleDeptScopeUpdateDto;
@@ -128,8 +128,8 @@ public class SysRoleDeptScopeServiceImpl extends ServiceImpl<SysRoleDeptScopeMap
      * @param searchDto 查询条件
      * @return 查询条件构造器
      */
-    private LambdaQueryWrapper<SysRoleDeptScope> buildQueryWrapper(SysRoleDeptScopeSearchDto searchDto) {
-        LambdaQueryWrapper<SysRoleDeptScope> queryWrapper = new LambdaQueryWrapper<>();
+    private LambdaQueryWrapperX<SysRoleDeptScope> buildQueryWrapper(SysRoleDeptScopeSearchDto searchDto) {
+        LambdaQueryWrapperX<SysRoleDeptScope> queryWrapper = new LambdaQueryWrapperX<>();
         if (searchDto != null && StrUtil.isNotBlank(searchDto.getKeyword())) {
             // TODO 根据业务字段补充关键字查询条件
         }

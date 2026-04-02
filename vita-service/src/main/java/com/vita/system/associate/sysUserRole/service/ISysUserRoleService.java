@@ -13,12 +13,12 @@ import com.vita.system.associate.sysUserRole.vo.SysUserRolePageVo;
 import java.util.List;
 
 /**
+ * @version 1.0
  * @BelongsProject: vita
  * @BelongsPackage: com.vita.system.associate.sysUserRole.service
  * @Author znk
  * @CreateTime 2026-03-31 16:39:20
  * @Description: 用户角色关联表 Service 接口
- * @version 1.0
  */
 public interface ISysUserRoleService extends IService<SysUserRole> {
 
@@ -67,4 +67,21 @@ public interface ISysUserRoleService extends IService<SysUserRole> {
      * @return 分页VO结果
      */
     PageResponse<SysUserRolePageVo> page(SysUserRoleSearchDto searchDto);
+
+    /**
+     * 根据用户ID获取其拥有的角色ID列表。
+     *
+     * @param userId 用户ID
+     * @return 角色ID列表
+     */
+    List<Long> getRoleIdsByUserId(Long userId);
+
+    /**
+     * 查询用户角色码集合。
+     *
+     * @param userId 用户ID
+     * @return 角色码集合
+     */
+    List<String> getRoleCodesByUserId(Long userId);
+
 }

@@ -2,12 +2,12 @@ package com.vita.system.sysUser.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.text.CharSequenceUtil;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
 import com.vita.core.page.PageResponse;
 import com.vita.enums.CommonStatusEnum;
+import com.vita.mybatis.LambdaQueryWrapperX;
 import com.vita.system.sysUser.dto.SysUserCreateDto;
 import com.vita.system.sysUser.dto.SysUserSearchDto;
 import com.vita.system.sysUser.dto.SysUserUpdateDto;
@@ -168,21 +168,13 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
      * @param searchDto 查询条件
      * @return 查询条件构造器
      */
-    private LambdaQueryWrapper<SysUser> buildQueryWrapper(SysUserSearchDto searchDto) {
-        LambdaQueryWrapper<SysUser> queryWrapper = new LambdaQueryWrapper<>();
+    private LambdaQueryWrapperX<SysUser> buildQueryWrapper(SysUserSearchDto searchDto) {
+        LambdaQueryWrapperX<SysUser> queryWrapper = new LambdaQueryWrapperX<>();
         if (searchDto != null) {
-            if (searchDto.getDeptId() != null) {
-                queryWrapper.eq(SysUser::getDeptId, searchDto.getDeptId());
-            }
-            if (CharSequenceUtil.isNotBlank(searchDto.getNickName())) {
-                queryWrapper.like(SysUser::getNickName, searchDto.getNickName());
-            }
-            if (CharSequenceUtil.isNotBlank(searchDto.getMobile())) {
-                queryWrapper.like(SysUser::getMobile, searchDto.getMobile());
-            }
-            if (searchDto.getStatus() != null) {
-                queryWrapper.eq(SysUser::getStatus, searchDto.getStatus());
-            }
+            queryWrapper.eqIfPresent(SysUser::getDeptId, searchDto.getDeptId())
+                    .likeIfPresent(SysUser::getNickName, searchDto.getNickName())
+                    .likeIfPresent(SysUser::getMobile, searchDto.getMobile())
+                    .eqIfPresent(SysUser::getStatus, searchDto.getStatus());
         }
         queryWrapper.orderByDesc(SysUser::getId);
         return queryWrapper;
@@ -215,7 +207,7 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         if (!CommonStatusEnum.isEnabled(isSuperAdmin)) {
             return;
         }
-        LambdaQueryWrapper<SysUser> queryWrapper = new LambdaQueryWrapper<SysUser>()
+        LambdaQueryWrapperX<SysUser> queryWrapper = new LambdaQueryWrapperX<SysUser>()
                 .eq(SysUser::getIsSuperAdmin, CommonStatusEnum.ENABLED.getCode());
         if (currentUserId != null) {
             queryWrapper.ne(SysUser::getId, currentUserId);

@@ -1,11 +1,12 @@
 package com.vita.system.sysPermission.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
 import com.vita.core.page.PageResponse;
+import com.vita.mybatis.LambdaQueryWrapperX;
 import com.vita.system.sysPermission.dto.SysPermissionCreateDto;
 import com.vita.system.sysPermission.dto.SysPermissionSearchDto;
 import com.vita.system.sysPermission.dto.SysPermissionUpdateDto;
@@ -123,13 +124,38 @@ public class SysPermissionServiceImpl extends ServiceImpl<SysPermissionMapper, S
     }
 
     /**
+     * 根据权限ID和状态查询权限码集合。
+     *
+     * @param permissionIds 权限ID集合
+     * @param status 权限状态，可为空
+     * @return 权限码集合
+     */
+    @Override
+    public List<String> getPermissionCodesByIds(List<Long> permissionIds, Byte status) {
+        if (CollUtil.isEmpty(permissionIds)) {
+            return CollUtil.newArrayList();
+        }
+        return sysPermissionMapper.selectList(new LambdaQueryWrapperX<SysPermission>()
+                        .inIfPresent(SysPermission::getId, permissionIds)
+                        .eqIfPresent(SysPermission::getStatus, status)
+                        .orderByAsc(SysPermission::getSortNo, SysPermission::getId))
+                .stream()
+                .map(permission -> StrUtil.isNotBlank(permission.getAuthTag())
+                        ? permission.getAuthTag()
+                        : permission.getPermissionCode())
+                .filter(StrUtil::isNotBlank)
+                .distinct()
+                .toList();
+    }
+
+    /**
      * 构造列表查询条件。
      *
      * @param searchDto 查询条件
      * @return 查询条件构造器
      */
-    private LambdaQueryWrapper<SysPermission> buildQueryWrapper(SysPermissionSearchDto searchDto) {
-        LambdaQueryWrapper<SysPermission> queryWrapper = new LambdaQueryWrapper<>();
+    private LambdaQueryWrapperX<SysPermission> buildQueryWrapper(SysPermissionSearchDto searchDto) {
+        LambdaQueryWrapperX<SysPermission> queryWrapper = new LambdaQueryWrapperX<>();
         if (searchDto != null && StrUtil.isNotBlank(searchDto.getKeyword())) {
             // TODO 根据业务字段补充关键字查询条件
         }
