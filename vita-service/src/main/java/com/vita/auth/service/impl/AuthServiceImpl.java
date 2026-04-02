@@ -7,7 +7,6 @@ import com.vita.auth.service.IAuthCommonService;
 import com.vita.auth.service.IAuthService;
 import com.vita.auth.service.IAuthTokenService;
 import com.vita.auth.vo.AuthInfoVo;
-import com.vita.auth.vo.AuthMenuVo;
 import com.vita.auth.vo.AuthLoginVo;
 import com.vita.captcha.dto.CaptchaVerifyRequestDto;
 import com.vita.captcha.service.CaptchaApplicationService;
@@ -21,13 +20,11 @@ import com.vita.log.model.RequestClientInfo;
 import com.vita.log.resolver.RequestClientInfoResolver;
 import com.vita.log.service.LoginAuditService;
 import com.vita.system.sysIpBlock.service.ISysIpBlockService;
-import com.vita.system.sysMenu.entity.SysMenu;
 import com.vita.system.sysUser.entity.SysUser;
 import com.vita.system.sysUser.service.ISysUserService;
 import com.vita.utils.Sm4Utils;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -87,11 +84,11 @@ public class AuthServiceImpl implements IAuthService {
     @Override
     public AuthLoginVo login(AuthLoginDto loginDto) {
         RequestClientInfo requestClientInfo = requestClientInfoResolver.resolveCurrentRequest();
-        String userName = loginDto == null ? null : StringUtils.trimWhitespace(loginDto.getUserName());
+        validateLoginRequest(loginDto);
+        checkCaptcha(loginDto);
+        checkIpBlocked(requestClientInfo.getIp());
+        String userName = loginDto.getUserName();
         try {
-            validateLoginRequest(loginDto);
-            checkCaptcha(loginDto);
-            checkIpBlocked(requestClientInfo.getIp());
             SysUser user = loadUser(userName);
             checkUserStatus(user);
             checkPassword(user, loginDto.getPassword());
@@ -126,13 +123,11 @@ public class AuthServiceImpl implements IAuthService {
         Long userId = loginUserInfoModel.getId();
         List<String> roleCodes = getOrLoadRoleCodes(userId);
         List<String> permissionCodes = getOrLoadPermissionCodes(userId);
-        List<SysMenu> menus = authCommonService.getMenusByUserId(userId);
 
         AuthInfoVo authInfoVo = new AuthInfoVo();
         authInfoVo.setUserInfo(loginUserInfoModel);
         authInfoVo.setRoleCodes(roleCodes);
         authInfoVo.setPermissionCodes(permissionCodes);
-        authInfoVo.setMenus(BeanUtil.copyToList(menus, AuthMenuVo.class));
         return authInfoVo;
     }
 
@@ -292,7 +287,7 @@ public class AuthServiceImpl implements IAuthService {
     /**
      * 获取当前登录用户快照的统一入口，先尝试从会话缓存获取，未命中时重建并缓存后返回。
      *
-     * @return
+     * @return 当前登录用户快照
      */
     private LoginUserInfoModel resolveCurrentLoginUserInfo() {
         LoginUserInfoModel loginUserInfoModel = toLoginUserInfoModel(authTokenService.getStoredLoginUserInfo());
@@ -315,8 +310,8 @@ public class AuthServiceImpl implements IAuthService {
     /**
      * 根据用户 ID 获取当前登录用户的角色编码列表，先尝试从会话缓存获取，未命中时查询数据库后缓存并返回。
      *
-     * @param userId
-     * @return
+     * @param userId 用户ID
+     * @return 角色编码列表
      */
     private List<String> getOrLoadRoleCodes(Long userId) {
         List<String> roleCodes = castStringList(authTokenService.getStoredLoginRoleCodes());
@@ -331,8 +326,8 @@ public class AuthServiceImpl implements IAuthService {
     /**
      * 根据用户 ID 获取当前登录用户的权限编码列表，先尝试从会话缓存获取，未命中时查询数据库后缓存并返回。
      *
-     * @param userId
-     * @return
+     * @param userId 用户 ID
+     * @return 权限编码列表
      */
     private List<String> getOrLoadPermissionCodes(Long userId) {
         List<String> permissionCodes = castStringList(authTokenService.getStoredLoginPermissionCodes());

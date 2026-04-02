@@ -28,8 +28,4 @@ public class AuthInfoVo {
      */
     private List<String> permissionCodes;
 
-    /**
-     * 当前用户可见菜单集合。
-     */
-    private List<AuthMenuVo> menus;
 }

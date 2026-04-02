@@ -118,7 +118,7 @@ public class SlideCaptchaUtils {
             }
             return bufferedImage;
         } catch (Exception e) {
-            logger.warn("获取拼图资源失败", e);
+            logger.debug("获取拼图资源失败", e);
             throw new ServiceException("获取拼图失败");
         }
     }
