@@ -1,11 +1,11 @@
 package com.vita.system.sysMenu.service;
 
+import com.baomidou.mybatisplus.extension.service.IService;
 import com.vita.core.page.PageResponse;
 import com.vita.system.sysMenu.dto.SysMenuCreateDto;
 import com.vita.system.sysMenu.dto.SysMenuSearchDto;
 import com.vita.system.sysMenu.dto.SysMenuUpdateDto;
 import com.vita.system.sysMenu.entity.SysMenu;
-import com.baomidou.mybatisplus.extension.service.IService;
 import com.vita.system.sysMenu.vo.SysMenuDetailVo;
 import com.vita.system.sysMenu.vo.SysMenuListVo;
 import com.vita.system.sysMenu.vo.SysMenuPageVo;
@@ -13,12 +13,12 @@ import com.vita.system.sysMenu.vo.SysMenuPageVo;
 import java.util.List;
 
 /**
+ * @version 1.0
  * @BelongsProject: vita
  * @BelongsPackage: com.vita.system.sysMenu.service
  * @Author znk
  * @CreateTime 2026-03-31 16:27:08
  * @Description: 菜单表 Service 接口
- * @version 1.0
  */
 public interface ISysMenuService extends IService<SysMenu> {
 
@@ -79,8 +79,24 @@ public interface ISysMenuService extends IService<SysMenu> {
      * 根据菜单ID和状态查询菜单集合。
      *
      * @param menuIds 菜单ID集合
-     * @param status 菜单状态，可为空
+     * @param status  菜单状态，可为空
      * @return 菜单集合
      */
     List<SysMenu> getListByIds(List<Long> menuIds, Byte status);
+
+    /**
+     * 校验菜单名称是否唯一
+     *
+     * @param menu 菜单信息
+     * @return 结果 true 唯一 / false 不唯一
+     */
+    boolean checkMenuNameUnique(SysMenu menu);
+
+    /**
+     * 校验路由组合是否唯一
+     *
+     * @param menu 菜单信息
+     * @return 结果 true 唯一 / false 不唯一
+     */
+    boolean checkRouteConfigUnique(SysMenu menu);
 }

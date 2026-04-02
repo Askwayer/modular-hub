@@ -14,9 +14,6 @@
 
     <modules>
         <module>vita-captcha-spring-boot-starter</module>
-        <module>vita-file-spring-boot-starter</module>
-        <module>vita-i18n-spring-boot-starter</module>
-        <module>vita-poi-spring-boot-starter</module>
     </modules>
 
     <properties>
@@ -48,4 +45,33 @@
             </dependency>
         </dependencies>
     </dependencyManagement>
+
+    <profiles>
+        <profile>
+            <id>starter-file</id>
+            <modules>
+                <module>vita-file-spring-boot-starter</module>
+            </modules>
+        </profile>
+        <profile>
+            <id>starter-i18n</id>
+            <modules>
+                <module>vita-i18n-spring-boot-starter</module>
+            </modules>
+        </profile>
+        <profile>
+            <id>starter-poi</id>
+            <modules>
+                <module>vita-poi-spring-boot-starter</module>
+            </modules>
+        </profile>
+        <profile>
+            <id>starter-all</id>
+            <modules>
+                <module>vita-file-spring-boot-starter</module>
+                <module>vita-i18n-spring-boot-starter</module>
+                <module>vita-poi-spring-boot-starter</module>
+            </modules>
+        </profile>
+    </profiles>
 </project>

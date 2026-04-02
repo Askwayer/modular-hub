@@ -2,8 +2,10 @@ package com.vita.system.sysMenu.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.text.CharSequenceUtil;
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.vita.constant.Constants;
 import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
 import com.vita.core.page.PageResponse;
@@ -50,6 +52,7 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
         }
         SysMenu data = new SysMenu();
         BeanUtils.copyProperties(createDto, data);
+        validateMenuUnique(data);
         sysMenuMapper.insert(data);
         return data.getId();
     }
@@ -67,6 +70,7 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
         getRequiredEntity(updateDto.getId());
         SysMenu data = new SysMenu();
         BeanUtils.copyProperties(updateDto, data);
+        validateMenuUnique(data);
         sysMenuMapper.updateById(data);
     }
 
@@ -160,6 +164,62 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
     }
 
     /**
+     * 校验菜单名称是否唯一
+     *
+     * @param menu 菜单信息
+     * @return 结果 true 唯一 / false 不唯一
+     */
+    @Override
+    public boolean checkMenuNameUnique(SysMenu menu) {
+        if (menu == null) {
+            throw new ServiceException(GlobalErrorCode.BAD_REQUEST);
+        }
+        Long count = sysMenuMapper.selectCount(new LambdaQueryWrapperX<SysMenu>()
+                .eq(SysMenu::getMenuName, menu.getMenuName())
+                .eq(SysMenu::getParentId, menu.getParentId())
+                .neIfPresent(SysMenu::getId, menu.getId()));
+        if (count != null && count > 0) {
+            return Constants.NOT_UNIQUE;
+        }
+        return Constants.UNIQUE;
+    }
+
+    /**
+     * 校验路由组合是否唯一
+     *
+     * @param menu 菜单信息
+     * @return 结果 true 唯一 / false 不唯一
+     */
+    @Override
+    public boolean checkRouteConfigUnique(SysMenu menu) {
+        if (menu == null) {
+            throw new ServiceException(GlobalErrorCode.BAD_REQUEST);
+        }
+        boolean hasRouteName = CharSequenceUtil.isNotBlank(menu.getRouteName());
+        boolean hasRouteLink = CharSequenceUtil.isNotBlank(menu.getRouteLink());
+        if (!hasRouteName && !hasRouteLink) {
+            return Constants.UNIQUE;
+        }
+        if (hasRouteName) {
+            Long routeNameCount = sysMenuMapper.selectCount(new LambdaQueryWrapperX<SysMenu>()
+                    .eq(SysMenu::getRouteName, menu.getRouteName())
+                    .neIfPresent(SysMenu::getId, menu.getId()));
+            if (routeNameCount != null && routeNameCount > 0) {
+                return Constants.NOT_UNIQUE;
+            }
+        }
+        if (hasRouteLink) {
+            Long routeLinkCount = sysMenuMapper.selectCount(new LambdaQueryWrapperX<SysMenu>()
+                    .eq(SysMenu::getRouteLink, menu.getRouteLink())
+                    .neIfPresent(SysMenu::getId, menu.getId()));
+            if (routeLinkCount != null && routeLinkCount > 0) {
+                return Constants.NOT_UNIQUE;
+            }
+        }
+        return Constants.UNIQUE;
+    }
+
+    /**
      * 构造列表查询条件。
      *
      * @param searchDto 查询条件
@@ -168,10 +228,32 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
     private LambdaQueryWrapperX<SysMenu> buildQueryWrapper(SysMenuSearchDto searchDto) {
         LambdaQueryWrapperX<SysMenu> queryWrapper = new LambdaQueryWrapperX<>();
         if (searchDto != null && StrUtil.isNotBlank(searchDto.getKeyword())) {
-            // TODO 根据业务字段补充关键字查询条件
         }
         queryWrapper.orderByDesc(SysMenu::getId);
         return queryWrapper;
+    }
+
+    /**
+     * 校验菜单名称和路由配置唯一性。
+     *
+     * @param menu 菜单信息
+     */
+    private void validateMenuUnique(SysMenu menu) {
+        if (!checkMenuNameUnique(menu)) {
+            throw new ServiceException(GlobalErrorCode.BAD_REQUEST.getCode(), "同级菜单名称已存在");
+        }
+        if (!checkRouteConfigUnique(menu)) {
+            throw new ServiceException(GlobalErrorCode.BAD_REQUEST.getCode(), "路由名称或路由地址已存在");
+        }
+        if (menu.getIsExternal() != null && menu.getIsExternal() == 1) {
+            if (CharSequenceUtil.isBlank(menu.getRouteLink())) {
+                throw new ServiceException(GlobalErrorCode.BAD_REQUEST.getCode(), "外链菜单必须填写路由地址");
+            }
+            if (CharSequenceUtil.isNotBlank(menu.getRouteLink())
+                    && !CharSequenceUtil.startWithAny(menu.getRouteLink(), "http://", "https://")) {
+                throw new ServiceException(GlobalErrorCode.BAD_REQUEST.getCode(), "外链菜单的路由地址必须以 http:// 或 https:// 开头");
+            }
+        }
     }
 
     /**

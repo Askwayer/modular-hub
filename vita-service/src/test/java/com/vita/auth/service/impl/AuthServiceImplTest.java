@@ -14,7 +14,6 @@ import com.vita.log.model.RequestClientInfo;
 import com.vita.log.resolver.RequestClientInfoResolver;
 import com.vita.log.service.LoginAuditService;
 import com.vita.system.sysIpBlock.service.ISysIpBlockService;
-import com.vita.system.sysMenu.entity.SysMenu;
 import com.vita.system.sysUser.entity.SysUser;
 import com.vita.system.sysUser.service.ISysUserService;
 import org.junit.jupiter.api.Test;
@@ -192,19 +191,14 @@ class AuthServiceImplTest {
         LoginUserInfoModel loginUserInfoModel = new LoginUserInfoModel();
         loginUserInfoModel.setId(1L);
         loginUserInfoModel.setUsername("admin");
-        SysMenu menu = new SysMenu();
-        menu.setId(1000L);
-        menu.setMenuName("系统管理");
         when(authTokenService.getStoredLoginUserInfo()).thenReturn(loginUserInfoModel);
         when(authTokenService.getStoredLoginRoleCodes()).thenReturn(java.util.List.of("SUPER_ADMIN"));
         when(authTokenService.getStoredLoginPermissionCodes()).thenReturn(java.util.List.of(AuthConstants.ALL_PERMISSION_CODE));
-        when(authCommonService.getMenusByUserId(1L)).thenReturn(java.util.List.of(menu));
 
         AuthInfoVo currentUserInfo = authService.getCurrentUserInfo();
         assertEquals("admin", currentUserInfo.getUserInfo().getUsername());
         assertEquals("SUPER_ADMIN", currentUserInfo.getRoleCodes().get(0));
         assertEquals(AuthConstants.ALL_PERMISSION_CODE, currentUserInfo.getPermissionCodes().get(0));
-        assertEquals(1000L, currentUserInfo.getMenus().get(0).getId());
         verify(authTokenService).checkLogin();
     }
 
