@@ -73,4 +73,10 @@ public class Constants {
      * 通用禁用标识
      */
     public static final Byte DISABLED = CommonStatusEnum.DISABLED.getCode();
+
+    /**
+     * 校验是否唯一的返回标识
+     */
+    public static final boolean UNIQUE = true;
+    public static final boolean NOT_UNIQUE = false;
 }

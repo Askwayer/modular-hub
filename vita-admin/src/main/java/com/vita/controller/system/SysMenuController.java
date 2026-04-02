@@ -1,6 +1,7 @@
 package com.vita.controller.system;
 
 import com.vita.core.CommonResult;
+import com.vita.core.controller.BaseController;
 import com.vita.core.page.PageResponse;
 import com.vita.system.sysMenu.dto.SysMenuCreateDto;
 import com.vita.system.sysMenu.dto.SysMenuSearchDto;
@@ -15,15 +16,13 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-import com.vita.core.controller.BaseController;
-
 /**
+ * @version 1.0
  * @BelongsProject: vita
  * @BelongsPackage: com.vita.controller.system
  * @Author znk
  * @CreateTime 2026-03-31 16:27:08
  * @Description: 菜单表 控制器
- * @version 1.0
  */
 @Validated
 @RestController

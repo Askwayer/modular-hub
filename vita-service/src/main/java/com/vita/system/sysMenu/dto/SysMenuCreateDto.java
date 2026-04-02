@@ -1,14 +1,16 @@
 package com.vita.system.sysMenu.dto;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 /**
+ * @version 1.0
  * @BelongsProject: vita
  * @BelongsPackage: com.vita.system.sysMenu.dto
  * @Author znk
  * @CreateTime 2026-03-31 16:27:08
  * @Description: 菜单表 创建 DTO
- * @version 1.0
  */
 @Data
 public class SysMenuCreateDto {
@@ -20,11 +22,14 @@ public class SysMenuCreateDto {
     /**
      * 菜单名称
      */
+    @NotBlank(message = "菜单名称不能为空")
+    @Size(min = 0, max = 50, message = "菜单名称长度不能超过50个字符")
     private String menuName;
 
     /**
      * 类型 CONTENTS/MENU/LINK
      */
+    @NotBlank(message = "菜单类型不能为空")
     private String menuType;
 
     /**
@@ -35,11 +40,13 @@ public class SysMenuCreateDto {
     /**
      * 路由地址
      */
+    @Size(min = 0, max = 200, message = "路由地址不能超过200个字符")
     private String routeLink;
 
     /**
      * 组件路径
      */
+    @Size(min = 0, max = 200, message = "组件路径不能超过255个字符")
     private String componentPath;
 
     /**
@@ -50,6 +57,7 @@ public class SysMenuCreateDto {
     /**
      * 排序
      */
+    @Size(min = 0, max = 999, message = "排序必须在0到999之间")
     private Integer sortNo;
 
     /**
