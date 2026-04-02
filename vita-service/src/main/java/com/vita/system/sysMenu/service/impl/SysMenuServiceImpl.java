@@ -1,18 +1,19 @@
 package com.vita.system.sysMenu.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
 import com.vita.core.page.PageResponse;
+import com.vita.mybatis.LambdaQueryWrapperX;
 import com.vita.system.sysMenu.dto.SysMenuCreateDto;
 import com.vita.system.sysMenu.dto.SysMenuSearchDto;
 import com.vita.system.sysMenu.dto.SysMenuUpdateDto;
 import com.vita.system.sysMenu.entity.SysMenu;
 import com.vita.system.sysMenu.mapper.SysMenuMapper;
 import com.vita.system.sysMenu.service.ISysMenuService;
-import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.vita.system.sysMenu.vo.SysMenuDetailVo;
 import com.vita.system.sysMenu.vo.SysMenuListVo;
 import com.vita.system.sysMenu.vo.SysMenuPageVo;
@@ -23,12 +24,12 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 
 /**
+ * @version 1.0
  * @BelongsProject: vita
  * @BelongsPackage: com.vita.system.sysMenu.service.impl
  * @Author znk
  * @CreateTime 2026-03-31 16:27:08
  * @Description: 菜单表 Service 实现
- * @version 1.0
  */
 @Service
 public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> implements ISysMenuService {
@@ -123,13 +124,49 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
     }
 
     /**
+     * 查询全部启用菜单。
+     *
+     * @return 菜单集合
+     */
+    @Override
+    public List<SysMenu> getAllEnabledMenus() {
+        List<SysMenu> menuList = sysMenuMapper.selectAllEnabledMenus();
+        if (CollUtil.isEmpty(menuList)) {
+            return CollUtil.newArrayList();
+        }
+        return menuList;
+    }
+
+    /**
+     * 根据菜单ID和状态查询菜单集合。
+     *
+     * @param menuIds 菜单ID集合
+     * @param status  菜单状态，可为空
+     * @return 菜单集合
+     */
+    @Override
+    public List<SysMenu> getListByIds(List<Long> menuIds, Byte status) {
+        if (CollUtil.isEmpty(menuIds)) {
+            return CollUtil.newArrayList();
+        }
+        List<SysMenu> menuList = sysMenuMapper.selectList(new LambdaQueryWrapperX<SysMenu>()
+                .inIfPresent(SysMenu::getId, menuIds)
+                .eqIfPresent(SysMenu::getStatus, status)
+                .orderByAsc(SysMenu::getSortNo, SysMenu::getId));
+        if (CollUtil.isEmpty(menuList)) {
+            return CollUtil.newArrayList();
+        }
+        return menuList;
+    }
+
+    /**
      * 构造列表查询条件。
      *
      * @param searchDto 查询条件
      * @return 查询条件构造器
      */
-    private LambdaQueryWrapper<SysMenu> buildQueryWrapper(SysMenuSearchDto searchDto) {
-        LambdaQueryWrapper<SysMenu> queryWrapper = new LambdaQueryWrapper<>();
+    private LambdaQueryWrapperX<SysMenu> buildQueryWrapper(SysMenuSearchDto searchDto) {
+        LambdaQueryWrapperX<SysMenu> queryWrapper = new LambdaQueryWrapperX<>();
         if (searchDto != null && StrUtil.isNotBlank(searchDto.getKeyword())) {
             // TODO 根据业务字段补充关键字查询条件
         }

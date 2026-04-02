@@ -25,6 +25,26 @@ public class AuthConstants {
     public static final String LOGIN_USER_INFO = "LOGIN_USER_INFO";
 
     /**
+     * Sa-Token Session 中缓存登录用户角色码集合的键名。
+     */
+    public static final String LOGIN_USER_ROLE = "LOGIN_USER_ROLE";
+
+    /**
+     * Sa-Token Session 中缓存登录用户权限码集合的键名。
+     */
+    public static final String LOGIN_USER_PERMISSION = "LOGIN_USER_PERMISSION";
+
+    /**
+     * 超级管理员虚拟角色码。
+     */
+    public static final String SUPER_ADMIN_ROLE_CODE = "SUPER_ADMIN";
+
+    /**
+     * 全量权限通配符。
+     */
+    public static final String ALL_PERMISSION_CODE = "**:**:**";
+
+    /**
      * IP 封禁标记在 Redis 中的统一前缀。
      */
     public static final String IP_BLOCK_KEY_PREFIX = "auth:ip:block:";

@@ -2,7 +2,6 @@ package com.vita.core.mapper;
 
 import cn.hutool.core.collection.CollUtil;
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
@@ -11,6 +10,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.toolkit.Db;
 import com.vita.core.page.PageRequest;
 import com.vita.core.page.PageResponse;
+import com.vita.mybatis.LambdaQueryWrapperX;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.Collection;
@@ -46,7 +46,7 @@ public interface BaseMapperX<T> extends BaseMapper<T> {
     }
 
     default T selectOne(SFunction<T, ?> field, Object value) {
-        return selectOne(new LambdaQueryWrapper<T>().eq(field, value));
+        return selectOne(new LambdaQueryWrapperX<T>().eq(field, value));
     }
 
     default T selectOne(String field1, Object value1, String field2, Object value2) {
@@ -54,7 +54,7 @@ public interface BaseMapperX<T> extends BaseMapper<T> {
     }
 
     default T selectOne(SFunction<T, ?> field1, Object value1, SFunction<T, ?> field2, Object value2) {
-        return selectOne(new LambdaQueryWrapper<T>().eq(field1, value1).eq(field2, value2));
+        return selectOne(new LambdaQueryWrapperX<T>().eq(field1, value1).eq(field2, value2));
     }
 
     default Long selectCount() {
@@ -66,7 +66,7 @@ public interface BaseMapperX<T> extends BaseMapper<T> {
     }
 
     default Long selectCount(SFunction<T, ?> field, Object value) {
-        return selectCount(new LambdaQueryWrapper<T>().eq(field, value));
+        return selectCount(new LambdaQueryWrapperX<T>().eq(field, value));
     }
 
     default List<T> selectList() {
@@ -78,7 +78,7 @@ public interface BaseMapperX<T> extends BaseMapper<T> {
     }
 
     default List<T> selectList(SFunction<T, ?> field, Object value) {
-        return selectList(new LambdaQueryWrapper<T>().eq(field, value));
+        return selectList(new LambdaQueryWrapperX<T>().eq(field, value));
     }
 
     default List<T> selectList(String field, Collection<?> values) {
@@ -92,7 +92,7 @@ public interface BaseMapperX<T> extends BaseMapper<T> {
         if (CollUtil.isEmpty(values)) {
             return CollUtil.newArrayList();
         }
-        return selectList(new LambdaQueryWrapper<T>().in(field, values));
+        return selectList(new LambdaQueryWrapperX<T>().in(field, values));
     }
 
     /**
@@ -127,4 +127,3 @@ public interface BaseMapperX<T> extends BaseMapper<T> {
     }
 
 }
-

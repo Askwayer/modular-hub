@@ -67,4 +67,20 @@ public interface ISysMenuService extends IService<SysMenu> {
      * @return 分页VO结果
      */
     PageResponse<SysMenuPageVo> page(SysMenuSearchDto searchDto);
+
+    /**
+     * 查询全部启用菜单。
+     *
+     * @return 菜单集合
+     */
+    List<SysMenu> getAllEnabledMenus();
+
+    /**
+     * 根据菜单ID和状态查询菜单集合。
+     *
+     * @param menuIds 菜单ID集合
+     * @param status 菜单状态，可为空
+     * @return 菜单集合
+     */
+    List<SysMenu> getListByIds(List<Long> menuIds, Byte status);
 }

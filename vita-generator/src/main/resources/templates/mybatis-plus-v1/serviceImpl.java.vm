@@ -2,10 +2,10 @@ package ${package.ServiceImpl};
 
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.StrUtil;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import ${commonPackage}.exception.GlobalErrorCode;
 import ${commonPackage}.exception.ServiceException;
 import ${commonPackage}.page.PageResponse;
+import com.vita.mybatis.LambdaQueryWrapperX;
 import ${dtoPackage}.${entity}CreateDto;
 import ${dtoPackage}.${entity}SearchDto;
 import ${dtoPackage}.${entity}UpdateDto;
@@ -133,8 +133,8 @@ public class ${table.serviceImplName} extends ${superServiceImplClass}<${table.m
      * @param searchDto 查询条件
      * @return 查询条件构造器
      */
-    private LambdaQueryWrapper<${entity}> buildQueryWrapper(${entity}SearchDto searchDto) {
-        LambdaQueryWrapper<${entity}> queryWrapper = new LambdaQueryWrapper<>();
+    private LambdaQueryWrapperX<${entity}> buildQueryWrapper(${entity}SearchDto searchDto) {
+        LambdaQueryWrapperX<${entity}> queryWrapper = new LambdaQueryWrapperX<>();
         if (searchDto != null && StrUtil.isNotBlank(searchDto.getKeyword())) {
             // TODO 根据业务字段补充关键字查询条件
         }

@@ -3,6 +3,9 @@ package com.vita.system.associate.sysUserRole.mapper;
 import com.vita.core.mapper.BaseMapperX;
 import com.vita.system.associate.sysUserRole.entity.SysUserRole;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+
+import java.util.List;
 
 /**
  * @BelongsProject: vita
@@ -15,4 +18,11 @@ import org.apache.ibatis.annotations.Mapper;
 @Mapper
 public interface SysUserRoleMapper extends BaseMapperX<SysUserRole> {
 
+    /**
+     * 查询用户角色ID集合。
+     *
+     * @param userId 用户ID
+     * @return 角色ID集合
+     */
+    List<Long> selectRoleIdsByUserId(@Param("userId") Long userId);
 }

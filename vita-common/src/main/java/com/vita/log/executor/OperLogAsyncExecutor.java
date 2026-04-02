@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
 /**
  * 系统操作日志场景执行器，负责日志快照收口、依赖解析与统一任务投递。
  *
- * @author zhuningkang
+ * @author znk
  */
 @Component
 public class OperLogAsyncExecutor {

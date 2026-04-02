@@ -1,18 +1,18 @@
 package com.vita.system.sysRole.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
-import cn.hutool.core.util.StrUtil;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import cn.hutool.core.collection.CollUtil;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
 import com.vita.core.page.PageResponse;
+import com.vita.mybatis.LambdaQueryWrapperX;
 import com.vita.system.sysRole.dto.SysRoleCreateDto;
 import com.vita.system.sysRole.dto.SysRoleSearchDto;
 import com.vita.system.sysRole.dto.SysRoleUpdateDto;
 import com.vita.system.sysRole.entity.SysRole;
 import com.vita.system.sysRole.mapper.SysRoleMapper;
 import com.vita.system.sysRole.service.ISysRoleService;
-import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.vita.system.sysRole.vo.SysRoleDetailVo;
 import com.vita.system.sysRole.vo.SysRoleListVo;
 import com.vita.system.sysRole.vo.SysRolePageVo;
@@ -23,12 +23,12 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 
 /**
+ * @version 1.0
  * @BelongsProject: vita
  * @BelongsPackage: com.vita.system.sysRole.service.impl
  * @Author znk
  * @CreateTime 2026-03-31 14:45:57
  * @Description: 角色表 Service 实现
- * @version 1.0
  */
 @Service
 public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> implements ISysRoleService {
@@ -123,17 +123,38 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
     }
 
     /**
+     * 根据角色ID和状态列表查询角色信息。
+     *
+     * @param roleIds 角色ID列表
+     * @param status  角色状态（可选）
+     * @return 角色信息列表
+     */
+    @Override
+    public List<SysRole> getListByIds(List<Long> roleIds, Byte status) {
+        LambdaQueryWrapperX<SysRole> queryWrapper = new LambdaQueryWrapperX<>();
+        queryWrapper.inIfPresent(SysRole::getId, roleIds)
+                .eqIfPresent(SysRole::getStatus, status)
+                .orderByAsc(SysRole::getRoleSort, SysRole::getId);
+        List<SysRole> sysRoleList = sysRoleMapper.selectList(queryWrapper);
+        if (CollUtil.isNotEmpty(sysRoleList)) {
+            return sysRoleList;
+        }
+        return CollUtil.newArrayList();
+    }
+
+    /**
      * 构造列表查询条件。
      *
      * @param searchDto 查询条件
      * @return 查询条件构造器
      */
-    private LambdaQueryWrapper<SysRole> buildQueryWrapper(SysRoleSearchDto searchDto) {
-        LambdaQueryWrapper<SysRole> queryWrapper = new LambdaQueryWrapper<>();
-        if (searchDto != null && StrUtil.isNotBlank(searchDto.getKeyword())) {
-            // TODO 根据业务字段补充关键字查询条件
+    private LambdaQueryWrapperX<SysRole> buildQueryWrapper(SysRoleSearchDto searchDto) {
+        LambdaQueryWrapperX<SysRole> queryWrapper = new LambdaQueryWrapperX<>();
+        if (searchDto != null) {
+            queryWrapper.eqIfPresent(SysRole::getId, searchDto.getId())
+                    .eqIfPresent(SysRole::getStatus, searchDto.getStatus());
         }
-        queryWrapper.orderByDesc(SysRole::getId);
+        queryWrapper.orderByAsc(SysRole::getRoleSort, SysRole::getId);
         return queryWrapper;
     }
 

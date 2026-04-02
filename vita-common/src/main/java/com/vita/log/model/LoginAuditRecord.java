@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 /**
  * 登录审计快照，用于在认证层与持久化层之间传递登录事件信息。
  *
- * @author zhuningkang
+ * @author znk
  */
 @Data
 @AllArgsConstructor

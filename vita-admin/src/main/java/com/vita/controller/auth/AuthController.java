@@ -2,10 +2,10 @@ package com.vita.controller.auth;
 
 import com.vita.auth.dto.AuthLoginDto;
 import com.vita.auth.service.IAuthService;
+import com.vita.auth.vo.AuthInfoVo;
 import com.vita.auth.vo.AuthLoginVo;
 import com.vita.core.CommonResult;
 import com.vita.core.controller.BaseController;
-import com.vita.core.model.LoginUserInfoModel;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -56,7 +56,7 @@ public class AuthController extends BaseController {
      * @return 当前登录用户信息
      */
     @GetMapping("/info")
-    public CommonResult<LoginUserInfoModel> info() {
+    public CommonResult<AuthInfoVo> info() {
         return CommonResult.success(authService.getCurrentUserInfo());
     }
 }

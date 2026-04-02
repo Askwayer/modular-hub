@@ -2,10 +2,10 @@ package com.vita.system.sysDept.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.StrUtil;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
 import com.vita.core.page.PageResponse;
+import com.vita.mybatis.LambdaQueryWrapperX;
 import com.vita.system.sysDept.dto.SysDeptCreateDto;
 import com.vita.system.sysDept.dto.SysDeptSearchDto;
 import com.vita.system.sysDept.dto.SysDeptUpdateDto;
@@ -128,8 +128,8 @@ public class SysDeptServiceImpl extends ServiceImpl<SysDeptMapper, SysDept> impl
      * @param searchDto 查询条件
      * @return 查询条件构造器
      */
-    private LambdaQueryWrapper<SysDept> buildQueryWrapper(SysDeptSearchDto searchDto) {
-        LambdaQueryWrapper<SysDept> queryWrapper = new LambdaQueryWrapper<>();
+    private LambdaQueryWrapperX<SysDept> buildQueryWrapper(SysDeptSearchDto searchDto) {
+        LambdaQueryWrapperX<SysDept> queryWrapper = new LambdaQueryWrapperX<>();
         if (searchDto != null && StrUtil.isNotBlank(searchDto.getKeyword())) {
             // TODO 根据业务字段补充关键字查询条件
         }

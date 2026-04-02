@@ -46,9 +46,9 @@
 
 ### 2.2 尚未完成的关键点
 
-- [StpInterfaceImpl](/Users/zhuningkang/Documents/git/github/vita/be-vita/vita-common/src/main/java/com/vita/security/StpInterfaceImpl.java) 仍返回空集合，角色与权限判定尚未接通
+- [StpInterfaceImpl](/Users/zhuningkang/Documents/git/github/vita/be-vita/vita-service/src/main/java/com/vita/auth/StpInterfaceImpl.java) 需要通过 `IAuthCommonService` 接通角色与权限回调
 - [AuthServiceImpl](/Users/zhuningkang/Documents/git/github/vita/be-vita/vita-service/src/main/java/com/vita/auth/service/impl/AuthServiceImpl.java) 当前只缓存基础登录用户信息，没有初始化角色码、权限码、菜单数据
-- 当前缺少统一的 RBAC 聚合查询服务，用户角色、角色权限、角色菜单分别有表，但没有形成运行时聚合能力
+- 当前需要由 `IAuthCommonService` 统一承接 RBAC 聚合查询，避免角色、权限、菜单查询入口分散
 - 当前 `GET /auth/info` 返回的是基础用户信息模型，不足以支撑前端权限初始化
 - 数据范围模型已经有 `data_scope_type` 与 `sys_role_dept_scope`，但还没有真正参与查询判定
 
@@ -134,7 +134,7 @@ RBAC 查询应统一过滤以下条件：
 超级管理员应具备以下特性：
 
 - `getRoleList` 可以返回一个框架用的虚拟角色码 `SUPER_ADMIN`，不依赖角色表落库
-- `getPermissionList` 返回 `["*"]`
+- `getPermissionList` 返回 `["**:**:**"]`
 - 菜单查询返回全部启用菜单
 - 不需要依赖 `sys_role_permission` 和 `sys_role_menu` 中的配置完整性
 
@@ -172,14 +172,10 @@ RBAC 查询应统一过滤以下条件：
 
 #### RBAC 权限快照
 
-建议新增独立运行时模型，例如 `LoginRbacContextModel`，用于存放：
+一期先不单独引入 RBAC 上下文模型，而是使用 Sa-Token Session 中的独立键存放：
 
-- `userId`
-- `isSuperAdmin`
-- `roleCodes`
-- `permissionCodes`
-- `menuIds`
-- `dataScopeTypes`
+- `LOGIN_USER_ROLE`
+- `LOGIN_USER_PERMISSION`
 
 设计原因：
 
@@ -206,7 +202,7 @@ RBAC 查询应统一过滤以下条件：
     "SYSTEM_ADMIN"
   ],
   "permissionCodes": [
-    "*"
+    "**:**:**"
   ],
   "menus": [
     {
@@ -400,14 +396,12 @@ order by m.parent_id asc, m.sort_no asc, m.id asc
 
 - `AuthConstants`：补充 RBAC session key
 - `LoginUserInfoModel`：保留基础用户信息
-- 新增 `LoginRbacContextModel`
-- 完成 `StpInterfaceImpl`
 
 ### 9.2 `vita-service`
 
 负责 RBAC 聚合与认证编排：
 
-- 新增 RBAC 查询聚合服务，例如 `AuthRbacQueryService`
+- 由 `IAuthCommonService` 提供角色、权限、菜单聚合查询
 - 用户、角色、菜单、权限关联表 mapper 增加联查方法
 - `AuthServiceImpl` / `IAuthService` 增加当前用户权限初始化能力
 

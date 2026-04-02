@@ -370,4 +370,3 @@ CREATE TABLE `sys_role_dept_scope`
     KEY            `idx_dept_id` (`dept_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='角色自定义数据范围表';
 
-SET FOREIGN_KEY_CHECKS = 1;

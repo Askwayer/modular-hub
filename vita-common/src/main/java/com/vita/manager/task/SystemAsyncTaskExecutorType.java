@@ -2,7 +2,7 @@ package com.vita.manager.task;
 
 /**
  * 系统级异步任务可选的执行器类型。
- * @author zhuningkang
+ * @author znk
  */
 public enum SystemAsyncTaskExecutorType {
 

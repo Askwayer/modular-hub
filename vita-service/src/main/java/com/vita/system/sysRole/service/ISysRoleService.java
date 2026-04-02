@@ -1,11 +1,11 @@
 package com.vita.system.sysRole.service;
 
+import com.baomidou.mybatisplus.extension.service.IService;
 import com.vita.core.page.PageResponse;
 import com.vita.system.sysRole.dto.SysRoleCreateDto;
 import com.vita.system.sysRole.dto.SysRoleSearchDto;
 import com.vita.system.sysRole.dto.SysRoleUpdateDto;
 import com.vita.system.sysRole.entity.SysRole;
-import com.baomidou.mybatisplus.extension.service.IService;
 import com.vita.system.sysRole.vo.SysRoleDetailVo;
 import com.vita.system.sysRole.vo.SysRoleListVo;
 import com.vita.system.sysRole.vo.SysRolePageVo;
@@ -13,12 +13,12 @@ import com.vita.system.sysRole.vo.SysRolePageVo;
 import java.util.List;
 
 /**
+ * @version 1.0
  * @BelongsProject: vita
  * @BelongsPackage: com.vita.system.sysRole.service
  * @Author znk
  * @CreateTime 2026-03-31 14:45:57
  * @Description: 角色表 Service 接口
- * @version 1.0
  */
 public interface ISysRoleService extends IService<SysRole> {
 
@@ -67,4 +67,13 @@ public interface ISysRoleService extends IService<SysRole> {
      * @return 分页VO结果
      */
     PageResponse<SysRolePageVo> page(SysRoleSearchDto searchDto);
+
+    /**
+     * 根据角色ID和状态列表查询角色信息。
+     *
+     * @param roleIds 角色ID列表
+     * @param status 角色状态（可选）
+     * @return 角色信息列表
+     */
+    List<SysRole> getListByIds(List<Long> roleIds, Byte status);
 }

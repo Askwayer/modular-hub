@@ -2,10 +2,12 @@ package com.vita.auth.service.impl;
 
 import cn.dev33.satoken.SaManager;
 import cn.dev33.satoken.stp.StpUtil;
-import com.vita.auth.service.AuthTokenService;
+import com.vita.auth.service.IAuthTokenService;
 import com.vita.constant.AuthConstants;
 import com.vita.core.model.LoginUserInfoModel;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
 
 /**
  * @BelongsProject: be-vita
@@ -16,7 +18,7 @@ import org.springframework.stereotype.Service;
  * @Version: 1.0
  */
 @Service
-public class AuthTokenServiceImpl implements AuthTokenService {
+public class AuthTokenServiceImpl implements IAuthTokenService {
 
     /**
      * 基于 Sa-Token 建立当前用户登录态。
@@ -62,6 +64,31 @@ public class AuthTokenServiceImpl implements AuthTokenService {
     @Override
     public Object getStoredLoginUserInfo() {
         return StpUtil.getSession().get(AuthConstants.LOGIN_USER_INFO);
+    }
+
+    @Override
+    public void storeLoginRoleCodes(List<String> roleCodes) {
+        StpUtil.getSession().set(AuthConstants.LOGIN_USER_ROLE, roleCodes);
+    }
+
+    @Override
+    public Object getStoredLoginRoleCodes() {
+        return StpUtil.getSession().get(AuthConstants.LOGIN_USER_ROLE);
+    }
+
+    @Override
+    public void storeLoginPermissionCodes(List<String> permissionCodes) {
+        StpUtil.getSession().set(AuthConstants.LOGIN_USER_PERMISSION, permissionCodes);
+    }
+
+    /**
+     * 读取认证上下文中的权限码集合。
+     *
+     * @return 权限码集合
+     */
+    @Override
+    public Object getStoredLoginPermissionCodes() {
+        return StpUtil.getSession().get(AuthConstants.LOGIN_USER_PERMISSION);
     }
 
     /**
