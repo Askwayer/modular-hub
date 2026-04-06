@@ -46,11 +46,11 @@
     - 放到 `com.vita.auth` 包下
     - 优先读 `LOGIN_USER_ROLE`、`LOGIN_USER_PERMISSION`
     - 未命中再通过 `IAuthCommonService` 回源
-- 相关 mapper 增加联查方法：
-    - `SysUserRoleMapper`
-    - `SysRolePermissionMapper`
-    - `SysRoleMenuMapper`
-    - `SysMenuMapper`
+- 相关 mapper 只保留单表查询与单表投影能力：
+    - `SysUserRoleMapper`：按用户查角色 ID
+    - `SysRolePermissionMapper`：按角色查权限 ID
+    - `SysRoleMenuMapper`：按角色查菜单 ID
+    - `SysPermissionMapper` / `SysMenuMapper`：按 ID 集合查详情、exists/count
 - `AuthServiceImpl`
     - 增加当前用户权限初始化能力
     - 负责构建 `AuthInfoVo`
@@ -197,13 +197,19 @@ List<RouterVo>           // 前端路由树
 
 ### 5.1 实现方式
 
-推荐按“单表查询下沉 mapper，多表聚合收口 service”的方式实现。
+推荐按“单表查询下沉 mapper，多表聚合收口 service”的方式实现，且数据库 SQL 不使用 `join`。
 
 原因：
 
 - 角色、权限、菜单的单表过滤、排序属于持久化细节
 - 用户角色、角色菜单、角色权限属于 RBAC 聚合编排，放 service 更清晰
 - 菜单树、路由树属于展示结构转换，不应放在 mapper 或 auth service 中
+
+落地规则：
+
+- mapper 只做单表 `select ids`、`select list by ids`、`count exists`、`delete/update by ids`
+- service 统一按“先查关联 ID -> 去重 -> 再查目标表”的方式组装结果
+- 即使只有两张表，也不写 `join`
 
 ### 5.2 角色查询约束
 
@@ -227,6 +233,23 @@ List<RouterVo>           // 前端路由树
 - 只查启用权限
 - 返回 `permission_code` 或 `auth_tag`
 - 若用户级超级管理员标记为 1，直接返回 `["**:**:**"]`
+
+权限模块本身建议补齐：
+
+- 条件分页：`permissionName`、`permissionCode`、`permissionType`、`menuId`、`status`
+- `getAll()`：查询全部权限
+- `getListByRoleId(roleId)`：先查 `permissionIds`，再查权限详情
+- `getOptionListByRoleId(roleId)`：先查已选 `permissionIds`，再查全部权限并组装 `selected/disabled`
+- `checkPermissionCodeUnique(permission)`：只校验权限编码
+- `checkAuthTagUnique(permission)`：只校验鉴权标识
+- `checkPermissionAllowed(permissionId)`：系统内置权限不允许删除
+- `deleteBatch(ids)`：删除权限时同步清理 `sys_role_permission`
+
+注意：
+
+- `permissionName` 不做唯一约束
+- `authTag` 未显式传值时，默认回填 `permissionCode`
+- 系统内置权限只禁止改 `permissionCode` / `authTag` 和删除，不禁止一般描述字段修改
 
 ### 5.4 菜单查询约束
 
@@ -338,6 +361,23 @@ List<RouterVo>           // 前端路由树
 - 不要把 URL 直接当权限码
 - 菜单权限和接口权限保持同一命名空间
 
+推荐管理端统一映射：
+
+- `system:user:view/add/update/delete`
+- `system:role:view/add/update/delete/grant`
+- `system:menu:view/add/update/delete`
+- `system:permission:view/add/update/delete`
+- `system:dept:view/add/update/delete`
+- `system:ip-block:view/add/update/delete`
+- `system:oper-log:view/delete`
+- `system:login-log:view/delete`
+
+补充边界：
+
+- 全部 `/system/*` 控制器都应落 `@SaCheckPermission`
+- `/auth/*` 不加 `@SaCheckPermission`
+- `SysOperLogController`、`SysLoginLogController` 只保留读和删，不对外暴露 `add/update`
+
 ---
 
 ## 9. 测试建议
@@ -351,6 +391,10 @@ List<RouterVo>           // 前端路由树
 - 停用角色后权限失效
 - 停用权限后权限失效
 - 空角色用户返回空集合
+- `authTag` 默认回填 `permissionCode`
+- 内置权限保护、批量删除级联清理
+- 角色权限授权/取消授权
+- 权限选择框、角色选择框组装
 
 ### 9.2 集成测试
 
@@ -359,8 +403,8 @@ List<RouterVo>           // 前端路由树
 - `/auth/info` 返回角色码、权限码
 - `/auth/routers` 返回当前用户路由树
 - 菜单下拉树接口返回 `TreeSelectModel`
-- `@SaCheckPermission` 成功/失败分支
-- `@SaCheckRole` 成功/失败分支
+- `view/add/delete/grant` 四类 `@SaCheckPermission` 落地
+- 日志控制器不再暴露 `add/update`
 
 ### 9.3 回归测试
 
@@ -400,5 +444,6 @@ List<RouterVo>           // 前端路由树
 - `/auth/routers` 已返回当前用户路由树
 - 菜单下拉树已独立返回 `TreeSelectModel`
 - `StpInterfaceImpl` 已可返回角色和权限
-- 至少一组业务接口已成功接入 `@SaCheckPermission`
+- 全部 `/system/*` 控制器已完成 `@SaCheckPermission`
+- 日志控制器已完成“仅读删”收口
 - 单元测试与集成测试通过

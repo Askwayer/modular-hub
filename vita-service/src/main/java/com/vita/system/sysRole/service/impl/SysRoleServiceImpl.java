@@ -25,6 +25,8 @@ import com.vita.system.sysRole.vo.SysRoleDetailVo;
 import com.vita.system.sysRole.vo.SysRoleListVo;
 import com.vita.system.sysRole.vo.SysRoleOptionVo;
 import com.vita.system.sysRole.vo.SysRolePageVo;
+import com.vita.system.sysPermission.entity.SysPermission;
+import com.vita.system.sysPermission.service.ISysPermissionService;
 import com.vita.system.sysUser.entity.SysUser;
 import com.vita.system.sysUser.service.ISysUserService;
 import jakarta.annotation.Resource;
@@ -64,6 +66,9 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
 
     @Resource
     private ISysUserService sysUserService;
+
+    @Resource
+    private ISysPermissionService sysPermissionService;
 
     /**
      * 新增数据并返回主键ID。
@@ -112,7 +117,7 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void delete(Long id) {
-        deleteBatch(CollUtil.newArrayList(id));
+        doDeleteRoles(CollUtil.newArrayList(id));
     }
 
     /**
@@ -303,6 +308,15 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void deleteBatch(List<Long> ids) {
+        doDeleteRoles(ids);
+    }
+
+    /**
+     * 统一单删/批删逻辑，避免 public 事务方法同类互调导致事务失效。
+     *
+     * @param ids 角色ID列表
+     */
+    private void doDeleteRoles(List<Long> ids) {
         List<Long> validRoleIds = sanitizeIds(ids);
         if (CollUtil.isEmpty(validRoleIds)) {
             throw new ServiceException(GlobalErrorCode.BAD_REQUEST);
@@ -366,6 +380,59 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
         checkRoleAllowed(roleId);
         validateUserIdsExist(validUserIds);
         sysUserRoleService.assignRoleToUsers(roleId, validUserIds);
+    }
+
+    /**
+     * 取消授权单个角色权限。
+     *
+     * @param roleId 角色ID
+     * @param permissionId 权限ID
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void cancelAuthPermission(Long roleId, Long permissionId) {
+        if (roleId == null || permissionId == null) {
+            throw new ServiceException(GlobalErrorCode.BAD_REQUEST);
+        }
+        checkRoleAllowed(roleId);
+        sysRolePermissionService.removeByRoleIdAndPermissionIds(roleId, List.of(permissionId));
+    }
+
+    /**
+     * 批量取消授权角色权限。
+     *
+     * @param roleId 角色ID
+     * @param permissionIds 权限ID列表
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void cancelAuthPermissions(Long roleId, List<Long> permissionIds) {
+        if (roleId == null) {
+            throw new ServiceException(GlobalErrorCode.BAD_REQUEST);
+        }
+        checkRoleAllowed(roleId);
+        sysRolePermissionService.removeByRoleIdAndPermissionIds(roleId, permissionIds);
+    }
+
+    /**
+     * 批量选择授权角色权限。
+     *
+     * @param roleId 角色ID
+     * @param permissionIds 权限ID列表
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void authPermissions(Long roleId, List<Long> permissionIds) {
+        if (roleId == null) {
+            throw new ServiceException(GlobalErrorCode.BAD_REQUEST);
+        }
+        List<Long> validPermissionIds = sanitizeIds(permissionIds);
+        if (CollUtil.isEmpty(validPermissionIds)) {
+            return;
+        }
+        checkRoleAllowed(roleId);
+        validatePermissionIdsExist(validPermissionIds);
+        sysRolePermissionService.assignPermissionsToRole(roleId, validPermissionIds);
     }
 
     /**
@@ -456,6 +523,13 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
         List<SysUser> users = sysUserService.listByIds(userIds);
         if (CollUtil.isEmpty(users) || users.size() != userIds.size()) {
             throw new ServiceException(GlobalErrorCode.BAD_REQUEST.getCode(), "存在无效的用户ID");
+        }
+    }
+
+    private void validatePermissionIdsExist(List<Long> permissionIds) {
+        List<SysPermission> permissions = sysPermissionService.listByIds(permissionIds);
+        if (CollUtil.isEmpty(permissions) || permissions.size() != permissionIds.size()) {
+            throw new ServiceException(GlobalErrorCode.BAD_REQUEST.getCode(), "存在无效的权限ID");
         }
     }
 }

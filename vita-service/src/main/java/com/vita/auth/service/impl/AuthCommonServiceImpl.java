@@ -7,6 +7,7 @@ import com.vita.enums.CommonStatusEnum;
 import com.vita.system.associate.sysRolePermission.service.ISysRolePermissionService;
 import com.vita.system.associate.sysUserRole.service.ISysUserRoleService;
 import com.vita.system.sysPermission.service.ISysPermissionService;
+import com.vita.system.sysRole.service.ISysRoleService;
 import com.vita.system.sysUser.entity.SysUser;
 import com.vita.system.sysUser.service.ISysUserService;
 import org.springframework.stereotype.Service;
@@ -28,15 +29,18 @@ public class AuthCommonServiceImpl implements IAuthCommonService {
     private final ISysUserRoleService sysUserRoleService;
     private final ISysRolePermissionService sysRolePermissionService;
     private final ISysPermissionService sysPermissionService;
+    private final ISysRoleService sysRoleService;
 
     public AuthCommonServiceImpl(ISysUserService sysUserService,
                                  ISysUserRoleService sysUserRoleService,
                                  ISysRolePermissionService sysRolePermissionService,
-                                 ISysPermissionService sysPermissionService) {
+                                 ISysPermissionService sysPermissionService,
+                                 ISysRoleService sysRoleService) {
         this.sysUserService = sysUserService;
         this.sysUserRoleService = sysUserRoleService;
         this.sysRolePermissionService = sysRolePermissionService;
         this.sysPermissionService = sysPermissionService;
+        this.sysRoleService = sysRoleService;
     }
 
     /**
@@ -54,7 +58,11 @@ public class AuthCommonServiceImpl implements IAuthCommonService {
         if (CommonStatusEnum.isEnabled(user.getIsSuperAdmin())) {
             return CollUtil.newArrayList(AuthConstants.SUPER_ADMIN_ROLE_CODE);
         }
-        return sysUserRoleService.getRoleCodesByUserId(userId);
+        List<Long> roleIds = sysUserRoleService.getRoleIdsByUserId(userId);
+        if (CollUtil.isEmpty(roleIds)) {
+            return CollUtil.newArrayList();
+        }
+        return sysRoleService.getRoleCodesByIds(roleIds, CommonStatusEnum.ENABLED.getCode());
     }
 
     /**

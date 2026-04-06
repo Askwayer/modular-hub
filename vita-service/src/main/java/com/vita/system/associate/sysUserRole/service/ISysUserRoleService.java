@@ -85,14 +85,6 @@ public interface ISysUserRoleService extends IService<SysUserRole> {
     List<Long> getUserIdsByRoleId(Long roleId);
 
     /**
-     * 查询用户角色码集合。
-     *
-     * @param userId 用户ID
-     * @return 角色码集合
-     */
-    List<String> getRoleCodesByUserId(Long userId);
-
-    /**
      * 根据角色ID列表删除用户角色关联。
      *
      * @param roleIds 角色ID列表

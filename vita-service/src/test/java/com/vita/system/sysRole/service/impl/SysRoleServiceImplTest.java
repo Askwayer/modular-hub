@@ -7,6 +7,8 @@ import com.vita.system.associate.sysRoleDeptScope.service.ISysRoleDeptScopeServi
 import com.vita.system.associate.sysRoleMenu.service.ISysRoleMenuService;
 import com.vita.system.associate.sysRolePermission.service.ISysRolePermissionService;
 import com.vita.system.associate.sysUserRole.service.ISysUserRoleService;
+import com.vita.system.sysPermission.entity.SysPermission;
+import com.vita.system.sysPermission.service.ISysPermissionService;
 import com.vita.system.sysRole.dto.SysRoleCreateDto;
 import com.vita.system.sysRole.entity.SysRole;
 import com.vita.system.sysRole.mapper.SysRoleMapper;
@@ -47,6 +49,8 @@ class SysRoleServiceImplTest {
     private ISysRoleDeptScopeService sysRoleDeptScopeService;
     @Mock
     private ISysUserService sysUserService;
+    @Mock
+    private ISysPermissionService sysPermissionService;
 
     private SysRoleServiceImpl sysRoleService;
 
@@ -59,6 +63,7 @@ class SysRoleServiceImplTest {
         ReflectionTestUtils.setField(sysRoleService, "sysRolePermissionService", sysRolePermissionService);
         ReflectionTestUtils.setField(sysRoleService, "sysRoleDeptScopeService", sysRoleDeptScopeService);
         ReflectionTestUtils.setField(sysRoleService, "sysUserService", sysUserService);
+        ReflectionTestUtils.setField(sysRoleService, "sysPermissionService", sysPermissionService);
     }
 
     @Test
@@ -143,6 +148,19 @@ class SysRoleServiceImplTest {
     }
 
     @Test
+    void deleteShouldCascadeRemoveAssociationsLikeDeleteBatch() {
+        when(sysRoleMapper.selectById(1L)).thenReturn(buildRole(1L, "普通角色A", "ROLE_A", Constants.ENABLED, Constants.DISABLED));
+
+        sysRoleService.delete(1L);
+
+        verify(sysUserRoleService).removeByRoleIds(List.of(1L));
+        verify(sysRoleMenuService).removeByRoleIds(List.of(1L));
+        verify(sysRolePermissionService).removeByRoleIds(List.of(1L));
+        verify(sysRoleDeptScopeService).removeByRoleIds(List.of(1L));
+        verify(sysRoleMapper).deleteById(1L);
+    }
+
+    @Test
     void authUsersShouldValidateUsersThenAssignRole() {
         when(sysRoleMapper.selectById(10L)).thenReturn(buildRole(10L, "普通角色", "COMMON", Constants.ENABLED, Constants.DISABLED));
         when(sysUserService.listByIds(List.of(101L, 102L))).thenReturn(List.of(buildUser(101L), buildUser(102L)));
@@ -150,6 +168,25 @@ class SysRoleServiceImplTest {
         sysRoleService.authUsers(10L, List.of(101L, 102L, 101L));
 
         verify(sysUserRoleService).assignRoleToUsers(10L, List.of(101L, 102L));
+    }
+
+    @Test
+    void authPermissionsShouldValidatePermissionsThenAssignRole() {
+        when(sysRoleMapper.selectById(10L)).thenReturn(buildRole(10L, "普通角色", "COMMON", Constants.ENABLED, Constants.DISABLED));
+        when(sysPermissionService.listByIds(List.of(201L, 202L))).thenReturn(List.of(buildPermission(201L), buildPermission(202L)));
+
+        sysRoleService.authPermissions(10L, List.of(201L, 202L, 201L));
+
+        verify(sysRolePermissionService).assignPermissionsToRole(10L, List.of(201L, 202L));
+    }
+
+    @Test
+    void cancelAuthPermissionsShouldDelegateToRolePermissionService() {
+        when(sysRoleMapper.selectById(10L)).thenReturn(buildRole(10L, "普通角色", "COMMON", Constants.ENABLED, Constants.DISABLED));
+
+        sysRoleService.cancelAuthPermissions(10L, List.of(201L, 202L));
+
+        verify(sysRolePermissionService).removeByRoleIdAndPermissionIds(10L, List.of(201L, 202L));
     }
 
     private SysRoleCreateDto buildCreateDto(String roleName, String roleCode) {
@@ -179,5 +216,11 @@ class SysRoleServiceImplTest {
         SysUser user = new SysUser();
         user.setId(userId);
         return user;
+    }
+
+    private SysPermission buildPermission(Long permissionId) {
+        SysPermission permission = new SysPermission();
+        permission.setId(permissionId);
+        return permission;
     }
 }

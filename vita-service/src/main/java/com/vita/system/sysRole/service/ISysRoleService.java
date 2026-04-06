@@ -163,4 +163,28 @@ public interface ISysRoleService extends IService<SysRole> {
      * @param userIds 用户ID列表
      */
     void authUsers(Long roleId, List<Long> userIds);
+
+    /**
+     * 取消授权单个角色权限。
+     *
+     * @param roleId 角色ID
+     * @param permissionId 权限ID
+     */
+    void cancelAuthPermission(Long roleId, Long permissionId);
+
+    /**
+     * 批量取消授权角色权限。
+     *
+     * @param roleId 角色ID
+     * @param permissionIds 权限ID列表
+     */
+    void cancelAuthPermissions(Long roleId, List<Long> permissionIds);
+
+    /**
+     * 批量选择授权角色权限。
+     *
+     * @param roleId 角色ID
+     * @param permissionIds 权限ID列表
+     */
+    void authPermissions(Long roleId, List<Long> permissionIds);
 }

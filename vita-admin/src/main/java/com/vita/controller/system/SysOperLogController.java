@@ -1,11 +1,10 @@
 package com.vita.controller.system;
 
+import cn.dev33.satoken.annotation.SaCheckPermission;
 import com.vita.core.CommonResult;
 import com.vita.core.controller.BaseController;
 import com.vita.core.page.PageResponse;
-import com.vita.system.sysOperLog.dto.SysOperLogCreateDto;
 import com.vita.system.sysOperLog.dto.SysOperLogSearchDto;
-import com.vita.system.sysOperLog.dto.SysOperLogUpdateDto;
 import com.vita.system.sysOperLog.service.ISysOperLogService;
 import com.vita.system.sysOperLog.vo.SysOperLogDetailVo;
 import com.vita.system.sysOperLog.vo.SysOperLogListVo;
@@ -39,35 +38,13 @@ public class SysOperLogController extends BaseController {
     }
 
     /**
-     * 新增数据。
-     *
-     * @param createDto 创建请求对象
-     * @return 新增记录ID
-     */
-    @PostMapping("/add")
-    public CommonResult<Long> create(@RequestBody @Valid SysOperLogCreateDto createDto) {
-        return CommonResult.success(sysOperLogService.create(createDto));
-    }
-
-    /**
-     * 更新数据。
-     *
-     * @param updateDto 更新请求对象
-     * @return 更新结果
-     */
-    @PostMapping("/update")
-    public CommonResult<Boolean> update(@RequestBody @Valid SysOperLogUpdateDto updateDto) {
-        sysOperLogService.update(updateDto);
-        return CommonResult.success(true);
-    }
-
-    /**
      * 删除数据。
      *
      * @param id 主键ID
      * @return 删除结果
      */
     @DeleteMapping("/delete")
+    @SaCheckPermission("system:oper-log:delete")
     public CommonResult<Boolean> delete(@RequestParam("id") Long id) {
         sysOperLogService.delete(id);
         return CommonResult.success(true);
@@ -80,6 +57,7 @@ public class SysOperLogController extends BaseController {
      * @return 详情对象
      */
     @GetMapping("/getDetail")
+    @SaCheckPermission("system:oper-log:view")
     public CommonResult<SysOperLogDetailVo> getDetail(@RequestParam("id") Long id) {
         return CommonResult.success(sysOperLogService.get(id));
     }
@@ -91,6 +69,7 @@ public class SysOperLogController extends BaseController {
      * @return 列表数据
      */
     @GetMapping("/list")
+    @SaCheckPermission("system:oper-log:view")
     public CommonResult<List<SysOperLogListVo>> list(@Valid SysOperLogSearchDto searchDto) {
         return CommonResult.success(sysOperLogService.list(searchDto));
     }
@@ -102,6 +81,7 @@ public class SysOperLogController extends BaseController {
      * @return 分页数据
      */
     @GetMapping("/page")
+    @SaCheckPermission("system:oper-log:view")
     public CommonResult<PageResponse<SysOperLogPageVo>> page(@Valid SysOperLogSearchDto searchDto) {
         return CommonResult.success(sysOperLogService.page(searchDto));
     }

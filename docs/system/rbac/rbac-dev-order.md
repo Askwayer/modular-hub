@@ -45,6 +45,7 @@ RBAC 一期不要从“给所有 controller 加注解”开始，而要按“先
 
 - 在 user-role / role-permission / role-menu 相关 service 中完成 RBAC 聚合编排
 - 单表查询、投影、去重和排序细节下沉到 mapper
+- 数据库 SQL 不使用 `join`，统一采用“先查关联 ID，再查目标表”模式
 - 由 `IAuthCommonService` 统一承接聚合查询
 - 做统一过滤：`status = 1`、`is_deleted = 0`
 
@@ -111,21 +112,22 @@ RBAC 一期不要从“给所有 controller 加注解”开始，而要按“先
 
 建议工作项：
 
-- 先挑一组核心接口试点，例如：
-  - 用户管理
-  - 角色管理
-  - 权限管理
-- 对新增、修改、删除、导出等动作加权限码注解
+- 覆盖全部 `/system/*` 控制器，而不是只挑试点
+- 只读接口统一使用 `view`
+- 写接口统一使用 `add/update/delete`
+- 角色授权接口统一使用 `system:role:grant`
+- 清理 `SysOperLogController`、`SysLoginLogController` 的对外 `add/update`
 
 输出：
 
-- 第一批受控接口
+- 全量受控的 `/system/*` 控制器
 - 权限码命名规范
 
 验收：
 
 - 普通用户无法越权调用受控接口
 - 超级管理员可正常访问
+- 日志管理接口只剩读和删
 
 ### 阶段六：前端菜单与按钮联调
 
@@ -192,7 +194,7 @@ RBAC 一期不要从“给所有 controller 加注解”开始，而要按“先
 完成标准：
 
 - `Sa-Token` 注解鉴权生效
-- 核心接口受控
+- `/system/*` 接口全部按 RBAC 受控
 
 ### 里程碑 M3：前后端权限联动
 

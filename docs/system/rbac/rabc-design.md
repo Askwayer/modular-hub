@@ -152,7 +152,7 @@ RBAC 查询应统一过滤以下条件：
 
 ### 5.1 设计目标
 
-运行时不应每次校验权限都重新走全量表关联查询，而应先构建当前登录用户的权限快照。
+运行时不应每次校验权限都重新走全量表关联查询，而应先构建当前登录用户的权限快照。数据库访问统一遵循“无 join、service 聚合”的约束。
 
 ### 5.2 建议的快照内容
 
@@ -296,56 +296,32 @@ RBAC 查询应统一过滤以下条件：
 
 ### 7.1 角色查询
 
-按 `userId` 查询启用角色编码：
+按 `userId` 查询角色编码，统一采用两段式：
 
-```sql
-select r.role_code
-from sys_user_role ur
-join sys_role r on r.id = ur.role_id
-where ur.user_id = ?
-  and ur.is_deleted = 0
-  and r.is_deleted = 0
-  and r.status = 1
-```
+1. `sys_user_role` 单表查询 `roleIds`
+2. `sys_role` 单表按 `roleIds + status=1` 查询角色详情或角色编码
 
 ### 7.2 权限查询
 
-按 `userId` 查询启用权限编码：
+按 `userId` 查询权限编码，统一采用三段式：
 
-```sql
-select distinct p.permission_code
-from sys_user_role ur
-join sys_role r on r.id = ur.role_id
-join sys_role_permission rp on rp.role_id = r.id
-join sys_permission p on p.id = rp.permission_id
-where ur.user_id = ?
-  and ur.is_deleted = 0
-  and r.is_deleted = 0
-  and r.status = 1
-  and rp.is_deleted = 0
-  and p.is_deleted = 0
-  and p.status = 1
-```
+1. `sys_user_role` 单表查询 `roleIds`
+2. `sys_role_permission` 单表查询 `permissionIds`
+3. `sys_permission` 单表按 `permissionIds + status=1` 查询权限详情并映射 `authTag / permissionCode`
 
 ### 7.3 菜单查询
 
-按 `userId` 查询启用菜单：
+按 `userId` 查询菜单，统一采用三段式：
 
-```sql
-select distinct m.*
-from sys_user_role ur
-join sys_role r on r.id = ur.role_id
-join sys_role_menu rm on rm.role_id = r.id
-join sys_menu m on m.id = rm.menu_id
-where ur.user_id = ?
-  and ur.is_deleted = 0
-  and r.is_deleted = 0
-  and r.status = 1
-  and rm.is_deleted = 0
-  and m.is_deleted = 0
-  and m.status = 1
-order by m.parent_id asc, m.sort_no asc, m.id asc
-```
+1. `sys_user_role` 单表查询 `roleIds`
+2. `sys_role_menu` 单表查询 `menuIds`
+3. `sys_menu` 单表按 `menuIds + status=1` 查询菜单详情，再在 service 中组装菜单树和前端路由
+
+### 7.4 约束总结
+
+- mapper 只保留单表查询、单表投影、`exists/count`
+- service 负责去重、过滤、树结构组装、路由组装
+- 文档和实现都不再引入 `join` SQL 示例
 
 ---
 
@@ -402,7 +378,7 @@ order by m.parent_id asc, m.sort_no asc, m.id asc
 负责 RBAC 聚合与认证编排：
 
 - 由 `IAuthCommonService` 提供角色、权限、菜单聚合查询
-- 用户、角色、菜单、权限关联表 mapper 增加联查方法
+- 用户、角色、菜单、权限相关 mapper 只提供单表查询与单表投影方法
 - `AuthServiceImpl` / `IAuthService` 增加当前用户权限初始化能力
 
 ### 9.3 `vita-admin`

@@ -20,4 +20,29 @@ public class SysPermissionSearchDto extends PageRequest {
      * 关键字。
      */
     private String keyword;
+
+    /**
+     * 权限名称
+     */
+    private String permissionName;
+
+    /**
+     * 权限编码
+     */
+    private String permissionCode;
+
+    /**
+     * 权限类型
+     */
+    private String permissionType;
+
+    /**
+     * 菜单ID
+     */
+    private Long menuId;
+
+    /**
+     * 状态
+     */
+    private Byte status;
 }

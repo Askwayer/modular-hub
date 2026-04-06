@@ -1,5 +1,6 @@
 package com.vita.controller.system;
 
+import cn.dev33.satoken.annotation.SaCheckPermission;
 import com.vita.core.CommonResult;
 import com.vita.core.page.PageResponse;
 import com.vita.system.sysDept.dto.SysDeptCreateDto;
@@ -46,6 +47,7 @@ public class SysDeptController extends BaseController {
      * @return 新增记录ID
      */
     @PostMapping("/add")
+    @SaCheckPermission("system:dept:add")
     public CommonResult<Long> create(@RequestBody @Valid SysDeptCreateDto createDto) {
         return CommonResult.success(sysDeptService.create(createDto));
     }
@@ -57,6 +59,7 @@ public class SysDeptController extends BaseController {
      * @return 更新结果
      */
     @PostMapping("/update")
+    @SaCheckPermission("system:dept:update")
     public CommonResult<Boolean> update(@RequestBody @Valid SysDeptUpdateDto updateDto) {
         sysDeptService.update(updateDto);
         return CommonResult.success(true);
@@ -69,6 +72,7 @@ public class SysDeptController extends BaseController {
      * @return 删除结果
      */
     @DeleteMapping("/delete")
+    @SaCheckPermission("system:dept:delete")
     public CommonResult<Boolean> delete(@RequestParam("id") Long id) {
         sysDeptService.delete(id);
         return CommonResult.success(true);
@@ -81,6 +85,7 @@ public class SysDeptController extends BaseController {
      * @return 详情对象
      */
     @GetMapping("/getDetail")
+    @SaCheckPermission("system:dept:view")
     public CommonResult<SysDeptDetailVo> getDetail(@RequestParam("id") Long id) {
         return CommonResult.success(sysDeptService.get(id));
     }
@@ -92,6 +97,7 @@ public class SysDeptController extends BaseController {
      * @return 列表数据
      */
     @GetMapping("/list")
+    @SaCheckPermission("system:dept:view")
     public CommonResult<List<SysDeptListVo>> list(@Valid SysDeptSearchDto searchDto) {
         return CommonResult.success(sysDeptService.list(searchDto));
     }
@@ -103,6 +109,7 @@ public class SysDeptController extends BaseController {
      * @return 分页数据
      */
     @GetMapping("/page")
+    @SaCheckPermission("system:dept:view")
     public CommonResult<PageResponse<SysDeptPageVo>> page(@Valid SysDeptSearchDto searchDto) {
         return CommonResult.success(sysDeptService.page(searchDto));
     }

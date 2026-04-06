@@ -146,6 +146,20 @@ public class SysRolePermissionServiceImpl extends ServiceImpl<SysRolePermissionM
     }
 
     /**
+     * 查询单个角色权限ID集合。
+     *
+     * @param roleId 角色ID
+     * @return 权限ID集合
+     */
+    @Override
+    public List<Long> getPermissionIdsByRoleId(Long roleId) {
+        if (roleId == null) {
+            throw new ServiceException(GlobalErrorCode.BAD_REQUEST);
+        }
+        return getPermissionIdsByRoleIds(List.of(roleId));
+    }
+
+    /**
      * 根据角色ID列表删除角色权限关联。
      *
      * @param roleIds 角色ID集合
@@ -156,6 +170,70 @@ public class SysRolePermissionServiceImpl extends ServiceImpl<SysRolePermissionM
             return;
         }
         remove(new LambdaQueryWrapperX<SysRolePermission>().inIfPresent(SysRolePermission::getRoleId, roleIds));
+    }
+
+    /**
+     * 根据权限ID列表删除角色权限关联。
+     *
+     * @param permissionIds 权限ID集合
+     */
+    @Override
+    public void removeByPermissionIds(List<Long> permissionIds) {
+        if (CollUtil.isEmpty(permissionIds)) {
+            return;
+        }
+        remove(new LambdaQueryWrapperX<SysRolePermission>().inIfPresent(SysRolePermission::getPermissionId, permissionIds));
+    }
+
+    /**
+     * 根据角色ID和权限ID列表删除角色权限关联。
+     *
+     * @param roleId 角色ID
+     * @param permissionIds 权限ID列表
+     */
+    @Override
+    public void removeByRoleIdAndPermissionIds(Long roleId, List<Long> permissionIds) {
+        if (roleId == null) {
+            throw new ServiceException(GlobalErrorCode.BAD_REQUEST);
+        }
+        List<Long> validPermissionIds = sanitizeIds(permissionIds);
+        if (CollUtil.isEmpty(validPermissionIds)) {
+            return;
+        }
+        remove(new LambdaQueryWrapperX<SysRolePermission>()
+                .eq(SysRolePermission::getRoleId, roleId)
+                .inIfPresent(SysRolePermission::getPermissionId, validPermissionIds));
+    }
+
+    /**
+     * 批量为角色分配权限。
+     *
+     * @param roleId 角色ID
+     * @param permissionIds 权限ID列表
+     */
+    @Override
+    public void assignPermissionsToRole(Long roleId, List<Long> permissionIds) {
+        if (roleId == null) {
+            throw new ServiceException(GlobalErrorCode.BAD_REQUEST);
+        }
+        List<Long> validPermissionIds = sanitizeIds(permissionIds);
+        if (CollUtil.isEmpty(validPermissionIds)) {
+            return;
+        }
+        List<Long> existingPermissionIds = getPermissionIdsByRoleId(roleId);
+        List<SysRolePermission> rolePermissions = validPermissionIds.stream()
+                .filter(permissionId -> !existingPermissionIds.contains(permissionId))
+                .map(permissionId -> {
+                    SysRolePermission rolePermission = new SysRolePermission();
+                    rolePermission.setRoleId(roleId);
+                    rolePermission.setPermissionId(permissionId);
+                    return rolePermission;
+                })
+                .toList();
+        if (CollUtil.isEmpty(rolePermissions)) {
+            return;
+        }
+        saveBatch(rolePermissions);
     }
 
     /**
@@ -188,5 +266,12 @@ public class SysRolePermissionServiceImpl extends ServiceImpl<SysRolePermissionM
             throw new ServiceException(GlobalErrorCode.NOT_FOUND);
         }
         return data;
+    }
+
+    private List<Long> sanitizeIds(List<Long> ids) {
+        if (CollUtil.isEmpty(ids)) {
+            return List.of();
+        }
+        return ids.stream().filter(Objects::nonNull).distinct().toList();
     }
 }

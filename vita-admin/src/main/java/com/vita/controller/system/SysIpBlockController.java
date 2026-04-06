@@ -1,5 +1,6 @@
 package com.vita.controller.system;
 
+import cn.dev33.satoken.annotation.SaCheckPermission;
 import com.vita.core.CommonResult;
 import com.vita.core.page.PageResponse;
 import com.vita.system.sysIpBlock.dto.SysIpBlockCreateDto;
@@ -46,6 +47,7 @@ public class SysIpBlockController extends BaseController {
      * @return 新增记录ID
      */
     @PostMapping("/add")
+    @SaCheckPermission("system:ip-block:add")
     public CommonResult<Long> create(@RequestBody @Valid SysIpBlockCreateDto createDto) {
         return CommonResult.success(sysIpBlockService.create(createDto));
     }
@@ -57,6 +59,7 @@ public class SysIpBlockController extends BaseController {
      * @return 更新结果
      */
     @PostMapping("/update")
+    @SaCheckPermission("system:ip-block:update")
     public CommonResult<Boolean> update(@RequestBody @Valid SysIpBlockUpdateDto updateDto) {
         sysIpBlockService.update(updateDto);
         return CommonResult.success(true);
@@ -69,6 +72,7 @@ public class SysIpBlockController extends BaseController {
      * @return 删除结果
      */
     @DeleteMapping("/delete")
+    @SaCheckPermission("system:ip-block:delete")
     public CommonResult<Boolean> delete(@RequestParam("id") Long id) {
         sysIpBlockService.delete(id);
         return CommonResult.success(true);
@@ -81,6 +85,7 @@ public class SysIpBlockController extends BaseController {
      * @return 详情对象
      */
     @GetMapping("/getDetail")
+    @SaCheckPermission("system:ip-block:view")
     public CommonResult<SysIpBlockDetailVo> getDetail(@RequestParam("id") Long id) {
         return CommonResult.success(sysIpBlockService.get(id));
     }
@@ -92,6 +97,7 @@ public class SysIpBlockController extends BaseController {
      * @return 列表数据
      */
     @GetMapping("/list")
+    @SaCheckPermission("system:ip-block:view")
     public CommonResult<List<SysIpBlockListVo>> list(@Valid SysIpBlockSearchDto searchDto) {
         return CommonResult.success(sysIpBlockService.list(searchDto));
     }
@@ -103,6 +109,7 @@ public class SysIpBlockController extends BaseController {
      * @return 分页数据
      */
     @GetMapping("/page")
+    @SaCheckPermission("system:ip-block:view")
     public CommonResult<PageResponse<SysIpBlockPageVo>> page(@Valid SysIpBlockSearchDto searchDto) {
         return CommonResult.success(sysIpBlockService.page(searchDto));
     }

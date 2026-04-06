@@ -6,7 +6,6 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
 import com.vita.core.page.PageResponse;
-import com.vita.enums.CommonStatusEnum;
 import com.vita.mybatis.LambdaQueryWrapperX;
 import com.vita.system.associate.sysUserRole.dto.SysUserRoleCreateDto;
 import com.vita.system.associate.sysUserRole.dto.SysUserRoleSearchDto;
@@ -17,7 +16,6 @@ import com.vita.system.associate.sysUserRole.service.ISysUserRoleService;
 import com.vita.system.associate.sysUserRole.vo.SysUserRoleDetailVo;
 import com.vita.system.associate.sysUserRole.vo.SysUserRoleListVo;
 import com.vita.system.associate.sysUserRole.vo.SysUserRolePageVo;
-import com.vita.system.sysRole.service.ISysRoleService;
 import jakarta.annotation.Resource;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
@@ -38,9 +36,6 @@ public class SysUserRoleServiceImpl extends ServiceImpl<SysUserRoleMapper, SysUs
 
     @Resource
     private SysUserRoleMapper sysUserRoleMapper;
-
-    @Resource
-    private ISysRoleService sysRoleService;
 
     /**
      * 新增数据并返回主键ID。
@@ -154,21 +149,6 @@ public class SysUserRoleServiceImpl extends ServiceImpl<SysUserRoleMapper, SysUs
             throw new ServiceException(GlobalErrorCode.BAD_REQUEST);
         }
         return sysUserRoleMapper.selectUserIdsByRoleId(roleId);
-    }
-
-    /**
-     * 查询用户角色码集合。
-     *
-     * @param userId 用户ID
-     * @return 角色码集合
-     */
-    @Override
-    public List<String> getRoleCodesByUserId(Long userId) {
-        List<Long> roleIds = getRoleIdsByUserId(userId);
-        if (CollUtil.isEmpty(roleIds)) {
-            return List.of();
-        }
-        return sysRoleService.getRoleCodesByIds(roleIds, CommonStatusEnum.ENABLED.getCode());
     }
 
     /**
