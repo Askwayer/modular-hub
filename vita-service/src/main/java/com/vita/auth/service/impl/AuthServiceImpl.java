@@ -12,6 +12,8 @@ import com.vita.captcha.dto.CaptchaVerifyRequestDto;
 import com.vita.captcha.service.CaptchaApplicationService;
 import com.vita.constant.AuthConstants;
 import com.vita.constant.Constants;
+import com.vita.core.context.LoginUserInfoContextLoader;
+import com.vita.core.context.LoginUserInfoModelContext;
 import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
 import com.vita.core.model.LoginUserInfoModel;
@@ -26,7 +28,6 @@ import com.vita.system.sysMenu.vo.RouterVo;
 import com.vita.system.sysUser.entity.SysUser;
 import com.vita.system.sysUser.service.ISysUserService;
 import com.vita.utils.Sm4Utils;
-import net.sf.jsqlparser.expression.LongValue;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 
@@ -53,6 +54,7 @@ public class AuthServiceImpl implements IAuthService {
     private final RequestClientInfoResolver requestClientInfoResolver;
     private final LoginAuditService loginAuditService;
     private final ISysMenuService sysMenuService;
+    private final LoginUserInfoContextLoader loginUserInfoContextLoader;
 
     /**
      * 构造认证服务实现，注入用户查询、验证码、登录态和登录审计等依赖。
@@ -71,7 +73,8 @@ public class AuthServiceImpl implements IAuthService {
                            IAuthTokenService authTokenService,
                            RequestClientInfoResolver requestClientInfoResolver,
                            LoginAuditService loginAuditService,
-                           ISysMenuService sysMenuService) {
+                           ISysMenuService sysMenuService,
+                           LoginUserInfoContextLoader loginUserInfoContextLoader) {
         this.sysUserService = sysUserService;
         this.sysIpBlockService = sysIpBlockService;
         this.authCommonService = authCommonService;
@@ -80,6 +83,7 @@ public class AuthServiceImpl implements IAuthService {
         this.requestClientInfoResolver = requestClientInfoResolver;
         this.loginAuditService = loginAuditService;
         this.sysMenuService = sysMenuService;
+        this.loginUserInfoContextLoader = loginUserInfoContextLoader;
     }
 
     /**
@@ -116,6 +120,7 @@ public class AuthServiceImpl implements IAuthService {
     public void logout() {
         authTokenService.checkLogin();
         authTokenService.logout();
+        LoginUserInfoModelContext.removeLoginUserInfo();
     }
 
     /**
@@ -126,8 +131,9 @@ public class AuthServiceImpl implements IAuthService {
     @Override
     public AuthInfoVo getCurrentUserInfo() {
         authTokenService.checkLogin();
-        LoginUserInfoModel loginUserInfoModel = resolveCurrentLoginUserInfo();
-        Long userId = loginUserInfoModel.getId();
+        resolveCurrentLoginUserInfo();
+        LoginUserInfoModel loginUserInfoModel = LoginUserInfoModelContext.getRequiredLoginUserInfo();
+        Long userId = LoginUserInfoModelContext.getRequiredLoginUserId();
         List<String> roleCodes = getOrLoadRoleCodes(userId);
         List<String> permissionCodes = getOrLoadPermissionCodes(userId);
 
@@ -144,7 +150,8 @@ public class AuthServiceImpl implements IAuthService {
     @Override
     public List<RouterVo> getRouters() {
         authTokenService.checkLogin();
-        Long userId = Long.valueOf(authTokenService.getLoginId().toString());
+        resolveCurrentLoginUserInfo();
+        Long userId = LoginUserInfoModelContext.getRequiredLoginUserId();
         List<SysMenu> menus = sysMenuService.getMenusByUserId(userId);
         return sysMenuService.buildMenus(menus);
     }
@@ -230,7 +237,7 @@ public class AuthServiceImpl implements IAuthService {
     private AuthLoginVo loginSuccess(SysUser user, RequestClientInfo requestClientInfo) {
         authTokenService.login(user.getId());
         LoginUserInfoModel loginUserInfo = buildLoginUserInfo(user, requestClientInfo);
-        authTokenService.storeLoginUserInfo(loginUserInfo);
+        cacheLoginUserInfo(loginUserInfo);
         loginAuditService.record(user.getUserName(), user.getId(), requestClientInfo, Constants.SUCCESS, Constants.LOGIN_SUCCESS);
 
         AuthLoginVo authLoginVo = new AuthLoginVo();
@@ -303,26 +310,39 @@ public class AuthServiceImpl implements IAuthService {
 
 
     /**
-     * 获取当前登录用户快照的统一入口，先尝试从会话缓存获取，未命中时重建并缓存后返回。
-     *
-     * @return 当前登录用户快照
+     * 获取当前登录用户快照的统一入口，先尝试从线程上下文与会话缓存获取，未命中时重建并缓存后返回。
      */
-    private LoginUserInfoModel resolveCurrentLoginUserInfo() {
-        LoginUserInfoModel loginUserInfoModel = toLoginUserInfoModel(authTokenService.getStoredLoginUserInfo());
+    private void resolveCurrentLoginUserInfo() {
+        LoginUserInfoModel loginUserInfoModel = LoginUserInfoModelContext.getLoginUserInfo();
         if (loginUserInfoModel != null) {
-            return loginUserInfoModel;
+            return;
         }
-        Object loginId = authTokenService.getLoginId();
-        if (loginId == null) {
+
+        loginUserInfoModel = toLoginUserInfoModel(authTokenService.getStoredLoginUserInfo());
+        if (loginUserInfoModel != null) {
+            LoginUserInfoModelContext.setLoginUserInfo(loginUserInfoModel);
+            return;
+        }
+
+        Long userId = resolveUserId(authTokenService.getLoginId());
+        if (userId == null) {
             throw new ServiceException(GlobalErrorCode.UNAUTHORIZED);
         }
-        SysUser user = sysUserService.getById(Long.valueOf(String.valueOf(loginId)));
-        if (user == null) {
+        LoginUserInfoModel rebuiltLoginUserInfo = loginUserInfoContextLoader.loadByUserId(userId);
+        if (rebuiltLoginUserInfo == null) {
             throw new ServiceException(GlobalErrorCode.UNAUTHORIZED);
         }
-        LoginUserInfoModel rebuiltLoginUserInfo = buildLoginUserInfo(user, requestClientInfoResolver.resolveCurrentRequest());
-        authTokenService.storeLoginUserInfo(rebuiltLoginUserInfo);
-        return rebuiltLoginUserInfo;
+        cacheLoginUserInfo(rebuiltLoginUserInfo);
+    }
+
+    /**
+     * 同步写入会话与当前线程上下文中的登录用户快照。
+     *
+     * @param loginUserInfo 登录用户快照
+     */
+    private void cacheLoginUserInfo(LoginUserInfoModel loginUserInfo) {
+        authTokenService.storeLoginUserInfo(loginUserInfo);
+        LoginUserInfoModelContext.setLoginUserInfo(loginUserInfo);
     }
 
     /**
@@ -371,6 +391,23 @@ public class AuthServiceImpl implements IAuthService {
             return null;
         }
         return BeanUtil.toBean(sessionValue, LoginUserInfoModel.class);
+    }
+
+    /**
+     * 将任意登录 ID 安全转换为 Long。
+     *
+     * @param loginId 登录 ID
+     * @return 用户 ID；无法转换时返回 null
+     */
+    private Long resolveUserId(Object loginId) {
+        if (loginId == null) {
+            return null;
+        }
+        try {
+            return Long.valueOf(String.valueOf(loginId));
+        } catch (NumberFormatException ex) {
+            return null;
+        }
     }
 
     /**

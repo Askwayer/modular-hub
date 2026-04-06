@@ -8,6 +8,8 @@ import com.vita.auth.vo.AuthLoginVo;
 import com.vita.captcha.service.CaptchaApplicationService;
 import com.vita.constant.AuthConstants;
 import com.vita.constant.Constants;
+import com.vita.core.context.LoginUserInfoContextLoader;
+import com.vita.core.context.LoginUserInfoModelContext;
 import com.vita.core.exception.ServiceException;
 import com.vita.core.model.LoginUserInfoModel;
 import com.vita.log.model.RequestClientInfo;
@@ -18,6 +20,7 @@ import com.vita.system.sysMenu.service.ISysMenuService;
 import com.vita.system.sysMenu.vo.RouterVo;
 import com.vita.system.sysUser.entity.SysUser;
 import com.vita.system.sysUser.service.ISysUserService;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -28,8 +31,10 @@ import org.springframework.beans.factory.ObjectProvider;
 import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -54,6 +59,13 @@ class AuthServiceImplTest {
     private LoginAuditService loginAuditService;
     @Mock
     private ISysMenuService sysMenuService;
+    @Mock
+    private LoginUserInfoContextLoader loginUserInfoContextLoader;
+
+    @AfterEach
+    void tearDown() {
+        LoginUserInfoModelContext.removeLoginUserInfo();
+    }
 
     @Test
     void loginShouldBuildSaTokenSessionWhenCaptchaDisabled() {
@@ -66,7 +78,8 @@ class AuthServiceImplTest {
                 authTokenService,
                 requestClientInfoResolver,
                 loginAuditService,
-                sysMenuService
+                sysMenuService,
+                loginUserInfoContextLoader
         );
         when(captchaApplicationServiceProvider.getIfAvailable()).thenReturn(null);
         when(sysIpBlockService.isBlocked("127.0.0.1")).thenReturn(false);
@@ -109,7 +122,8 @@ class AuthServiceImplTest {
                 authTokenService,
                 requestClientInfoResolver,
                 loginAuditService,
-                sysMenuService
+                sysMenuService,
+                loginUserInfoContextLoader
         );
         when(captchaApplicationServiceProvider.getIfAvailable()).thenReturn(null);
         when(sysIpBlockService.isBlocked("127.0.0.1")).thenReturn(false);
@@ -137,7 +151,8 @@ class AuthServiceImplTest {
                 authTokenService,
                 requestClientInfoResolver,
                 loginAuditService,
-                sysMenuService
+                sysMenuService,
+                loginUserInfoContextLoader
         );
         when(captchaApplicationServiceProvider.getIfAvailable()).thenReturn(null);
         when(sysIpBlockService.isBlocked("127.0.0.1")).thenReturn(false);
@@ -164,7 +179,8 @@ class AuthServiceImplTest {
                 authTokenService,
                 requestClientInfoResolver,
                 loginAuditService,
-                sysMenuService
+                sysMenuService,
+                loginUserInfoContextLoader
         );
         when(captchaApplicationServiceProvider.getIfAvailable()).thenReturn(captchaApplicationService);
         when(sysIpBlockService.isBlocked("127.0.0.1")).thenReturn(false);
@@ -186,7 +202,7 @@ class AuthServiceImplTest {
     }
 
     @Test
-    void getCurrentUserInfoShouldReadSaTokenSession() {
+    void getCurrentUserInfoShouldReadLoginContext() {
         AuthServiceImpl authService = new AuthServiceImpl(
                 sysUserService,
                 sysIpBlockService,
@@ -195,26 +211,81 @@ class AuthServiceImplTest {
                 authTokenService,
                 requestClientInfoResolver,
                 loginAuditService,
-                sysMenuService
+                sysMenuService,
+                loginUserInfoContextLoader
         );
         LoginUserInfoModel loginUserInfoModel = new LoginUserInfoModel();
         loginUserInfoModel.setId(1L);
         loginUserInfoModel.setUsername("admin");
-        RouterVo routerVo = new RouterVo();
-        routerVo.setRouteName("System");
-        routerVo.setRouteLink("/system");
-        when(authTokenService.getStoredLoginUserInfo()).thenReturn(loginUserInfoModel);
+        LoginUserInfoModelContext.setLoginUserInfo(loginUserInfoModel);
         when(authTokenService.getStoredLoginRoleCodes()).thenReturn(java.util.List.of("SUPER_ADMIN"));
         when(authTokenService.getStoredLoginPermissionCodes()).thenReturn(java.util.List.of(AuthConstants.ALL_PERMISSION_CODE));
-        when(sysMenuService.getMenusByUserId(1L)).thenReturn(java.util.List.of());
-        when(sysMenuService.buildMenus(java.util.List.of())).thenReturn(java.util.List.of(routerVo));
 
         AuthInfoVo currentUserInfo = authService.getCurrentUserInfo();
         assertEquals("admin", currentUserInfo.getUserInfo().getUsername());
         assertEquals("SUPER_ADMIN", currentUserInfo.getRoleCodes().get(0));
         assertEquals(AuthConstants.ALL_PERMISSION_CODE, currentUserInfo.getPermissionCodes().get(0));
-        assertEquals("/system", currentUserInfo.getMenus().get(0).getRouteLink());
         verify(authTokenService).checkLogin();
+        verify(authTokenService, never()).getStoredLoginUserInfo();
+    }
+
+    @Test
+    void getCurrentUserInfoShouldRebuildFromLoaderWhenSessionMissing() {
+        AuthServiceImpl authService = new AuthServiceImpl(
+                sysUserService,
+                sysIpBlockService,
+                authCommonService,
+                captchaApplicationServiceProvider,
+                authTokenService,
+                requestClientInfoResolver,
+                loginAuditService,
+                sysMenuService,
+                loginUserInfoContextLoader
+        );
+        LoginUserInfoModel loginUserInfoModel = new LoginUserInfoModel();
+        loginUserInfoModel.setId(1L);
+        loginUserInfoModel.setUsername("admin");
+        when(authTokenService.getStoredLoginUserInfo()).thenReturn(null);
+        when(authTokenService.getLoginId()).thenReturn(1L);
+        when(loginUserInfoContextLoader.loadByUserId(1L)).thenReturn(loginUserInfoModel);
+        when(authTokenService.getStoredLoginRoleCodes()).thenReturn(java.util.List.of("SUPER_ADMIN"));
+        when(authTokenService.getStoredLoginPermissionCodes()).thenReturn(java.util.List.of(AuthConstants.ALL_PERMISSION_CODE));
+
+        AuthInfoVo currentUserInfo = authService.getCurrentUserInfo();
+
+        assertEquals("admin", currentUserInfo.getUserInfo().getUsername());
+        verify(authTokenService).storeLoginUserInfo(loginUserInfoModel);
+    }
+
+    @Test
+    void getRoutersShouldReadUserIdFromLoginContext() {
+        AuthServiceImpl authService = new AuthServiceImpl(
+                sysUserService,
+                sysIpBlockService,
+                authCommonService,
+                captchaApplicationServiceProvider,
+                authTokenService,
+                requestClientInfoResolver,
+                loginAuditService,
+                sysMenuService,
+                loginUserInfoContextLoader
+        );
+        LoginUserInfoModel loginUserInfoModel = new LoginUserInfoModel();
+        loginUserInfoModel.setId(1L);
+        loginUserInfoModel.setUsername("admin");
+        LoginUserInfoModelContext.setLoginUserInfo(loginUserInfoModel);
+
+        RouterVo routerVo = new RouterVo();
+        routerVo.setRouteName("System");
+        routerVo.setRouteLink("/system");
+        when(sysMenuService.getMenusByUserId(1L)).thenReturn(java.util.List.of());
+        when(sysMenuService.buildMenus(java.util.List.of())).thenReturn(java.util.List.of(routerVo));
+
+        java.util.List<RouterVo> routers = authService.getRouters();
+
+        assertEquals("/system", routers.get(0).getRouteLink());
+        verify(authTokenService).checkLogin();
+        verify(authTokenService, never()).getLoginId();
     }
 
     @Test
@@ -227,9 +298,16 @@ class AuthServiceImplTest {
                 authTokenService,
                 requestClientInfoResolver,
                 loginAuditService,
-                sysMenuService
+                sysMenuService,
+                loginUserInfoContextLoader
         );
+        LoginUserInfoModel loginUserInfoModel = new LoginUserInfoModel();
+        loginUserInfoModel.setId(1L);
+        LoginUserInfoModelContext.setLoginUserInfo(loginUserInfoModel);
+
         authService.logout();
+
+        assertNull(LoginUserInfoModelContext.getLoginUserInfo());
         verify(authTokenService).checkLogin();
         verify(authTokenService).logout();
     }

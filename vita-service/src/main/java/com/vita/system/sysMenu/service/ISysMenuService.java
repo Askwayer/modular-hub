@@ -62,12 +62,11 @@ public interface ISysMenuService extends IService<SysMenu> {
     List<SysMenuListVo> list(SysMenuSearchDto searchDto);
 
     /**
-     * 分页查询。
+     * 获取菜单下拉树列表
      *
      * @param searchDto 分页查询条件
-     * @return 分页VO结果
+     * @return 菜单树列表
      */
-    PageResponse<SysMenuPageVo> page(SysMenuSearchDto searchDto);
 
     /**
      * 查询全部启用菜单。
