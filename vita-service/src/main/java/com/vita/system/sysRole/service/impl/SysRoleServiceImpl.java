@@ -2,11 +2,19 @@ package com.vita.system.sysRole.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.text.CharSequenceUtil;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.vita.constant.AuthConstants;
+import com.vita.constant.Constants;
 import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
 import com.vita.core.page.PageResponse;
+import com.vita.enums.CommonStatusEnum;
 import com.vita.mybatis.LambdaQueryWrapperX;
+import com.vita.system.associate.sysRoleDeptScope.service.ISysRoleDeptScopeService;
+import com.vita.system.associate.sysRoleMenu.service.ISysRoleMenuService;
+import com.vita.system.associate.sysRolePermission.service.ISysRolePermissionService;
+import com.vita.system.associate.sysUserRole.service.ISysUserRoleService;
 import com.vita.system.sysRole.dto.SysRoleCreateDto;
 import com.vita.system.sysRole.dto.SysRoleSearchDto;
 import com.vita.system.sysRole.dto.SysRoleUpdateDto;
@@ -15,12 +23,18 @@ import com.vita.system.sysRole.mapper.SysRoleMapper;
 import com.vita.system.sysRole.service.ISysRoleService;
 import com.vita.system.sysRole.vo.SysRoleDetailVo;
 import com.vita.system.sysRole.vo.SysRoleListVo;
+import com.vita.system.sysRole.vo.SysRoleOptionVo;
 import com.vita.system.sysRole.vo.SysRolePageVo;
+import com.vita.system.sysUser.entity.SysUser;
+import com.vita.system.sysUser.service.ISysUserService;
 import jakarta.annotation.Resource;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 
 /**
  * @version 1.0
@@ -36,6 +50,21 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
     @Resource
     private SysRoleMapper sysRoleMapper;
 
+    @Resource
+    private ISysUserRoleService sysUserRoleService;
+
+    @Resource
+    private ISysRoleMenuService sysRoleMenuService;
+
+    @Resource
+    private ISysRolePermissionService sysRolePermissionService;
+
+    @Resource
+    private ISysRoleDeptScopeService sysRoleDeptScopeService;
+
+    @Resource
+    private ISysUserService sysUserService;
+
     /**
      * 新增数据并返回主键ID。
      *
@@ -43,12 +72,14 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
      * @return 新增记录ID
      */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Long create(SysRoleCreateDto createDto) {
         if (createDto == null) {
             throw new ServiceException(GlobalErrorCode.BAD_REQUEST);
         }
         SysRole data = new SysRole();
         BeanUtils.copyProperties(createDto, data);
+        validateRoleBeforeSave(data);
         sysRoleMapper.insert(data);
         return data.getId();
     }
@@ -59,13 +90,17 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
      * @param updateDto 更新请求对象
      */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void update(SysRoleUpdateDto updateDto) {
         if (updateDto == null || updateDto.getId() == null) {
             throw new ServiceException(GlobalErrorCode.BAD_REQUEST);
         }
-        getRequiredEntity(updateDto.getId());
+        SysRole existed = getRequiredEntity(updateDto.getId());
+        checkRoleAllowed(existed.getId());
         SysRole data = new SysRole();
         BeanUtils.copyProperties(updateDto, data);
+        fillMissingRoleFields(data, existed);
+        validateRoleBeforeSave(data);
         sysRoleMapper.updateById(data);
     }
 
@@ -75,9 +110,9 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
      * @param id 主键ID
      */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void delete(Long id) {
-        getRequiredEntity(id);
-        sysRoleMapper.deleteById(id);
+        deleteBatch(CollUtil.newArrayList(id));
     }
 
     /**
@@ -131,15 +166,206 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
      */
     @Override
     public List<SysRole> getListByIds(List<Long> roleIds, Byte status) {
-        LambdaQueryWrapperX<SysRole> queryWrapper = new LambdaQueryWrapperX<>();
-        queryWrapper.inIfPresent(SysRole::getId, roleIds)
-                .eqIfPresent(SysRole::getStatus, status)
-                .orderByAsc(SysRole::getRoleSort, SysRole::getId);
-        List<SysRole> sysRoleList = sysRoleMapper.selectList(queryWrapper);
+        if (roleIds != null && roleIds.isEmpty()) {
+            return CollUtil.newArrayList();
+        }
+        List<SysRole> sysRoleList = sysRoleMapper.selectListByIdsAndStatus(roleIds, status);
         if (CollUtil.isNotEmpty(sysRoleList)) {
             return sysRoleList;
         }
         return CollUtil.newArrayList();
+    }
+
+    /**
+     * 根据角色ID和状态列表查询角色编码。
+     *
+     * @param roleIds 角色ID列表
+     * @param status  角色状态（可选）
+     * @return 角色编码列表
+     */
+    @Override
+    public List<String> getRoleCodesByIds(List<Long> roleIds, Byte status) {
+        if (CollUtil.isEmpty(roleIds)) {
+            return CollUtil.newArrayList();
+        }
+        List<String> roleCodes = sysRoleMapper.selectRoleCodesByIds(roleIds, status);
+        if (CollUtil.isEmpty(roleCodes)) {
+            return CollUtil.newArrayList();
+        }
+        return roleCodes.stream()
+                .filter(CharSequenceUtil::isNotBlank)
+                .distinct()
+                .toList();
+    }
+
+    /**
+     * 根据用户ID查询角色列表。
+     *
+     * @param userId 用户ID
+     * @return 角色列表
+     */
+    @Override
+    public List<SysRoleListVo> getListByUserId(Long userId) {
+        if (userId == null) {
+            throw new ServiceException(GlobalErrorCode.BAD_REQUEST);
+        }
+        List<Long> roleIds = sysUserRoleService.getRoleIdsByUserId(userId);
+        if (CollUtil.isEmpty(roleIds)) {
+            return CollUtil.newArrayList();
+        }
+        return BeanUtil.copyToList(getListByIds(roleIds, null), SysRoleListVo.class);
+    }
+
+    /**
+     * 查询全部角色。
+     *
+     * @return 角色列表
+     */
+    @Override
+    public List<SysRoleListVo> getAll() {
+        return BeanUtil.copyToList(getListByIds(null, null), SysRoleListVo.class);
+    }
+
+    /**
+     * 根据用户ID获取角色选择框列表。
+     *
+     * @param userId 用户ID
+     * @return 角色选择框列表
+     */
+    @Override
+    public List<SysRoleOptionVo> getOptionListByUserId(Long userId) {
+        if (userId == null) {
+            throw new ServiceException(GlobalErrorCode.BAD_REQUEST);
+        }
+        Set<Long> selectedRoleIds = Set.copyOf(sysUserRoleService.getRoleIdsByUserId(userId));
+        return getListByIds(null, null).stream()
+                .map(role -> {
+                    SysRoleOptionVo optionVo = new SysRoleOptionVo();
+                    optionVo.setId(role.getId());
+                    optionVo.setRoleName(role.getRoleName());
+                    optionVo.setRoleCode(role.getRoleCode());
+                    optionVo.setSelected(selectedRoleIds.contains(role.getId()));
+                    optionVo.setDisabled(isProtectedRole(role) || !CommonStatusEnum.isEnabled(role.getStatus()));
+                    return optionVo;
+                })
+                .toList();
+    }
+
+    /**
+     * 校验角色名称是否唯一。
+     *
+     * @param role 角色信息
+     * @return true 唯一 / false 不唯一
+     */
+    @Override
+    public boolean checkRoleNameUnique(SysRole role) {
+        if (role == null || CharSequenceUtil.isBlank(role.getRoleName())) {
+            throw new ServiceException(GlobalErrorCode.BAD_REQUEST);
+        }
+        return !sysRoleMapper.existsByRoleName(role.getRoleName(), role.getId());
+    }
+
+    /**
+     * 校验角色编码是否唯一。
+     *
+     * @param role 角色信息
+     * @return true 唯一 / false 不唯一
+     */
+    @Override
+    public boolean checkRoleCodeUnique(SysRole role) {
+        if (role == null || CharSequenceUtil.isBlank(role.getRoleCode())) {
+            throw new ServiceException(GlobalErrorCode.BAD_REQUEST);
+        }
+        if (AuthConstants.SUPER_ADMIN_ROLE_CODE.equals(role.getRoleCode())) {
+            return Constants.NOT_UNIQUE;
+        }
+        return !sysRoleMapper.existsByRoleCode(role.getRoleCode(), role.getId());
+    }
+
+    /**
+     * 校验角色是否允许操作。
+     *
+     * @param roleId 角色ID
+     */
+    @Override
+    public void checkRoleAllowed(Long roleId) {
+        SysRole role = getRequiredEntity(roleId);
+        if (isProtectedRole(role)) {
+            throw new ServiceException(GlobalErrorCode.BAD_REQUEST.getCode(), "系统内置角色不允许操作");
+        }
+    }
+
+    /**
+     * 批量删除角色。
+     *
+     * @param ids 角色ID列表
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteBatch(List<Long> ids) {
+        List<Long> validRoleIds = sanitizeIds(ids);
+        if (CollUtil.isEmpty(validRoleIds)) {
+            throw new ServiceException(GlobalErrorCode.BAD_REQUEST);
+        }
+        validRoleIds.forEach(this::checkRoleAllowed);
+        sysUserRoleService.removeByRoleIds(validRoleIds);
+        sysRoleMenuService.removeByRoleIds(validRoleIds);
+        sysRolePermissionService.removeByRoleIds(validRoleIds);
+        sysRoleDeptScopeService.removeByRoleIds(validRoleIds);
+        validRoleIds.forEach(sysRoleMapper::deleteById);
+    }
+
+    /**
+     * 取消授权单个用户角色。
+     *
+     * @param roleId 角色ID
+     * @param userId 用户ID
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void cancelAuthUser(Long roleId, Long userId) {
+        if (roleId == null || userId == null) {
+            throw new ServiceException(GlobalErrorCode.BAD_REQUEST);
+        }
+        checkRoleAllowed(roleId);
+        sysUserRoleService.removeByRoleIdAndUserIds(roleId, List.of(userId));
+    }
+
+    /**
+     * 批量取消授权用户角色。
+     *
+     * @param roleId  角色ID
+     * @param userIds 用户ID列表
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void cancelAuthUsers(Long roleId, List<Long> userIds) {
+        if (roleId == null) {
+            throw new ServiceException(GlobalErrorCode.BAD_REQUEST);
+        }
+        checkRoleAllowed(roleId);
+        sysUserRoleService.removeByRoleIdAndUserIds(roleId, userIds);
+    }
+
+    /**
+     * 批量选择授权用户角色。
+     *
+     * @param roleId  角色ID
+     * @param userIds 用户ID列表
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void authUsers(Long roleId, List<Long> userIds) {
+        if (roleId == null) {
+            throw new ServiceException(GlobalErrorCode.BAD_REQUEST);
+        }
+        List<Long> validUserIds = sanitizeIds(userIds);
+        if (CollUtil.isEmpty(validUserIds)) {
+            return;
+        }
+        checkRoleAllowed(roleId);
+        validateUserIdsExist(validUserIds);
+        sysUserRoleService.assignRoleToUsers(roleId, validUserIds);
     }
 
     /**
@@ -152,6 +378,8 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
         LambdaQueryWrapperX<SysRole> queryWrapper = new LambdaQueryWrapperX<>();
         if (searchDto != null) {
             queryWrapper.eqIfPresent(SysRole::getId, searchDto.getId())
+                    .likeIfPresent(SysRole::getRoleName, searchDto.getRoleName())
+                    .likeIfPresent(SysRole::getRoleCode, searchDto.getRoleCode())
                     .eqIfPresent(SysRole::getStatus, searchDto.getStatus());
         }
         queryWrapper.orderByAsc(SysRole::getRoleSort, SysRole::getId);
@@ -173,5 +401,61 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
             throw new ServiceException(GlobalErrorCode.NOT_FOUND);
         }
         return data;
+    }
+
+    private void validateRoleBeforeSave(SysRole role) {
+        if (role == null || CharSequenceUtil.isBlank(role.getRoleName()) || CharSequenceUtil.isBlank(role.getRoleCode())) {
+            throw new ServiceException(GlobalErrorCode.BAD_REQUEST);
+        }
+        if (AuthConstants.SUPER_ADMIN_ROLE_CODE.equals(role.getRoleCode())) {
+            throw new ServiceException(GlobalErrorCode.BAD_REQUEST.getCode(), "角色编码 SUPER_ADMIN 为系统保留值");
+        }
+        if (!checkRoleNameUnique(role)) {
+            throw new ServiceException(GlobalErrorCode.BAD_REQUEST.getCode(), "角色名称已存在");
+        }
+        if (!checkRoleCodeUnique(role)) {
+            throw new ServiceException(GlobalErrorCode.BAD_REQUEST.getCode(), "角色编码已存在");
+        }
+    }
+
+    private void fillMissingRoleFields(SysRole target, SysRole existed) {
+        if (CharSequenceUtil.isBlank(target.getRoleName())) {
+            target.setRoleName(existed.getRoleName());
+        }
+        if (CharSequenceUtil.isBlank(target.getRoleCode())) {
+            target.setRoleCode(existed.getRoleCode());
+        }
+        if (target.getRoleSort() == null) {
+            target.setRoleSort(existed.getRoleSort());
+        }
+        if (target.getStatus() == null) {
+            target.setStatus(existed.getStatus());
+        }
+        if (CharSequenceUtil.isBlank(target.getDataScopeType())) {
+            target.setDataScopeType(existed.getDataScopeType());
+        }
+        if (target.getIsSystem() == null) {
+            target.setIsSystem(existed.getIsSystem());
+        }
+    }
+
+    private boolean isProtectedRole(SysRole role) {
+        return CommonStatusEnum.isEnabled(role.getIsSystem())
+                || AuthConstants.SUPER_ADMIN_ROLE_CODE.equals(role.getRoleCode());
+    }
+
+
+    private List<Long> sanitizeIds(List<Long> ids) {
+        if (CollUtil.isEmpty(ids)) {
+            return CollUtil.newArrayList();
+        }
+        return ids.stream().filter(Objects::nonNull).distinct().toList();
+    }
+
+    private void validateUserIdsExist(List<Long> userIds) {
+        List<SysUser> users = sysUserService.listByIds(userIds);
+        if (CollUtil.isEmpty(users) || users.size() != userIds.size()) {
+            throw new ServiceException(GlobalErrorCode.BAD_REQUEST.getCode(), "存在无效的用户ID");
+        }
     }
 }

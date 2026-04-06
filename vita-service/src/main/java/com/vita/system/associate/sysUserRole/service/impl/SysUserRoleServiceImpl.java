@@ -2,7 +2,6 @@ package com.vita.system.associate.sysUserRole.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
-import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
@@ -18,13 +17,13 @@ import com.vita.system.associate.sysUserRole.service.ISysUserRoleService;
 import com.vita.system.associate.sysUserRole.vo.SysUserRoleDetailVo;
 import com.vita.system.associate.sysUserRole.vo.SysUserRoleListVo;
 import com.vita.system.associate.sysUserRole.vo.SysUserRolePageVo;
-import com.vita.system.sysRole.entity.SysRole;
 import com.vita.system.sysRole.service.ISysRoleService;
 import jakarta.annotation.Resource;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
  * @version 1.0
@@ -144,6 +143,20 @@ public class SysUserRoleServiceImpl extends ServiceImpl<SysUserRoleMapper, SysUs
     }
 
     /**
+     * 根据角色ID获取其拥有的用户ID列表。
+     *
+     * @param roleId 角色ID
+     * @return 用户ID列表
+     */
+    @Override
+    public List<Long> getUserIdsByRoleId(Long roleId) {
+        if (roleId == null) {
+            throw new ServiceException(GlobalErrorCode.BAD_REQUEST);
+        }
+        return sysUserRoleMapper.selectUserIdsByRoleId(roleId);
+    }
+
+    /**
      * 查询用户角色码集合。
      *
      * @param userId 用户ID
@@ -155,10 +168,72 @@ public class SysUserRoleServiceImpl extends ServiceImpl<SysUserRoleMapper, SysUs
         if (CollUtil.isEmpty(roleIds)) {
             return List.of();
         }
-        List<SysRole> roleList = sysRoleService.getListByIds(roleIds, CommonStatusEnum.ENABLED.getCode());
-        return roleList.stream().map(SysRole::getRoleCode).filter(StrUtil::isNotBlank).distinct().toList();
+        return sysRoleService.getRoleCodesByIds(roleIds, CommonStatusEnum.ENABLED.getCode());
     }
 
+    /**
+     * 根据角色ID列表删除用户角色关联。
+     *
+     * @param roleIds 角色ID列表
+     */
+    @Override
+    public void removeByRoleIds(List<Long> roleIds) {
+        if (CollUtil.isEmpty(roleIds)) {
+            return;
+        }
+        remove(new LambdaQueryWrapperX<SysUserRole>().inIfPresent(SysUserRole::getRoleId, roleIds));
+    }
+
+    /**
+     * 根据角色ID和用户ID列表删除用户角色关联。
+     *
+     * @param roleId 角色ID
+     * @param userIds 用户ID列表
+     */
+    @Override
+    public void removeByRoleIdAndUserIds(Long roleId, List<Long> userIds) {
+        if (roleId == null) {
+            throw new ServiceException(GlobalErrorCode.BAD_REQUEST);
+        }
+        List<Long> validUserIds = sanitizeIds(userIds);
+        if (CollUtil.isEmpty(validUserIds)) {
+            return;
+        }
+        remove(new LambdaQueryWrapperX<SysUserRole>()
+                .eq(SysUserRole::getRoleId, roleId)
+                .inIfPresent(SysUserRole::getUserId, validUserIds));
+    }
+
+    /**
+     * 批量为用户分配角色。
+     *
+     * @param roleId 角色ID
+     * @param userIds 用户ID列表
+     */
+    @Override
+    public void assignRoleToUsers(Long roleId, List<Long> userIds) {
+        if (roleId == null) {
+            throw new ServiceException(GlobalErrorCode.BAD_REQUEST);
+        }
+        List<Long> validUserIds = sanitizeIds(userIds);
+        if (CollUtil.isEmpty(validUserIds)) {
+            return;
+        }
+        List<Long> existingUserIds = getUserIdsByRoleId(roleId);
+        List<SysUserRole> userRoles = validUserIds.stream()
+                .filter(userId -> !existingUserIds.contains(userId))
+                .map(userId -> {
+                    SysUserRole userRole = new SysUserRole();
+                    userRole.setRoleId(roleId);
+                    userRole.setUserId(userId);
+                    return userRole;
+                })
+                .toList();
+        if (CollUtil.isEmpty(userRoles)) {
+            return;
+        }
+        saveBatch(userRoles);
+    }
 
     /**
      * 构造通用查询条件。
@@ -189,5 +264,12 @@ public class SysUserRoleServiceImpl extends ServiceImpl<SysUserRoleMapper, SysUs
             throw new ServiceException(GlobalErrorCode.NOT_FOUND);
         }
         return data;
+    }
+
+    private List<Long> sanitizeIds(List<Long> ids) {
+        if (CollUtil.isEmpty(ids)) {
+            return List.of();
+        }
+        return ids.stream().filter(Objects::nonNull).distinct().toList();
     }
 }

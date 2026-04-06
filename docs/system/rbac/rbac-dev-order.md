@@ -43,7 +43,8 @@ RBAC 一期不要从“给所有 controller 加注解”开始，而要按“先
 
 建议工作项：
 
-- 在 user-role / role-permission / role-menu 相关 mapper 中补充联查 SQL
+- 在 user-role / role-permission / role-menu 相关 service 中完成 RBAC 聚合编排
+- 单表查询、投影、去重和排序细节下沉到 mapper
 - 由 `IAuthCommonService` 统一承接聚合查询
 - 做统一过滤：`status = 1`、`is_deleted = 0`
 
@@ -57,6 +58,7 @@ RBAC 一期不要从“给所有 controller 加注解”开始，而要按“先
 验收：
 
 - 给定用户 ID，可在 service 层拿到完整 RBAC 聚合结果
+- 角色模块可独立提供角色分页、角色选择框、用户授权/取消授权能力
 
 ### 阶段三：认证上下文初始化
 

@@ -75,4 +75,11 @@ public interface ISysRolePermissionService extends IService<SysRolePermission> {
      * @return 权限ID集合
      */
     List<Long> getPermissionIdsByRoleIds(List<Long> roleIds);
+
+    /**
+     * 根据角色ID列表删除角色权限关联。
+     *
+     * @param roleIds 角色ID集合
+     */
+    void removeByRoleIds(List<Long> roleIds);
 }

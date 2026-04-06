@@ -2,12 +2,16 @@ package com.vita.controller.system;
 
 import com.vita.core.CommonResult;
 import com.vita.core.page.PageResponse;
+import com.vita.system.sysRole.dto.SysRoleAuthUserDto;
+import com.vita.system.sysRole.dto.SysRoleAuthUsersDto;
 import com.vita.system.sysRole.dto.SysRoleCreateDto;
 import com.vita.system.sysRole.dto.SysRoleSearchDto;
 import com.vita.system.sysRole.dto.SysRoleUpdateDto;
+import com.vita.system.sysRole.entity.SysRole;
 import com.vita.system.sysRole.service.ISysRoleService;
 import com.vita.system.sysRole.vo.SysRoleDetailVo;
 import com.vita.system.sysRole.vo.SysRoleListVo;
+import com.vita.system.sysRole.vo.SysRoleOptionVo;
 import com.vita.system.sysRole.vo.SysRolePageVo;
 import jakarta.validation.Valid;
 import org.springframework.validation.annotation.Validated;
@@ -105,5 +109,117 @@ public class SysRoleController extends BaseController {
     @GetMapping("/page")
     public CommonResult<PageResponse<SysRolePageVo>> page(@Valid SysRoleSearchDto searchDto) {
         return CommonResult.success(sysRoleService.page(searchDto));
+    }
+
+    /**
+     * 根据用户ID查询角色。
+     *
+     * @param userId 用户ID
+     * @return 角色列表
+     */
+    @GetMapping("/getByUserId")
+    public CommonResult<List<SysRoleListVo>> getByUserId(@RequestParam("userId") Long userId) {
+        return CommonResult.success(sysRoleService.getListByUserId(userId));
+    }
+
+    /**
+     * 查询所有角色。
+     *
+     * @return 角色列表
+     */
+    @GetMapping("/getAll")
+    public CommonResult<List<SysRoleListVo>> getAll() {
+        return CommonResult.success(sysRoleService.getAll());
+    }
+
+    /**
+     * 根据用户ID获取角色选择框列表。
+     *
+     * @param userId 用户ID
+     * @return 角色选择框列表
+     */
+    @GetMapping("/getOptionListByUserId")
+    public CommonResult<List<SysRoleOptionVo>> getOptionListByUserId(@RequestParam("userId") Long userId) {
+        return CommonResult.success(sysRoleService.getOptionListByUserId(userId));
+    }
+
+    /**
+     * 校验角色名称是否唯一。
+     *
+     * @param id 角色ID，可为空
+     * @param roleName 角色名称
+     * @return true 唯一 / false 不唯一
+     */
+    @GetMapping("/checkRoleNameUnique")
+    public CommonResult<Boolean> checkRoleNameUnique(@RequestParam(value = "id", required = false) Long id,
+                                                     @RequestParam("roleName") String roleName) {
+        SysRole role = new SysRole();
+        role.setId(id);
+        role.setRoleName(roleName);
+        return CommonResult.success(sysRoleService.checkRoleNameUnique(role));
+    }
+
+    /**
+     * 校验角色编码是否唯一。
+     *
+     * @param id 角色ID，可为空
+     * @param roleCode 角色编码
+     * @return true 唯一 / false 不唯一
+     */
+    @GetMapping("/checkRoleCodeUnique")
+    public CommonResult<Boolean> checkRoleCodeUnique(@RequestParam(value = "id", required = false) Long id,
+                                                     @RequestParam("roleCode") String roleCode) {
+        SysRole role = new SysRole();
+        role.setId(id);
+        role.setRoleCode(roleCode);
+        return CommonResult.success(sysRoleService.checkRoleCodeUnique(role));
+    }
+
+    /**
+     * 批量删除角色。
+     *
+     * @param ids 角色ID列表
+     * @return 删除结果
+     */
+    @DeleteMapping("/deleteBatch")
+    public CommonResult<Boolean> deleteBatch(@RequestParam("ids") List<Long> ids) {
+        sysRoleService.deleteBatch(ids);
+        return CommonResult.success(true);
+    }
+
+    /**
+     * 取消授权单个用户角色。
+     *
+     * @param authUserDto 请求对象
+     * @return 处理结果
+     */
+    @PostMapping("/cancelAuthUser")
+    public CommonResult<Boolean> cancelAuthUser(@RequestBody @Valid SysRoleAuthUserDto authUserDto) {
+        sysRoleService.cancelAuthUser(authUserDto.getRoleId(), authUserDto.getUserId());
+        return CommonResult.success(true);
+    }
+
+    /**
+     * 批量取消授权用户角色。
+     *
+     * @param authUsersDto 请求对象
+     * @return 处理结果
+     */
+    @PostMapping("/cancelAuthUsers")
+    public CommonResult<Boolean> cancelAuthUsers(@RequestBody @Valid SysRoleAuthUsersDto authUsersDto) {
+        sysRoleService.cancelAuthUsers(authUsersDto.getRoleId(), authUsersDto.getUserIds());
+        return CommonResult.success(true);
+    }
+
+    /**
+     * 批量选择授权用户角色。
+     *
+     * @param authUsersDto 请求对象
+     * @return 处理结果
+     */
+    @PostMapping("/authUsers")
+    public CommonResult<Boolean> authUsers(@RequestBody @Valid SysRoleAuthUsersDto authUsersDto) {
+        sysRoleService.authUsers(authUsersDto.getRoleId(), authUsersDto.getUserIds());
+        return CommonResult.success(true);
     }
 }

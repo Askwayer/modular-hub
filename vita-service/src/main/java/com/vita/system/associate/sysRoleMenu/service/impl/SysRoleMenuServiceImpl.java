@@ -142,6 +142,19 @@ public class SysRoleMenuServiceImpl extends ServiceImpl<SysRoleMenuMapper, SysRo
     }
 
     /**
+     * 根据角色ID列表删除角色菜单关联。
+     *
+     * @param roleIds 角色ID集合
+     */
+    @Override
+    public void removeByRoleIds(List<Long> roleIds) {
+        if (CollUtil.isEmpty(roleIds)) {
+            return;
+        }
+        remove(new LambdaQueryWrapperX<SysRoleMenu>().inIfPresent(SysRoleMenu::getRoleId, roleIds));
+    }
+
+    /**
      * 构造列表查询条件。
      *
      * @param searchDto 查询条件

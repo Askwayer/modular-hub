@@ -1,9 +1,7 @@
 package com.vita.system.associate.sysUserRole.service.impl;
 
 import com.vita.core.exception.ServiceException;
-import com.vita.enums.CommonStatusEnum;
 import com.vita.system.associate.sysUserRole.mapper.SysUserRoleMapper;
-import com.vita.system.sysRole.entity.SysRole;
 import com.vita.system.sysRole.service.ISysRoleService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -55,15 +53,12 @@ class SysUserRoleServiceImplTest {
     @Test
     void getRoleCodesByUserIdShouldAssembleRoleCodesWithoutJoinSql() {
         when(sysUserRoleMapper.selectRoleIdsByUserId(100L)).thenReturn(List.of(2L, 1L));
-        when(sysRoleService.getListByIds(List.of(2L, 1L), CommonStatusEnum.ENABLED.getCode())).thenReturn(List.of(
-                buildRole(1L, "SYSTEM_ADMIN", 1),
-                buildRole(2L, "AUDITOR", 2)
-        ));
+        when(sysRoleService.getRoleCodesByIds(List.of(2L, 1L), (byte) 1)).thenReturn(List.of("SYSTEM_ADMIN", "AUDITOR"));
 
         List<String> roleCodes = sysUserRoleService.getRoleCodesByUserId(100L);
 
         assertEquals(List.of("SYSTEM_ADMIN", "AUDITOR"), roleCodes);
-        verify(sysRoleService).getListByIds(List.of(2L, 1L), CommonStatusEnum.ENABLED.getCode());
+        verify(sysRoleService).getRoleCodesByIds(List.of(2L, 1L), (byte) 1);
     }
 
     @Test
@@ -73,16 +68,6 @@ class SysUserRoleServiceImplTest {
         List<String> roleCodes = sysUserRoleService.getRoleCodesByUserId(100L);
 
         assertEquals(List.of(), roleCodes);
-        verify(sysRoleService, never()).getListByIds(any(), any());
-    }
-
-    private SysRole buildRole(Long id, String roleCode, Integer roleSort) {
-        SysRole role = new SysRole();
-        role.setId(id);
-        role.setRoleCode(roleCode);
-        role.setRoleSort(roleSort);
-        role.setStatus(CommonStatusEnum.ENABLED.getCode());
-        role.setIsDeleted(Boolean.FALSE);
-        return role;
+        verify(sysRoleService, never()).getRoleCodesByIds(any(), any());
     }
 }

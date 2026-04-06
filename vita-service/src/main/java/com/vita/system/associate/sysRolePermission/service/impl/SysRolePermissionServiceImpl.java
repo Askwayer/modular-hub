@@ -146,6 +146,19 @@ public class SysRolePermissionServiceImpl extends ServiceImpl<SysRolePermissionM
     }
 
     /**
+     * 根据角色ID列表删除角色权限关联。
+     *
+     * @param roleIds 角色ID集合
+     */
+    @Override
+    public void removeByRoleIds(List<Long> roleIds) {
+        if (CollUtil.isEmpty(roleIds)) {
+            return;
+        }
+        remove(new LambdaQueryWrapperX<SysRolePermission>().inIfPresent(SysRolePermission::getRoleId, roleIds));
+    }
+
+    /**
      * 构造列表查询条件。
      *
      * @param searchDto 查询条件

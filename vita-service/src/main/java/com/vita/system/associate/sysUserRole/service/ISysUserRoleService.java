@@ -77,11 +77,42 @@ public interface ISysUserRoleService extends IService<SysUserRole> {
     List<Long> getRoleIdsByUserId(Long userId);
 
     /**
+     * 根据角色ID获取其拥有的用户ID列表。
+     *
+     * @param roleId 角色ID
+     * @return 用户ID列表
+     */
+    List<Long> getUserIdsByRoleId(Long roleId);
+
+    /**
      * 查询用户角色码集合。
      *
      * @param userId 用户ID
      * @return 角色码集合
      */
     List<String> getRoleCodesByUserId(Long userId);
+
+    /**
+     * 根据角色ID列表删除用户角色关联。
+     *
+     * @param roleIds 角色ID列表
+     */
+    void removeByRoleIds(List<Long> roleIds);
+
+    /**
+     * 根据角色ID和用户ID列表删除用户角色关联。
+     *
+     * @param roleId 角色ID
+     * @param userIds 用户ID列表
+     */
+    void removeByRoleIdAndUserIds(Long roleId, List<Long> userIds);
+
+    /**
+     * 批量为用户分配角色。
+     *
+     * @param roleId 角色ID
+     * @param userIds 用户ID列表
+     */
+    void assignRoleToUsers(Long roleId, List<Long> userIds);
 
 }

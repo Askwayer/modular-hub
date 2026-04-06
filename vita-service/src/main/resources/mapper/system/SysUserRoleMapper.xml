@@ -11,4 +11,14 @@
         GROUP BY role_id
         ORDER BY MIN(id) ASC
     </select>
+
+    <select id="selectUserIdsByRoleId" resultType="java.lang.Long">
+        SELECT user_id
+        FROM sys_user_role
+        WHERE role_id = #{roleId}
+          AND is_deleted = 0
+          AND user_id IS NOT NULL
+        GROUP BY user_id
+        ORDER BY MIN(id) ASC
+    </select>
 </mapper>

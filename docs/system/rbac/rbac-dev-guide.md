@@ -167,6 +167,30 @@ List<RouterVo>           // 前端路由树
 
 不要把“查询菜单”“构建树”“构建路由”混在一个 `buildMenus` 方法里。
 
+### 4.4 `ISysRoleService`
+
+角色模块建议单独补齐一组管理能力，供用户管理、权限管理和角色授权页面复用：
+
+- 查询类
+  - `page(searchDto)`：按 `roleName`、`roleCode`、`status` 分页查询
+  - `getListByUserId(userId)`：查询某个用户已分配的角色
+  - `getAll()`：查询全部角色
+  - `getOptionListByUserId(userId)`：返回角色选择框列表，并带上当前用户是否已选中
+- 校验类
+  - `checkRoleNameUnique(role)`：角色名称唯一
+  - `checkRoleCodeUnique(role)`：角色编码唯一
+  - `checkRoleAllowed(roleId)`：校验角色是否允许操作
+- 授权类
+  - `cancelAuthUser(roleId, userId)`：取消单个授权用户
+  - `cancelAuthUsers(roleId, userIds)`：批量取消授权用户
+  - `authUsers(roleId, userIds)`：批量选择授权用户角色
+
+注意：
+
+- 角色模块不应提供“角色权限是否唯一”这种校验，正确边界是“角色编码是否唯一”
+- 当前仓库的超级管理员语义只存在于 `sys_user.is_super_admin`
+- 因此角色模块的“禁止操作”应落在 `is_system` 保护，而不是虚构一个“超级管理员角色不可操作”
+
 ---
 
 ## 5. 查询实现建议
@@ -186,6 +210,17 @@ List<RouterVo>           // 前端路由树
 - 只查启用角色
 - 只查未删除关联
 - 去重
+- 管理端角色分页查询可按 `roleName`、`roleCode`、`status` 过滤
+- 角色编码 `SUPER_ADMIN` 作为框架保留值，不应允许在角色表中创建或修改成该编码
+
+### 5.2.1 角色管理补充约束
+
+- 删除角色时，应同步清理 `sys_user_role`、`sys_role_menu`、`sys_role_permission`、`sys_role_dept_scope`
+- 用户角色授权/取消授权由角色服务编排，具体持久化细节下沉到 `SysUserRoleService`
+- 角色选择框场景建议返回：
+  - 角色基础信息
+  - `selected` 是否已分配给当前用户
+  - `disabled` 是否禁止选择（如系统内置角色、禁用角色）
 
 ### 5.3 权限查询约束
 
