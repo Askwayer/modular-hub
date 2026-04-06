@@ -1,10 +1,12 @@
 package com.vita.system.sysMenu.service.impl;
 
+import com.vita.common.core.model.TreeSelectModel;
 import com.vita.constant.Constants;
 import com.vita.core.exception.ServiceException;
 import com.vita.system.associate.sysRoleMenu.service.ISysRoleMenuService;
 import com.vita.system.associate.sysUserRole.service.ISysUserRoleService;
 import com.vita.system.sysMenu.dto.SysMenuCreateDto;
+import com.vita.system.sysMenu.dto.SysMenuSearchDto;
 import com.vita.system.sysMenu.dto.SysMenuUpdateDto;
 import com.vita.system.sysMenu.entity.SysMenu;
 import com.vita.system.sysMenu.mapper.SysMenuMapper;
@@ -21,6 +23,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -114,17 +117,63 @@ class SysMenuServiceImplTest {
     }
 
     @Test
-    void buildMenusShouldBuildVisibleRouteTree() {
-        List<RouterVo> routers = sysMenuService.buildMenus(List.of(
+    void getMenuTreeSelectShouldBuildDropdownTree() {
+        when(sysMenuMapper.selectList(any())).thenReturn(List.of(
+                buildMenu(1000L, 0L, "系统管理", "System", "/system", 1),
+                buildMenu(1001L, 1000L, "用户管理", "SysUser", "/system/sysUser", 1),
+                buildMenu(1002L, 1000L, "隐藏菜单", "HiddenMenu", "/hidden", 0)
+        ));
+        SysMenuSearchDto searchDto = new SysMenuSearchDto();
+
+        List<TreeSelectModel> trees = sysMenuService.getMenuTreeSelect(searchDto);
+
+        assertEquals(1, trees.size());
+        assertEquals("系统管理", trees.get(0).getLabel());
+        assertEquals(2, trees.get(0).getChildren().size());
+    }
+
+    @Test
+    void getMenuTreeByUserIdShouldBuildMenuTree() {
+        SysUser user = new SysUser();
+        user.setId(2L);
+        user.setIsSuperAdmin(Constants.DISABLED);
+        when(sysUserService.getActiveById(2L)).thenReturn(user);
+        when(sysUserRoleService.getRoleIdsByUserId(2L)).thenReturn(List.of(11L));
+        when(sysRoleMenuService.getMenuIdsByRoleIds(List.of(11L))).thenReturn(List.of(1000L, 1001L));
+        when(sysMenuMapper.selectList(any())).thenReturn(List.of(
+                buildMenu(1000L, 0L, "系统管理", "System", "/system", 1),
+                buildMenu(1001L, 1000L, "用户管理", "SysUser", "/system/sysUser", 1)
+        ));
+
+        List<SysMenu> menuTree = sysMenuService.getMenuTreeByUserId(2L);
+
+        assertEquals(1, menuTree.size());
+        assertEquals(1, menuTree.get(0).getChildren().size());
+        assertEquals("/system/sysUser", menuTree.get(0).getChildren().get(0).getRouteLink());
+    }
+
+    @Test
+    void getRoutersByUserIdShouldBuildRouteTree() {
+        SysUser user = new SysUser();
+        user.setId(2L);
+        user.setIsSuperAdmin(Constants.DISABLED);
+        when(sysUserService.getActiveById(2L)).thenReturn(user);
+        when(sysUserRoleService.getRoleIdsByUserId(2L)).thenReturn(List.of(11L));
+        when(sysRoleMenuService.getMenuIdsByRoleIds(List.of(11L))).thenReturn(List.of(1000L, 1001L, 1002L));
+        when(sysMenuMapper.selectList(any())).thenReturn(List.of(
                 buildMenu(1000L, 0L, "系统管理", "System", "/system", 1),
                 buildMenu(1001L, 1000L, "用户管理", "SysUser", "/system/sysUser", 1),
                 buildMenu(1002L, 1000L, "隐藏菜单", "HiddenMenu", "/hidden", 0)
         ));
 
+        List<RouterVo> routers = sysMenuService.getRoutersByUserId(2L);
+
         assertEquals(1, routers.size());
         assertEquals("/system", routers.get(0).getRouteLink());
-        assertEquals(1, routers.get(0).getChildren().size());
+        assertEquals(2, routers.get(0).getChildren().size());
         assertEquals("/system/sysUser", routers.get(0).getChildren().get(0).getRouteLink());
+        assertFalse(routers.get(0).getChildren().get(0).isHidden());
+        assertTrue(routers.get(0).getChildren().get(1).isHidden());
     }
 
     private SysMenu buildMenu(Long id, Long parentId, String menuName, String routeName, String routeLink, Integer visible) {

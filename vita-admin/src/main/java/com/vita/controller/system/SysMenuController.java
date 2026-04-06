@@ -1,15 +1,14 @@
 package com.vita.controller.system;
 
+import com.vita.common.core.model.TreeSelectModel;
 import com.vita.core.CommonResult;
 import com.vita.core.controller.BaseController;
-import com.vita.core.page.PageResponse;
 import com.vita.system.sysMenu.dto.SysMenuCreateDto;
 import com.vita.system.sysMenu.dto.SysMenuSearchDto;
 import com.vita.system.sysMenu.dto.SysMenuUpdateDto;
 import com.vita.system.sysMenu.service.ISysMenuService;
 import com.vita.system.sysMenu.vo.SysMenuDetailVo;
 import com.vita.system.sysMenu.vo.SysMenuListVo;
-import com.vita.system.sysMenu.vo.SysMenuPageVo;
 import jakarta.validation.Valid;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -96,13 +95,13 @@ public class SysMenuController extends BaseController {
     }
 
     /**
-     * 分页查询。
+     * 获取菜单下拉树列表
      *
-     * @param searchDto 分页查询条件
-     * @return 分页数据
+     * @param searchDto 查询条件
+     * @return 菜单树列表
      */
-    @GetMapping("/page")
-    public CommonResult<PageResponse<SysMenuPageVo>> page(@Valid SysMenuSearchDto searchDto) {
-        return CommonResult.success(sysMenuService.page(searchDto));
+    @GetMapping("/getMenuTreeList")
+    public CommonResult<List<TreeSelectModel>> getMenuTreeList(@Valid SysMenuSearchDto searchDto) {
+        return CommonResult.success(sysMenuService.getMenuTreeSelect(searchDto));
     }
 }

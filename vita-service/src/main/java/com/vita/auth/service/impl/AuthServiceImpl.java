@@ -22,7 +22,6 @@ import com.vita.log.model.RequestClientInfo;
 import com.vita.log.resolver.RequestClientInfoResolver;
 import com.vita.log.service.LoginAuditService;
 import com.vita.system.sysIpBlock.service.ISysIpBlockService;
-import com.vita.system.sysMenu.entity.SysMenu;
 import com.vita.system.sysMenu.service.ISysMenuService;
 import com.vita.system.sysMenu.vo.RouterVo;
 import com.vita.system.sysUser.entity.SysUser;
@@ -152,8 +151,7 @@ public class AuthServiceImpl implements IAuthService {
         authTokenService.checkLogin();
         resolveCurrentLoginUserInfo();
         Long userId = LoginUserInfoModelContext.getRequiredLoginUserId();
-        List<SysMenu> menus = sysMenuService.getMenusByUserId(userId);
-        return sysMenuService.buildMenus(menus);
+        return sysMenuService.getRoutersByUserId(userId);
     }
 
     /**

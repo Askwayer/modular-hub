@@ -101,31 +101,30 @@ public class AuthInfoVo {
     private LoginUserInfoModel userInfo;
     private List<String> roleCodes;
     private List<String> permissionCodes;
-    private List<SysMenuTreeVo> menus;
 }
 ```
 
 用途：
 
-- 管理端登录后的初始化接口
+- 管理端登录后的权限初始化接口
+- 只返回“登录用户 + 角色码 + 权限码”
+- 路由树通过独立的 `/auth/routers` 返回，避免把 RBAC 初始化和前端路由结构耦合在一起
 
 ### 3.3 菜单树返回对象
 
-如果当前没有合适对象，建议新增：
+建议拆成两类，而不是复用同一个返回对象：
 
 ```java
-public class AuthMenuVo {
-    private Long id;
-    private Long parentId;
-    private String menuName;
-    private String routeName;
-    private String routeLink;
-    private String componentPath;
-    private String icon;
-    private Byte visible;
-    private List<SysMenuTreeVo> children;
-}
+List<TreeSelectModel>    // 下拉树
+List<RouterVo>           // 前端路由树
 ```
+
+建议约定：
+
+- 下拉树给菜单管理、角色授权、权限配置等场景使用
+- 路由树只给前端路由初始化使用
+- 下拉树不要复用 `RouterVo`
+- 路由树不要复用下拉树模型
 
 ---
 
@@ -138,7 +137,7 @@ public class AuthMenuVo {
 - `boolean isSuperAdmin(Long userId)`
 - `List<String> queryRoleCodes(Long userId)`
 - `List<String> queryPermissionCodes(Long userId)`
-- `List<SysMenu> queryMenus(Long userId)`
+- `List<Long> queryMenuIds(Long userId)` 或 `List<SysMenu> queryMenus(Long userId)`
 
 ### 4.2 `AuthServiceImpl`
 
@@ -146,9 +145,27 @@ public class AuthMenuVo {
 
 - `login`：认证，不做重 RBAC 查询
 - `getCurrentAuthInfo` 或改造 `getCurrentUserInfo`
-    - 聚合角色、权限、菜单
-    - 构建返回对象
-    - 缓存角色码、权限码 到 `Redis`，供 `StpInterfaceImpl` 使用
+  - 聚合角色、权限
+  - 构建 `AuthInfoVo`
+  - 缓存角色码、权限码到 Session，供 `StpInterfaceImpl` 使用
+- `getRouters`
+  - 只负责获取当前用户路由树
+  - 路由树构建逻辑收口到 `SysMenuService`
+
+### 4.3 `ISysMenuService`
+
+菜单能力建议拆分成三层：
+
+- 原始查询
+  - `getMenuList(searchDto)`：菜单管理页原始菜单查询
+  - `getMenusByUserId(userId)`：当前用户授权菜单原始列表
+- 树结构
+  - `getMenuTreeByUserId(userId)`：当前用户菜单树
+  - `getMenuTreeSelect(searchDto)`：菜单下拉树
+- 路由结构
+  - `getRoutersByUserId(userId)`：前端路由树
+
+不要把“查询菜单”“构建树”“构建路由”混在一个 `buildMenus` 方法里。
 
 ---
 
@@ -156,13 +173,13 @@ public class AuthMenuVo {
 
 ### 5.1 实现方式
 
-推荐使用 MyBatis-Plus + 自定义 XML 联查 SQL。
+推荐按“单表查询下沉 mapper，多表聚合收口 service”的方式实现。
 
 原因：
 
-- RBAC 查询跨表较多
-- BaseMapperX 单表能力不适合复杂聚合
-- SQL 可读性和可维护性更好
+- 角色、权限、菜单的单表过滤、排序属于持久化细节
+- 用户角色、角色菜单、角色权限属于 RBAC 聚合编排，放 service 更清晰
+- 菜单树、路由树属于展示结构转换，不应放在 mapper 或 auth service 中
 
 ### 5.2 角色查询约束
 
@@ -178,9 +195,11 @@ public class AuthMenuVo {
 
 ### 5.4 菜单查询约束
 
-- 只查启用菜单
-- 只查 `visible = 1` 的展示菜单
+- 授权菜单原始查询：只查启用菜单
+- 菜单下拉树：基于原始菜单树构建，不要复用路由结构
+- 前端路由树：由 `visible` 映射为 `hidden`，不要在原始查询阶段把隐藏菜单直接裁掉
 - 若需要按钮权限，不要从菜单表补推，而要从权限表获取
+- 后续菜单权限、按钮权限、授权树扩展，应复用“原始菜单查询 + 树构建”链路，而不是复用 `RouterVo`
 
 ---
 
@@ -213,7 +232,7 @@ public class AuthMenuVo {
 
 ---
 
-## 7. `/auth/info` 接口改造建议
+## 7. `/auth/info` 与 `/auth/routers` 接口建议
 
 ### 7.1 推荐返回结构
 
@@ -232,24 +251,33 @@ public class AuthMenuVo {
   ],
   "permissionCodes": [
     "**:**:**"
-  ],
-  "menus": []
+  ]
 }
 ```
 
 ### 7.2 推荐处理流程
 
+`GET /auth/info`
+
 1. 从 Session 取基础登录用户
-2. 根据 `userId` 聚合 RBAC 数据
+2. 根据 `userId` 聚合角色码、权限码
 3. 组装 `AuthInfoVo`
 4. 写入 RBAC 上下文缓存
 5. 返回前端
+
+`GET /auth/routers`
+
+1. 根据 `userId` 查询授权菜单原始列表
+2. 构建菜单树
+3. 构建 `RouterVo` 路由树
+4. 返回前端
 
 ### 7.3 为什么不建议在 `/auth/login` 里做完
 
 - 登录链路更容易被高频调用
 - RBAC 聚合查询跨表较多
 - 菜单树结构只在前端初始化时需要
+- 下拉树和路由树的消费方不同，不应和登录认证链路耦合
 
 ---
 
@@ -293,7 +321,9 @@ public class AuthMenuVo {
 
 至少覆盖：
 
-- `/auth/info` 返回角色码、权限码、菜单数据
+- `/auth/info` 返回角色码、权限码
+- `/auth/routers` 返回当前用户路由树
+- 菜单下拉树接口返回 `TreeSelectModel`
 - `@SaCheckPermission` 成功/失败分支
 - `@SaCheckRole` 成功/失败分支
 
@@ -332,6 +362,8 @@ public class AuthMenuVo {
 
 - RBAC 聚合服务已完成
 - `/auth/info` 已返回权限初始化数据
+- `/auth/routers` 已返回当前用户路由树
+- 菜单下拉树已独立返回 `TreeSelectModel`
 - `StpInterfaceImpl` 已可返回角色和权限
 - 至少一组业务接口已成功接入 `@SaCheckPermission`
 - 单元测试与集成测试通过

@@ -278,8 +278,7 @@ class AuthServiceImplTest {
         RouterVo routerVo = new RouterVo();
         routerVo.setRouteName("System");
         routerVo.setRouteLink("/system");
-        when(sysMenuService.getMenusByUserId(1L)).thenReturn(java.util.List.of());
-        when(sysMenuService.buildMenus(java.util.List.of())).thenReturn(java.util.List.of(routerVo));
+        when(sysMenuService.getRoutersByUserId(1L)).thenReturn(java.util.List.of(routerVo));
 
         java.util.List<RouterVo> routers = authService.getRouters();
 
