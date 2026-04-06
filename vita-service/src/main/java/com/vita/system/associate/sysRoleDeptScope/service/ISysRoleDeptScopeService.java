@@ -67,4 +67,11 @@ public interface ISysRoleDeptScopeService extends IService<SysRoleDeptScope> {
      * @return 分页VO结果
      */
     PageResponse<SysRoleDeptScopePageVo> page(SysRoleDeptScopeSearchDto searchDto);
+
+    /**
+     * 根据角色ID列表删除角色自定义数据范围关联。
+     *
+     * @param roleIds 角色ID集合
+     */
+    void removeByRoleIds(List<Long> roleIds);
 }

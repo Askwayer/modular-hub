@@ -144,6 +144,22 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
     }
 
     /**
+     * 根据用户ID查询启用中的用户。
+     *
+     * @param userId 用户ID
+     * @return 用户实体，不存在或未启用时返回 null
+     */
+    @Override
+    public SysUser getActiveById(Long userId) {
+        if (userId == null) {
+            throw new ServiceException(GlobalErrorCode.BAD_REQUEST);
+        }
+        return sysUserMapper.selectOne(new LambdaQueryWrapperX<SysUser>()
+                .eq(SysUser::getId, userId)
+                .eq(SysUser::getStatus, CommonStatusEnum.ENABLED.getCode()));
+    }
+
+    /**
      * 更新登录信息。
      *
      * @param userId       用户ID

@@ -1,5 +1,6 @@
 package com.vita.controller.system;
 
+import cn.dev33.satoken.annotation.SaCheckPermission;
 import com.vita.core.CommonResult;
 import com.vita.core.controller.BaseController;
 import com.vita.core.page.PageResponse;
@@ -47,6 +48,7 @@ public class SysUserController extends BaseController {
      */
     @Log(module = "系统用户", businessType = "CREATE", saveResponseData = false)
     @PostMapping("/add" )
+    @SaCheckPermission("system:user:add")
     public CommonResult<Long> create(@RequestBody @Valid SysUserCreateDto createDto) {
         return CommonResult.success(sysUserService.create(createDto));
     }
@@ -59,6 +61,7 @@ public class SysUserController extends BaseController {
      */
     @Log(module = "admin", businessType = "UPDATE", saveResponseData = false)
     @PostMapping("/update" )
+    @SaCheckPermission("system:user:update")
     public CommonResult<Boolean> update(@RequestBody @Valid SysUserUpdateDto updateDto) {
         sysUserService.update(updateDto);
         return CommonResult.success(true);
@@ -72,6 +75,7 @@ public class SysUserController extends BaseController {
      */
     @Log(module = "admin", businessType = "DELETE", saveResponseData = false)
     @DeleteMapping("/delete" )
+    @SaCheckPermission("system:user:delete")
     public CommonResult<Boolean> delete(@RequestParam("id" ) Long id) {
         sysUserService.delete(id);
         return CommonResult.success(true);
@@ -84,6 +88,7 @@ public class SysUserController extends BaseController {
      * @return 详情对象
      */
     @GetMapping("/getDetail" )
+    @SaCheckPermission("system:user:view")
     public CommonResult<SysUserDetailVo> getDetail(@RequestParam("id" ) Long id) {
         return CommonResult.success(sysUserService.get(id));
     }
@@ -95,6 +100,7 @@ public class SysUserController extends BaseController {
      * @return 列表数据
      */
     @GetMapping("/list" )
+    @SaCheckPermission("system:user:view")
     public CommonResult<List<SysUserListVo>> list(@Valid SysUserSearchDto searchDto) {
         return CommonResult.success(sysUserService.list(searchDto));
     }
@@ -106,6 +112,7 @@ public class SysUserController extends BaseController {
      * @return 分页数据
      */
     @GetMapping("/page" )
+    @SaCheckPermission("system:user:view")
     public CommonResult<PageResponse<SysUserPageVo>> page(@Valid SysUserSearchDto searchDto) {
         return CommonResult.success(sysUserService.page(searchDto));
     }

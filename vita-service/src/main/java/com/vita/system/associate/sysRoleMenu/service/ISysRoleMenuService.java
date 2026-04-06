@@ -75,4 +75,11 @@ public interface ISysRoleMenuService extends IService<SysRoleMenu> {
      * @return 菜单ID集合
      */
     List<Long> getMenuIdsByRoleIds(List<Long> roleIds);
+
+    /**
+     * 根据角色ID列表删除角色菜单关联。
+     *
+     * @param roleIds 角色ID集合
+     */
+    void removeByRoleIds(List<Long> roleIds);
 }

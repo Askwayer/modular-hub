@@ -66,4 +66,11 @@ class SysUserServiceImplTest {
         assertEquals("系统仅允许存在一个超级管理员用户", exception.getMessage());
         verify(sysUserMapper, never()).updateById(any(SysUser.class));
     }
+
+    @Test
+    void getActiveByIdShouldRejectNullUserId() {
+        ServiceException exception = assertThrows(ServiceException.class, () -> sysUserService.getActiveById(null));
+
+        assertEquals(400, exception.getCode());
+    }
 }

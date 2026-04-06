@@ -1,6 +1,7 @@
 package com.vita.system.associate.sysRoleDeptScope.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
@@ -120,6 +121,19 @@ public class SysRoleDeptScopeServiceImpl extends ServiceImpl<SysRoleDeptScopeMap
         pageResponse.setList(BeanUtil.copyToList(selectPage.getList(), SysRoleDeptScopePageVo.class));
         pageResponse.setTotal(selectPage.getTotal());
         return pageResponse;
+    }
+
+    /**
+     * 根据角色ID列表删除角色自定义数据范围关联。
+     *
+     * @param roleIds 角色ID集合
+     */
+    @Override
+    public void removeByRoleIds(List<Long> roleIds) {
+        if (CollUtil.isEmpty(roleIds)) {
+            return;
+        }
+        remove(new LambdaQueryWrapperX<SysRoleDeptScope>().inIfPresent(SysRoleDeptScope::getRoleId, roleIds));
     }
 
     /**

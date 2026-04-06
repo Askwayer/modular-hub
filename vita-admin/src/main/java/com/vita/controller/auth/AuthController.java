@@ -6,8 +6,11 @@ import com.vita.auth.vo.AuthInfoVo;
 import com.vita.auth.vo.AuthLoginVo;
 import com.vita.core.CommonResult;
 import com.vita.core.controller.BaseController;
+import com.vita.system.sysMenu.vo.RouterVo;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 /**
  * @BelongsProject: be-vita
@@ -23,6 +26,7 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController extends BaseController {
 
     private final IAuthService authService;
+
 
     public AuthController(IAuthService authService) {
         this.authService = authService;
@@ -59,4 +63,13 @@ public class AuthController extends BaseController {
     public CommonResult<AuthInfoVo> info() {
         return CommonResult.success(authService.getCurrentUserInfo());
     }
+
+    /**
+     * 获取路由信息
+     */
+    @GetMapping("/routers")
+    public CommonResult<List<RouterVo>> getRouters() {
+        return CommonResult.success(authService.getRouters());
+    }
+
 }

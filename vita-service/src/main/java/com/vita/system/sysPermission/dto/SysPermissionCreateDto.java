@@ -1,5 +1,7 @@
 package com.vita.system.sysPermission.dto;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 /**
@@ -15,16 +17,19 @@ public class SysPermissionCreateDto {
     /**
      * 权限名称
      */
+    @NotBlank(message = "权限名称不能为空")
     private String permissionName;
 
     /**
      * 权限编码
      */
+    @NotBlank(message = "权限编码不能为空")
     private String permissionCode;
 
     /**
      * 权限类型 MENU_ACTION/API/DATA/FIELD
      */
+    @NotBlank(message = "权限类型不能为空")
     private String permissionType;
 
     /**
@@ -50,11 +55,13 @@ public class SysPermissionCreateDto {
     /**
      * 排序
      */
+    @NotNull(message = "排序不能为空")
     private Integer sortNo;
 
     /**
      * 状态 1启用 0禁用
      */
+    @NotNull(message = "状态不能为空")
     private Byte status;
 
     /**

@@ -1,10 +1,9 @@
 package com.vita.controller.system;
 
+import cn.dev33.satoken.annotation.SaCheckPermission;
 import com.vita.core.CommonResult;
 import com.vita.core.page.PageResponse;
-import com.vita.system.sysLoginLog.dto.SysLoginLogCreateDto;
 import com.vita.system.sysLoginLog.dto.SysLoginLogSearchDto;
-import com.vita.system.sysLoginLog.dto.SysLoginLogUpdateDto;
 import com.vita.system.sysLoginLog.service.ISysLoginLogService;
 import com.vita.system.sysLoginLog.vo.SysLoginLogDetailVo;
 import com.vita.system.sysLoginLog.vo.SysLoginLogListVo;
@@ -40,35 +39,13 @@ public class SysLoginLogController extends BaseController {
     }
 
     /**
-     * 新增数据。
-     *
-     * @param createDto 创建请求对象
-     * @return 新增记录ID
-     */
-    @PostMapping("/add")
-    public CommonResult<Long> create(@RequestBody @Valid SysLoginLogCreateDto createDto) {
-        return CommonResult.success(sysLoginLogService.create(createDto));
-    }
-
-    /**
-     * 更新数据。
-     *
-     * @param updateDto 更新请求对象
-     * @return 更新结果
-     */
-    @PostMapping("/update")
-    public CommonResult<Boolean> update(@RequestBody @Valid SysLoginLogUpdateDto updateDto) {
-        sysLoginLogService.update(updateDto);
-        return CommonResult.success(true);
-    }
-
-    /**
      * 删除数据。
      *
      * @param id 主键ID
      * @return 删除结果
      */
     @DeleteMapping("/delete")
+    @SaCheckPermission("system:login-log:delete")
     public CommonResult<Boolean> delete(@RequestParam("id") Long id) {
         sysLoginLogService.delete(id);
         return CommonResult.success(true);
@@ -81,6 +58,7 @@ public class SysLoginLogController extends BaseController {
      * @return 详情对象
      */
     @GetMapping("/getDetail")
+    @SaCheckPermission("system:login-log:view")
     public CommonResult<SysLoginLogDetailVo> getDetail(@RequestParam("id") Long id) {
         return CommonResult.success(sysLoginLogService.get(id));
     }
@@ -92,6 +70,7 @@ public class SysLoginLogController extends BaseController {
      * @return 列表数据
      */
     @GetMapping("/list")
+    @SaCheckPermission("system:login-log:view")
     public CommonResult<List<SysLoginLogListVo>> list(@Valid SysLoginLogSearchDto searchDto) {
         return CommonResult.success(sysLoginLogService.list(searchDto));
     }
@@ -103,6 +82,7 @@ public class SysLoginLogController extends BaseController {
      * @return 分页数据
      */
     @GetMapping("/page")
+    @SaCheckPermission("system:login-log:view")
     public CommonResult<PageResponse<SysLoginLogPageVo>> page(@Valid SysLoginLogSearchDto searchDto) {
         return CommonResult.success(sysLoginLogService.page(searchDto));
     }

@@ -1,15 +1,15 @@
 package com.vita.controller.system;
 
+import cn.dev33.satoken.annotation.SaCheckPermission;
+import com.vita.common.core.model.TreeSelectModel;
 import com.vita.core.CommonResult;
 import com.vita.core.controller.BaseController;
-import com.vita.core.page.PageResponse;
 import com.vita.system.sysMenu.dto.SysMenuCreateDto;
 import com.vita.system.sysMenu.dto.SysMenuSearchDto;
 import com.vita.system.sysMenu.dto.SysMenuUpdateDto;
 import com.vita.system.sysMenu.service.ISysMenuService;
 import com.vita.system.sysMenu.vo.SysMenuDetailVo;
 import com.vita.system.sysMenu.vo.SysMenuListVo;
-import com.vita.system.sysMenu.vo.SysMenuPageVo;
 import jakarta.validation.Valid;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -45,6 +45,7 @@ public class SysMenuController extends BaseController {
      * @return 新增记录ID
      */
     @PostMapping("/add")
+    @SaCheckPermission("system:menu:add")
     public CommonResult<Long> create(@RequestBody @Valid SysMenuCreateDto createDto) {
         return CommonResult.success(sysMenuService.create(createDto));
     }
@@ -56,6 +57,7 @@ public class SysMenuController extends BaseController {
      * @return 更新结果
      */
     @PostMapping("/update")
+    @SaCheckPermission("system:menu:update")
     public CommonResult<Boolean> update(@RequestBody @Valid SysMenuUpdateDto updateDto) {
         sysMenuService.update(updateDto);
         return CommonResult.success(true);
@@ -68,6 +70,7 @@ public class SysMenuController extends BaseController {
      * @return 删除结果
      */
     @DeleteMapping("/delete")
+    @SaCheckPermission("system:menu:delete")
     public CommonResult<Boolean> delete(@RequestParam("id") Long id) {
         sysMenuService.delete(id);
         return CommonResult.success(true);
@@ -80,6 +83,7 @@ public class SysMenuController extends BaseController {
      * @return 详情对象
      */
     @GetMapping("/getDetail")
+    @SaCheckPermission("system:menu:view")
     public CommonResult<SysMenuDetailVo> getDetail(@RequestParam("id") Long id) {
         return CommonResult.success(sysMenuService.get(id));
     }
@@ -91,18 +95,20 @@ public class SysMenuController extends BaseController {
      * @return 列表数据
      */
     @GetMapping("/list")
+    @SaCheckPermission("system:menu:view")
     public CommonResult<List<SysMenuListVo>> list(@Valid SysMenuSearchDto searchDto) {
         return CommonResult.success(sysMenuService.list(searchDto));
     }
 
     /**
-     * 分页查询。
+     * 获取菜单下拉树列表
      *
-     * @param searchDto 分页查询条件
-     * @return 分页数据
+     * @param searchDto 查询条件
+     * @return 菜单树列表
      */
-    @GetMapping("/page")
-    public CommonResult<PageResponse<SysMenuPageVo>> page(@Valid SysMenuSearchDto searchDto) {
-        return CommonResult.success(sysMenuService.page(searchDto));
+    @GetMapping("/getMenuTreeList")
+    @SaCheckPermission("system:menu:view")
+    public CommonResult<List<TreeSelectModel>> getMenuTreeList(@Valid SysMenuSearchDto searchDto) {
+        return CommonResult.success(sysMenuService.getMenuTreeSelect(searchDto));
     }
 }

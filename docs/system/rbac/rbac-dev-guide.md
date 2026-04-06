@@ -46,11 +46,11 @@
     - 放到 `com.vita.auth` 包下
     - 优先读 `LOGIN_USER_ROLE`、`LOGIN_USER_PERMISSION`
     - 未命中再通过 `IAuthCommonService` 回源
-- 相关 mapper 增加联查方法：
-    - `SysUserRoleMapper`
-    - `SysRolePermissionMapper`
-    - `SysRoleMenuMapper`
-    - `SysMenuMapper`
+- 相关 mapper 只保留单表查询与单表投影能力：
+    - `SysUserRoleMapper`：按用户查角色 ID
+    - `SysRolePermissionMapper`：按角色查权限 ID
+    - `SysRoleMenuMapper`：按角色查菜单 ID
+    - `SysPermissionMapper` / `SysMenuMapper`：按 ID 集合查详情、exists/count
 - `AuthServiceImpl`
     - 增加当前用户权限初始化能力
     - 负责构建 `AuthInfoVo`
@@ -101,31 +101,30 @@ public class AuthInfoVo {
     private LoginUserInfoModel userInfo;
     private List<String> roleCodes;
     private List<String> permissionCodes;
-    private List<SysMenuTreeVo> menus;
 }
 ```
 
 用途：
 
-- 管理端登录后的初始化接口
+- 管理端登录后的权限初始化接口
+- 只返回“登录用户 + 角色码 + 权限码”
+- 路由树通过独立的 `/auth/routers` 返回，避免把 RBAC 初始化和前端路由结构耦合在一起
 
 ### 3.3 菜单树返回对象
 
-如果当前没有合适对象，建议新增：
+建议拆成两类，而不是复用同一个返回对象：
 
 ```java
-public class AuthMenuVo {
-    private Long id;
-    private Long parentId;
-    private String menuName;
-    private String routeName;
-    private String routeLink;
-    private String componentPath;
-    private String icon;
-    private Byte visible;
-    private List<SysMenuTreeVo> children;
-}
+List<TreeSelectModel>    // 下拉树
+List<RouterVo>           // 前端路由树
 ```
+
+建议约定：
+
+- 下拉树给菜单管理、角色授权、权限配置等场景使用
+- 路由树只给前端路由初始化使用
+- 下拉树不要复用 `RouterVo`
+- 路由树不要复用下拉树模型
 
 ---
 
@@ -138,7 +137,7 @@ public class AuthMenuVo {
 - `boolean isSuperAdmin(Long userId)`
 - `List<String> queryRoleCodes(Long userId)`
 - `List<String> queryPermissionCodes(Long userId)`
-- `List<SysMenu> queryMenus(Long userId)`
+- `List<Long> queryMenuIds(Long userId)` 或 `List<SysMenu> queryMenus(Long userId)`
 
 ### 4.2 `AuthServiceImpl`
 
@@ -146,9 +145,51 @@ public class AuthMenuVo {
 
 - `login`：认证，不做重 RBAC 查询
 - `getCurrentAuthInfo` 或改造 `getCurrentUserInfo`
-    - 聚合角色、权限、菜单
-    - 构建返回对象
-    - 缓存角色码、权限码 到 `Redis`，供 `StpInterfaceImpl` 使用
+  - 聚合角色、权限
+  - 构建 `AuthInfoVo`
+  - 缓存角色码、权限码到 Session，供 `StpInterfaceImpl` 使用
+- `getRouters`
+  - 只负责获取当前用户路由树
+  - 路由树构建逻辑收口到 `SysMenuService`
+
+### 4.3 `ISysMenuService`
+
+菜单能力建议拆分成三层：
+
+- 原始查询
+  - `getMenuList(searchDto)`：菜单管理页原始菜单查询
+  - `getMenusByUserId(userId)`：当前用户授权菜单原始列表
+- 树结构
+  - `getMenuTreeByUserId(userId)`：当前用户菜单树
+  - `getMenuTreeSelect(searchDto)`：菜单下拉树
+- 路由结构
+  - `getRoutersByUserId(userId)`：前端路由树
+
+不要把“查询菜单”“构建树”“构建路由”混在一个 `buildMenus` 方法里。
+
+### 4.4 `ISysRoleService`
+
+角色模块建议单独补齐一组管理能力，供用户管理、权限管理和角色授权页面复用：
+
+- 查询类
+  - `page(searchDto)`：按 `roleName`、`roleCode`、`status` 分页查询
+  - `getListByUserId(userId)`：查询某个用户已分配的角色
+  - `getAll()`：查询全部角色
+  - `getOptionListByUserId(userId)`：返回角色选择框列表，并带上当前用户是否已选中
+- 校验类
+  - `checkRoleNameUnique(role)`：角色名称唯一
+  - `checkRoleCodeUnique(role)`：角色编码唯一
+  - `checkRoleAllowed(roleId)`：校验角色是否允许操作
+- 授权类
+  - `cancelAuthUser(roleId, userId)`：取消单个授权用户
+  - `cancelAuthUsers(roleId, userIds)`：批量取消授权用户
+  - `authUsers(roleId, userIds)`：批量选择授权用户角色
+
+注意：
+
+- 角色模块不应提供“角色权限是否唯一”这种校验，正确边界是“角色编码是否唯一”
+- 当前仓库的超级管理员语义只存在于 `sys_user.is_super_admin`
+- 因此角色模块的“禁止操作”应落在 `is_system` 保护，而不是虚构一个“超级管理员角色不可操作”
 
 ---
 
@@ -156,19 +197,36 @@ public class AuthMenuVo {
 
 ### 5.1 实现方式
 
-推荐使用 MyBatis-Plus + 自定义 XML 联查 SQL。
+推荐按“单表查询下沉 mapper，多表聚合收口 service”的方式实现，且数据库 SQL 不使用 `join`。
 
 原因：
 
-- RBAC 查询跨表较多
-- BaseMapperX 单表能力不适合复杂聚合
-- SQL 可读性和可维护性更好
+- 角色、权限、菜单的单表过滤、排序属于持久化细节
+- 用户角色、角色菜单、角色权限属于 RBAC 聚合编排，放 service 更清晰
+- 菜单树、路由树属于展示结构转换，不应放在 mapper 或 auth service 中
+
+落地规则：
+
+- mapper 只做单表 `select ids`、`select list by ids`、`count exists`、`delete/update by ids`
+- service 统一按“先查关联 ID -> 去重 -> 再查目标表”的方式组装结果
+- 即使只有两张表，也不写 `join`
 
 ### 5.2 角色查询约束
 
 - 只查启用角色
 - 只查未删除关联
 - 去重
+- 管理端角色分页查询可按 `roleName`、`roleCode`、`status` 过滤
+- 角色编码 `SUPER_ADMIN` 作为框架保留值，不应允许在角色表中创建或修改成该编码
+
+### 5.2.1 角色管理补充约束
+
+- 删除角色时，应同步清理 `sys_user_role`、`sys_role_menu`、`sys_role_permission`、`sys_role_dept_scope`
+- 用户角色授权/取消授权由角色服务编排，具体持久化细节下沉到 `SysUserRoleService`
+- 角色选择框场景建议返回：
+  - 角色基础信息
+  - `selected` 是否已分配给当前用户
+  - `disabled` 是否禁止选择（如系统内置角色、禁用角色）
 
 ### 5.3 权限查询约束
 
@@ -176,11 +234,30 @@ public class AuthMenuVo {
 - 返回 `permission_code` 或 `auth_tag`
 - 若用户级超级管理员标记为 1，直接返回 `["**:**:**"]`
 
+权限模块本身建议补齐：
+
+- 条件分页：`permissionName`、`permissionCode`、`permissionType`、`menuId`、`status`
+- `getAll()`：查询全部权限
+- `getListByRoleId(roleId)`：先查 `permissionIds`，再查权限详情
+- `getOptionListByRoleId(roleId)`：先查已选 `permissionIds`，再查全部权限并组装 `selected/disabled`
+- `checkPermissionCodeUnique(permission)`：只校验权限编码
+- `checkAuthTagUnique(permission)`：只校验鉴权标识
+- `checkPermissionAllowed(permissionId)`：系统内置权限不允许删除
+- `deleteBatch(ids)`：删除权限时同步清理 `sys_role_permission`
+
+注意：
+
+- `permissionName` 不做唯一约束
+- `authTag` 未显式传值时，默认回填 `permissionCode`
+- 系统内置权限只禁止改 `permissionCode` / `authTag` 和删除，不禁止一般描述字段修改
+
 ### 5.4 菜单查询约束
 
-- 只查启用菜单
-- 只查 `visible = 1` 的展示菜单
+- 授权菜单原始查询：只查启用菜单
+- 菜单下拉树：基于原始菜单树构建，不要复用路由结构
+- 前端路由树：由 `visible` 映射为 `hidden`，不要在原始查询阶段把隐藏菜单直接裁掉
 - 若需要按钮权限，不要从菜单表补推，而要从权限表获取
+- 后续菜单权限、按钮权限、授权树扩展，应复用“原始菜单查询 + 树构建”链路，而不是复用 `RouterVo`
 
 ---
 
@@ -213,7 +290,7 @@ public class AuthMenuVo {
 
 ---
 
-## 7. `/auth/info` 接口改造建议
+## 7. `/auth/info` 与 `/auth/routers` 接口建议
 
 ### 7.1 推荐返回结构
 
@@ -232,24 +309,33 @@ public class AuthMenuVo {
   ],
   "permissionCodes": [
     "**:**:**"
-  ],
-  "menus": []
+  ]
 }
 ```
 
 ### 7.2 推荐处理流程
 
+`GET /auth/info`
+
 1. 从 Session 取基础登录用户
-2. 根据 `userId` 聚合 RBAC 数据
+2. 根据 `userId` 聚合角色码、权限码
 3. 组装 `AuthInfoVo`
 4. 写入 RBAC 上下文缓存
 5. 返回前端
+
+`GET /auth/routers`
+
+1. 根据 `userId` 查询授权菜单原始列表
+2. 构建菜单树
+3. 构建 `RouterVo` 路由树
+4. 返回前端
 
 ### 7.3 为什么不建议在 `/auth/login` 里做完
 
 - 登录链路更容易被高频调用
 - RBAC 聚合查询跨表较多
 - 菜单树结构只在前端初始化时需要
+- 下拉树和路由树的消费方不同，不应和登录认证链路耦合
 
 ---
 
@@ -275,6 +361,23 @@ public class AuthMenuVo {
 - 不要把 URL 直接当权限码
 - 菜单权限和接口权限保持同一命名空间
 
+推荐管理端统一映射：
+
+- `system:user:view/add/update/delete`
+- `system:role:view/add/update/delete/grant`
+- `system:menu:view/add/update/delete`
+- `system:permission:view/add/update/delete`
+- `system:dept:view/add/update/delete`
+- `system:ip-block:view/add/update/delete`
+- `system:oper-log:view/delete`
+- `system:login-log:view/delete`
+
+补充边界：
+
+- 全部 `/system/*` 控制器都应落 `@SaCheckPermission`
+- `/auth/*` 不加 `@SaCheckPermission`
+- `SysOperLogController`、`SysLoginLogController` 只保留读和删，不对外暴露 `add/update`
+
 ---
 
 ## 9. 测试建议
@@ -288,14 +391,20 @@ public class AuthMenuVo {
 - 停用角色后权限失效
 - 停用权限后权限失效
 - 空角色用户返回空集合
+- `authTag` 默认回填 `permissionCode`
+- 内置权限保护、批量删除级联清理
+- 角色权限授权/取消授权
+- 权限选择框、角色选择框组装
 
 ### 9.2 集成测试
 
 至少覆盖：
 
-- `/auth/info` 返回角色码、权限码、菜单数据
-- `@SaCheckPermission` 成功/失败分支
-- `@SaCheckRole` 成功/失败分支
+- `/auth/info` 返回角色码、权限码
+- `/auth/routers` 返回当前用户路由树
+- 菜单下拉树接口返回 `TreeSelectModel`
+- `view/add/delete/grant` 四类 `@SaCheckPermission` 落地
+- 日志控制器不再暴露 `add/update`
 
 ### 9.3 回归测试
 
@@ -332,6 +441,9 @@ public class AuthMenuVo {
 
 - RBAC 聚合服务已完成
 - `/auth/info` 已返回权限初始化数据
+- `/auth/routers` 已返回当前用户路由树
+- 菜单下拉树已独立返回 `TreeSelectModel`
 - `StpInterfaceImpl` 已可返回角色和权限
-- 至少一组业务接口已成功接入 `@SaCheckPermission`
+- 全部 `/system/*` 控制器已完成 `@SaCheckPermission`
+- 日志控制器已完成“仅读删”收口
 - 单元测试与集成测试通过

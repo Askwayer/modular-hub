@@ -2,14 +2,12 @@ package com.vita.auth.service.impl;
 
 import com.vita.constant.AuthConstants;
 import com.vita.constant.Constants;
-import com.vita.system.associate.sysRoleMenu.service.ISysRoleMenuService;
 import com.vita.system.associate.sysRolePermission.service.ISysRolePermissionService;
 import com.vita.system.associate.sysUserRole.service.ISysUserRoleService;
-import com.vita.system.sysMenu.entity.SysMenu;
-import com.vita.system.sysMenu.service.ISysMenuService;
 import com.vita.system.sysPermission.service.ISysPermissionService;
+import com.vita.system.sysRole.service.ISysRoleService;
 import com.vita.system.sysUser.entity.SysUser;
-import com.vita.system.sysUser.mapper.SysUserMapper;
+import com.vita.system.sysUser.service.ISysUserService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -18,8 +16,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -27,7 +24,7 @@ import static org.mockito.Mockito.when;
 class AuthCommonServiceImplTest {
 
     @Mock
-    private SysUserMapper sysUserMapper;
+    private ISysUserService sysUserService;
     @Mock
     private ISysUserRoleService sysUserRoleService;
     @Mock
@@ -35,66 +32,50 @@ class AuthCommonServiceImplTest {
     @Mock
     private ISysPermissionService sysPermissionService;
     @Mock
-    private ISysRoleMenuService sysRoleMenuService;
-    @Mock
-    private ISysMenuService sysMenuService;
+    private ISysRoleService sysRoleService;
 
     @Test
-    void shouldReturnVirtualSuperAdminDataWhenUserIsSuperAdmin() {
-        AuthCommonServiceImpl authCommonService = new AuthCommonServiceImpl(
-                sysUserMapper,
-                sysUserRoleService,
-                sysRolePermissionService,
-                sysPermissionService,
-                sysRoleMenuService,
-                sysMenuService
-        );
-        SysUser user = buildUser(Constants.ENABLED);
-        SysMenu menu = new SysMenu();
-        menu.setId(1000L);
-        when(sysUserMapper.selectOne(any())).thenReturn(user);
-        when(sysMenuService.getAllEnabledMenus()).thenReturn(List.of(menu));
+    void getRoleCodesByUserIdShouldReturnSuperAdminRoleWhenUserIsSuperAdmin() {
+        AuthCommonServiceImpl authCommonService = buildAuthCommonService();
+        when(sysUserService.getActiveById(1L)).thenReturn(buildUser(1L, Constants.ENABLED));
 
-        assertTrue(authCommonService.isSuperAdmin(1L));
-        assertEquals(List.of(AuthConstants.SUPER_ADMIN_ROLE_CODE), authCommonService.getRoleCodesByUserId(1L));
-        assertEquals(List.of(AuthConstants.ALL_PERMISSION_CODE), authCommonService.getPermissionCodesByUserId(1L));
-        assertEquals(List.of(menu), authCommonService.getMenusByUserId(1L));
-        verify(sysMenuService).getAllEnabledMenus();
+        List<String> roleCodes = authCommonService.getRoleCodesByUserId(1L);
+
+        assertEquals(List.of(AuthConstants.SUPER_ADMIN_ROLE_CODE), roleCodes);
+        verify(sysUserRoleService, never()).getRoleIdsByUserId(1L);
+        verify(sysRoleService, never()).getRoleCodesByIds(List.of(), Constants.ENABLED);
     }
 
     @Test
-    void shouldQueryAssociationTablesWhenUserIsNormalUser() {
-        AuthCommonServiceImpl authCommonService = new AuthCommonServiceImpl(
-                sysUserMapper,
+    void getRoleCodesByUserIdShouldAssembleCodesByRoleIds() {
+        AuthCommonServiceImpl authCommonService = buildAuthCommonService();
+        when(sysUserService.getActiveById(2L)).thenReturn(buildUser(2L, Constants.DISABLED));
+        when(sysUserRoleService.getRoleIdsByUserId(2L)).thenReturn(List.of(2L, 1L));
+        when(sysRoleService.getRoleCodesByIds(List.of(2L, 1L), Constants.ENABLED))
+                .thenReturn(List.of("SYSTEM_ADMIN", "AUDITOR"));
+
+        List<String> roleCodes = authCommonService.getRoleCodesByUserId(2L);
+
+        assertEquals(List.of("SYSTEM_ADMIN", "AUDITOR"), roleCodes);
+        verify(sysUserRoleService).getRoleIdsByUserId(2L);
+        verify(sysRoleService).getRoleCodesByIds(List.of(2L, 1L), Constants.ENABLED);
+    }
+
+    private AuthCommonServiceImpl buildAuthCommonService() {
+        return new AuthCommonServiceImpl(
+                sysUserService,
                 sysUserRoleService,
                 sysRolePermissionService,
                 sysPermissionService,
-                sysRoleMenuService,
-                sysMenuService
+                sysRoleService
         );
-        SysUser user = buildUser(Constants.DISABLED);
-        SysMenu menu = new SysMenu();
-        menu.setId(2000L);
-        when(sysUserMapper.selectOne(any())).thenReturn(user);
-        when(sysUserRoleService.getRoleCodesByUserId(2L)).thenReturn(List.of("SYSTEM_ADMIN"));
-        when(sysUserRoleService.getRoleIdsByUserId(2L)).thenReturn(List.of(10L, 20L));
-        when(sysRolePermissionService.getPermissionIdsByRoleIds(List.of(10L, 20L))).thenReturn(List.of(1000L, 2000L));
-        when(sysPermissionService.getPermissionCodesByIds(List.of(1000L, 2000L), Constants.ENABLED))
-                .thenReturn(List.of("system:user:view"));
-        when(sysRoleMenuService.getMenuIdsByRoleIds(List.of(10L, 20L))).thenReturn(List.of(100L, 200L));
-        when(sysMenuService.getListByIds(List.of(100L, 200L), Constants.ENABLED)).thenReturn(List.of(menu));
-
-        assertEquals(List.of("SYSTEM_ADMIN"), authCommonService.getRoleCodesByUserId(2L));
-        assertEquals(List.of("system:user:view"), authCommonService.getPermissionCodesByUserId(2L));
-        assertEquals(List.of(menu), authCommonService.getMenusByUserId(2L));
     }
 
-    private SysUser buildUser(Byte isSuperAdmin) {
+    private SysUser buildUser(Long userId, Byte isSuperAdmin) {
         SysUser user = new SysUser();
-        user.setId(1L);
-        user.setStatus(Constants.ENABLED);
+        user.setId(userId);
         user.setIsSuperAdmin(isSuperAdmin);
-        user.setIsDeleted(Boolean.FALSE);
+        user.setStatus(Constants.ENABLED);
         return user;
     }
 }

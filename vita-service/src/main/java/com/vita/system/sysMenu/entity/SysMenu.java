@@ -7,13 +7,16 @@ import lombok.Data;
 
 import lombok.EqualsAndHashCode;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
+ * @version 1.0
  * @BelongsProject: vita
  * @BelongsPackage: com.vita.system.sysMenu.entity
  * @Author znk
  * @CreateTime 2026-03-31 16:27:08
  * @Description: 菜单表 实体类
- * @version 1.0
  */
 @Data
 @TableName("sys_menu")
@@ -109,4 +112,9 @@ public class SysMenu extends BaseEntity {
      */
     @TableField("remark")
     private String remark;
+
+    /**
+     * 子菜单
+     */
+    private List<SysMenu> children = new ArrayList<SysMenu>();
 }

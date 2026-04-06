@@ -3,6 +3,9 @@ package com.vita.auth.service;
 import com.vita.auth.dto.AuthLoginDto;
 import com.vita.auth.vo.AuthInfoVo;
 import com.vita.auth.vo.AuthLoginVo;
+import com.vita.system.sysMenu.vo.RouterVo;
+
+import java.util.List;
 
 /**
  * @BelongsProject: be-vita
@@ -33,4 +36,9 @@ public interface IAuthService {
      * @return 当前登录用户快照
      */
     AuthInfoVo getCurrentUserInfo();
+
+    /**
+     * 获取路由信息.
+     */
+    List<RouterVo> getRouters();
 }
