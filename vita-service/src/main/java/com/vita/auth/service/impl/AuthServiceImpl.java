@@ -117,7 +117,6 @@ public class AuthServiceImpl implements IAuthService {
      */
     @Override
     public void logout() {
-        authTokenService.checkLogin();
         authTokenService.logout();
         LoginUserInfoModelContext.removeLoginUserInfo();
     }
@@ -129,7 +128,6 @@ public class AuthServiceImpl implements IAuthService {
      */
     @Override
     public AuthInfoVo getCurrentUserInfo() {
-        authTokenService.checkLogin();
         resolveCurrentLoginUserInfo();
         LoginUserInfoModel loginUserInfoModel = LoginUserInfoModelContext.getRequiredLoginUserInfo();
         Long userId = LoginUserInfoModelContext.getRequiredLoginUserId();
@@ -148,7 +146,6 @@ public class AuthServiceImpl implements IAuthService {
      */
     @Override
     public List<RouterVo> getRouters() {
-        authTokenService.checkLogin();
         resolveCurrentLoginUserInfo();
         Long userId = LoginUserInfoModelContext.getRequiredLoginUserId();
         return sysMenuService.getRoutersByUserId(userId);
