@@ -78,6 +78,14 @@ public interface ISysUserService extends IService<SysUser> {
     SysUser getByUserName(String userName);
 
     /**
+     * 根据用户ID查询启用中的用户。
+     *
+     * @param userId 用户ID
+     * @return 用户实体，不存在或未启用时返回 null
+     */
+    SysUser getActiveById(Long userId);
+
+    /**
      * 更新登录信息。
      *
      * @param userId       用户ID

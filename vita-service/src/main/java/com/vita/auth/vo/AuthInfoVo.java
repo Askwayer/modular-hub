@@ -1,6 +1,7 @@
 package com.vita.auth.vo;
 
 import com.vita.core.model.LoginUserInfoModel;
+import com.vita.system.sysMenu.vo.RouterVo;
 import lombok.Data;
 
 import java.util.List;

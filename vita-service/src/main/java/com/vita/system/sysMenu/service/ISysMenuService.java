@@ -6,6 +6,7 @@ import com.vita.system.sysMenu.dto.SysMenuCreateDto;
 import com.vita.system.sysMenu.dto.SysMenuSearchDto;
 import com.vita.system.sysMenu.dto.SysMenuUpdateDto;
 import com.vita.system.sysMenu.entity.SysMenu;
+import com.vita.system.sysMenu.vo.RouterVo;
 import com.vita.system.sysMenu.vo.SysMenuDetailVo;
 import com.vita.system.sysMenu.vo.SysMenuListVo;
 import com.vita.system.sysMenu.vo.SysMenuPageVo;
@@ -83,6 +84,22 @@ public interface ISysMenuService extends IService<SysMenu> {
      * @return 菜单集合
      */
     List<SysMenu> getListByIds(List<Long> menuIds, Byte status);
+
+    /**
+     * 根据用户ID获取其拥有的菜单列表。
+     *
+     * @param userId 用户 ID
+     * @return 菜单列表
+     */
+    List<SysMenu> getMenusByUserId(Long userId);
+
+    /**
+     * 构建前端路由所需要的菜单
+     *
+     * @param menus 菜单列表
+     * @return 路由列表
+     */
+    public List<RouterVo> buildMenus(List<SysMenu> menus);
 
     /**
      * 校验菜单名称是否唯一

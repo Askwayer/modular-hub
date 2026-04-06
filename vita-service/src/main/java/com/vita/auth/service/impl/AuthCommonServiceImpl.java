@@ -3,18 +3,12 @@ package com.vita.auth.service.impl;
 import cn.hutool.core.collection.CollUtil;
 import com.vita.auth.service.IAuthCommonService;
 import com.vita.constant.AuthConstants;
-import com.vita.core.exception.GlobalErrorCode;
-import com.vita.core.exception.ServiceException;
 import com.vita.enums.CommonStatusEnum;
-import com.vita.mybatis.LambdaQueryWrapperX;
-import com.vita.system.associate.sysRoleMenu.service.ISysRoleMenuService;
 import com.vita.system.associate.sysRolePermission.service.ISysRolePermissionService;
 import com.vita.system.associate.sysUserRole.service.ISysUserRoleService;
-import com.vita.system.sysMenu.entity.SysMenu;
-import com.vita.system.sysMenu.service.ISysMenuService;
 import com.vita.system.sysPermission.service.ISysPermissionService;
 import com.vita.system.sysUser.entity.SysUser;
-import com.vita.system.sysUser.mapper.SysUserMapper;
+import com.vita.system.sysUser.service.ISysUserService;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -30,25 +24,19 @@ import java.util.List;
 @Service
 public class AuthCommonServiceImpl implements IAuthCommonService {
 
-    private final SysUserMapper sysUserMapper;
+    private final ISysUserService sysUserService;
     private final ISysUserRoleService sysUserRoleService;
     private final ISysRolePermissionService sysRolePermissionService;
     private final ISysPermissionService sysPermissionService;
-    private final ISysRoleMenuService sysRoleMenuService;
-    private final ISysMenuService sysMenuService;
 
-    public AuthCommonServiceImpl(SysUserMapper sysUserMapper,
+    public AuthCommonServiceImpl(ISysUserService sysUserService,
                                  ISysUserRoleService sysUserRoleService,
                                  ISysRolePermissionService sysRolePermissionService,
-                                 ISysPermissionService sysPermissionService,
-                                 ISysRoleMenuService sysRoleMenuService,
-                                 ISysMenuService sysMenuService) {
-        this.sysUserMapper = sysUserMapper;
+                                 ISysPermissionService sysPermissionService) {
+        this.sysUserService = sysUserService;
         this.sysUserRoleService = sysUserRoleService;
         this.sysRolePermissionService = sysRolePermissionService;
         this.sysPermissionService = sysPermissionService;
-        this.sysRoleMenuService = sysRoleMenuService;
-        this.sysMenuService = sysMenuService;
     }
 
     /**
@@ -95,31 +83,6 @@ public class AuthCommonServiceImpl implements IAuthCommonService {
         return sysPermissionService.getPermissionCodesByIds(permissionIds, CommonStatusEnum.ENABLED.getCode());
     }
 
-    /**
-     * 根据用户ID获取其拥有的菜单列表。
-     *
-     * @param userId 用户 ID
-     * @return 菜单列表
-     */
-    @Override
-    public List<SysMenu> getMenusByUserId(Long userId) {
-        SysUser user = getActiveUser(userId);
-        if (user == null) {
-            return CollUtil.newArrayList();
-        }
-        if (CommonStatusEnum.isEnabled(user.getIsSuperAdmin())) {
-            return sysMenuService.getAllEnabledMenus();
-        }
-        List<Long> roleIds = sysUserRoleService.getRoleIdsByUserId(userId);
-        if (CollUtil.isEmpty(roleIds)) {
-            return CollUtil.newArrayList();
-        }
-        List<Long> menuIds = sysRoleMenuService.getMenuIdsByRoleIds(roleIds);
-        if (CollUtil.isEmpty(menuIds)) {
-            return CollUtil.newArrayList();
-        }
-        return sysMenuService.getListByIds(menuIds, CommonStatusEnum.ENABLED.getCode());
-    }
 
     /**
      * 判断用户是否是超级管理员。
@@ -140,11 +103,6 @@ public class AuthCommonServiceImpl implements IAuthCommonService {
      * @return 用户信息
      */
     private SysUser getActiveUser(Long userId) {
-        if (userId == null) {
-            throw new ServiceException(GlobalErrorCode.BAD_REQUEST);
-        }
-        return sysUserMapper.selectOne(new LambdaQueryWrapperX<SysUser>()
-                .eq(SysUser::getId, userId)
-                .eq(SysUser::getStatus, CommonStatusEnum.ENABLED.getCode()));
+        return sysUserService.getActiveById(userId);
     }
 }

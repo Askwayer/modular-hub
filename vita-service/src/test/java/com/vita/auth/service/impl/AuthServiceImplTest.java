@@ -14,6 +14,8 @@ import com.vita.log.model.RequestClientInfo;
 import com.vita.log.resolver.RequestClientInfoResolver;
 import com.vita.log.service.LoginAuditService;
 import com.vita.system.sysIpBlock.service.ISysIpBlockService;
+import com.vita.system.sysMenu.service.ISysMenuService;
+import com.vita.system.sysMenu.vo.RouterVo;
 import com.vita.system.sysUser.entity.SysUser;
 import com.vita.system.sysUser.service.ISysUserService;
 import org.junit.jupiter.api.Test;
@@ -50,6 +52,8 @@ class AuthServiceImplTest {
     private RequestClientInfoResolver requestClientInfoResolver;
     @Mock
     private LoginAuditService loginAuditService;
+    @Mock
+    private ISysMenuService sysMenuService;
 
     @Test
     void loginShouldBuildSaTokenSessionWhenCaptchaDisabled() {
@@ -61,7 +65,8 @@ class AuthServiceImplTest {
                 captchaApplicationServiceProvider,
                 authTokenService,
                 requestClientInfoResolver,
-                loginAuditService
+                loginAuditService,
+                sysMenuService
         );
         when(captchaApplicationServiceProvider.getIfAvailable()).thenReturn(null);
         when(sysIpBlockService.isBlocked("127.0.0.1")).thenReturn(false);
@@ -103,7 +108,8 @@ class AuthServiceImplTest {
                 captchaApplicationServiceProvider,
                 authTokenService,
                 requestClientInfoResolver,
-                loginAuditService
+                loginAuditService,
+                sysMenuService
         );
         when(captchaApplicationServiceProvider.getIfAvailable()).thenReturn(null);
         when(sysIpBlockService.isBlocked("127.0.0.1")).thenReturn(false);
@@ -130,7 +136,8 @@ class AuthServiceImplTest {
                 captchaApplicationServiceProvider,
                 authTokenService,
                 requestClientInfoResolver,
-                loginAuditService
+                loginAuditService,
+                sysMenuService
         );
         when(captchaApplicationServiceProvider.getIfAvailable()).thenReturn(null);
         when(sysIpBlockService.isBlocked("127.0.0.1")).thenReturn(false);
@@ -156,7 +163,8 @@ class AuthServiceImplTest {
                 captchaApplicationServiceProvider,
                 authTokenService,
                 requestClientInfoResolver,
-                loginAuditService
+                loginAuditService,
+                sysMenuService
         );
         when(captchaApplicationServiceProvider.getIfAvailable()).thenReturn(captchaApplicationService);
         when(sysIpBlockService.isBlocked("127.0.0.1")).thenReturn(false);
@@ -186,19 +194,26 @@ class AuthServiceImplTest {
                 captchaApplicationServiceProvider,
                 authTokenService,
                 requestClientInfoResolver,
-                loginAuditService
+                loginAuditService,
+                sysMenuService
         );
         LoginUserInfoModel loginUserInfoModel = new LoginUserInfoModel();
         loginUserInfoModel.setId(1L);
         loginUserInfoModel.setUsername("admin");
+        RouterVo routerVo = new RouterVo();
+        routerVo.setRouteName("System");
+        routerVo.setRouteLink("/system");
         when(authTokenService.getStoredLoginUserInfo()).thenReturn(loginUserInfoModel);
         when(authTokenService.getStoredLoginRoleCodes()).thenReturn(java.util.List.of("SUPER_ADMIN"));
         when(authTokenService.getStoredLoginPermissionCodes()).thenReturn(java.util.List.of(AuthConstants.ALL_PERMISSION_CODE));
+        when(sysMenuService.getMenusByUserId(1L)).thenReturn(java.util.List.of());
+        when(sysMenuService.buildMenus(java.util.List.of())).thenReturn(java.util.List.of(routerVo));
 
         AuthInfoVo currentUserInfo = authService.getCurrentUserInfo();
         assertEquals("admin", currentUserInfo.getUserInfo().getUsername());
         assertEquals("SUPER_ADMIN", currentUserInfo.getRoleCodes().get(0));
         assertEquals(AuthConstants.ALL_PERMISSION_CODE, currentUserInfo.getPermissionCodes().get(0));
+        assertEquals("/system", currentUserInfo.getMenus().get(0).getRouteLink());
         verify(authTokenService).checkLogin();
     }
 
@@ -211,7 +226,8 @@ class AuthServiceImplTest {
                 captchaApplicationServiceProvider,
                 authTokenService,
                 requestClientInfoResolver,
-                loginAuditService
+                loginAuditService,
+                sysMenuService
         );
         authService.logout();
         verify(authTokenService).checkLogin();

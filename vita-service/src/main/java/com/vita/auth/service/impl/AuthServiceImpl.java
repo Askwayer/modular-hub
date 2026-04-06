@@ -20,9 +20,13 @@ import com.vita.log.model.RequestClientInfo;
 import com.vita.log.resolver.RequestClientInfoResolver;
 import com.vita.log.service.LoginAuditService;
 import com.vita.system.sysIpBlock.service.ISysIpBlockService;
+import com.vita.system.sysMenu.entity.SysMenu;
+import com.vita.system.sysMenu.service.ISysMenuService;
+import com.vita.system.sysMenu.vo.RouterVo;
 import com.vita.system.sysUser.entity.SysUser;
 import com.vita.system.sysUser.service.ISysUserService;
 import com.vita.utils.Sm4Utils;
+import net.sf.jsqlparser.expression.LongValue;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 
@@ -48,6 +52,7 @@ public class AuthServiceImpl implements IAuthService {
     private final IAuthTokenService authTokenService;
     private final RequestClientInfoResolver requestClientInfoResolver;
     private final LoginAuditService loginAuditService;
+    private final ISysMenuService sysMenuService;
 
     /**
      * 构造认证服务实现，注入用户查询、验证码、登录态和登录审计等依赖。
@@ -65,7 +70,8 @@ public class AuthServiceImpl implements IAuthService {
                            ObjectProvider<CaptchaApplicationService> captchaApplicationServiceProvider,
                            IAuthTokenService authTokenService,
                            RequestClientInfoResolver requestClientInfoResolver,
-                           LoginAuditService loginAuditService) {
+                           LoginAuditService loginAuditService,
+                           ISysMenuService sysMenuService) {
         this.sysUserService = sysUserService;
         this.sysIpBlockService = sysIpBlockService;
         this.authCommonService = authCommonService;
@@ -73,6 +79,7 @@ public class AuthServiceImpl implements IAuthService {
         this.authTokenService = authTokenService;
         this.requestClientInfoResolver = requestClientInfoResolver;
         this.loginAuditService = loginAuditService;
+        this.sysMenuService = sysMenuService;
     }
 
     /**
@@ -129,6 +136,17 @@ public class AuthServiceImpl implements IAuthService {
         authInfoVo.setRoleCodes(roleCodes);
         authInfoVo.setPermissionCodes(permissionCodes);
         return authInfoVo;
+    }
+
+    /**
+     * 获取路由信息.
+     */
+    @Override
+    public List<RouterVo> getRouters() {
+        authTokenService.checkLogin();
+        Long userId = Long.valueOf(authTokenService.getLoginId().toString());
+        List<SysMenu> menus = sysMenuService.getMenusByUserId(userId);
+        return sysMenuService.buildMenus(menus);
     }
 
     /**

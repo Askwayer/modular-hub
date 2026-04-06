@@ -31,14 +31,6 @@ public interface IAuthCommonService {
     List<String> getPermissionCodesByUserId(Long userId);
 
     /**
-     * 根据用户ID获取其拥有的菜单列表。
-     *
-     * @param userId 用户 ID
-     * @return 菜单列表
-     */
-    List<SysMenu> getMenusByUserId(Long userId);
-
-    /**
      * 判断用户是否是超级管理员。
      *
      * @param userId 用户 ID

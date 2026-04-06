@@ -9,21 +9,30 @@ import com.vita.constant.Constants;
 import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
 import com.vita.core.page.PageResponse;
+import com.vita.enums.CommonStatusEnum;
 import com.vita.mybatis.LambdaQueryWrapperX;
+import com.vita.system.associate.sysRoleMenu.service.ISysRoleMenuService;
+import com.vita.system.associate.sysUserRole.service.ISysUserRoleService;
 import com.vita.system.sysMenu.dto.SysMenuCreateDto;
 import com.vita.system.sysMenu.dto.SysMenuSearchDto;
 import com.vita.system.sysMenu.dto.SysMenuUpdateDto;
 import com.vita.system.sysMenu.entity.SysMenu;
 import com.vita.system.sysMenu.mapper.SysMenuMapper;
 import com.vita.system.sysMenu.service.ISysMenuService;
+import com.vita.system.sysMenu.vo.MetaVo;
+import com.vita.system.sysMenu.vo.RouterVo;
 import com.vita.system.sysMenu.vo.SysMenuDetailVo;
 import com.vita.system.sysMenu.vo.SysMenuListVo;
 import com.vita.system.sysMenu.vo.SysMenuPageVo;
+import com.vita.system.sysUser.entity.SysUser;
+import com.vita.system.sysUser.service.ISysUserService;
 import jakarta.annotation.Resource;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * @version 1.0
@@ -38,6 +47,15 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
 
     @Resource
     private SysMenuMapper sysMenuMapper;
+
+    @Resource
+    private ISysUserService sysUserService;
+
+    @Resource
+    private ISysUserRoleService sysUserRoleService;
+
+    @Resource
+    private ISysRoleMenuService sysRoleMenuService;
 
     /**
      * 新增数据并返回主键ID。
@@ -81,8 +99,11 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
      */
     @Override
     public void delete(Long id) {
-        getRequiredEntity(id);
-        sysMenuMapper.deleteById(id);
+        if (!hasChildNode(id)) {
+            sysMenuMapper.deleteById(id);
+        } else {
+            throw new ServiceException(GlobalErrorCode.BAD_REQUEST.getCode(), "存在子菜单，无法删除");
+        }
     }
 
     /**
@@ -161,6 +182,46 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
             return CollUtil.newArrayList();
         }
         return menuList;
+    }
+
+    /**
+     * 根据用户ID获取其拥有的菜单列表。
+     *
+     * @param userId 用户 ID
+     * @return 菜单列表
+     */
+    @Override
+    public List<SysMenu> getMenusByUserId(Long userId) {
+        SysUser user = sysUserService.getActiveById(userId);
+        if (user == null) {
+            return CollUtil.newArrayList();
+        }
+        if (CommonStatusEnum.isEnabled(user.getIsSuperAdmin())) {
+            return getAllEnabledMenus();
+        }
+        List<Long> roleIds = sysUserRoleService.getRoleIdsByUserId(userId);
+        if (CollUtil.isEmpty(roleIds)) {
+            return CollUtil.newArrayList();
+        }
+        List<Long> menuIds = sysRoleMenuService.getMenuIdsByRoleIds(roleIds);
+        if (CollUtil.isEmpty(menuIds)) {
+            return CollUtil.newArrayList();
+        }
+        return getListByIds(menuIds, CommonStatusEnum.ENABLED.getCode());
+    }
+
+    /**
+     * 构建前端路由所需要的菜单
+     *
+     * @param menus 菜单列表
+     * @return 路由列表
+     */
+    @Override
+    public List<RouterVo> buildMenus(List<SysMenu> menus) {
+        if (CollUtil.isEmpty(menus)) {
+            return CollUtil.newArrayList();
+        }
+        return buildRouterChildren(0L, menus);
     }
 
     /**
@@ -271,5 +332,61 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
             throw new ServiceException(GlobalErrorCode.NOT_FOUND);
         }
         return data;
+    }
+
+    /**
+     * 按父菜单递归构建前端路由树。
+     *
+     * @param parentId 父菜单ID
+     * @param menus    菜单集合
+     * @return 路由集合
+     */
+    private List<RouterVo> buildRouterChildren(Long parentId, List<SysMenu> menus) {
+        List<RouterVo> routers = new ArrayList<>();
+        for (SysMenu menu : menus) {
+            if (!Objects.equals(parentId, menu.getParentId())) {
+                continue;
+            }
+            RouterVo routerVo = new RouterVo();
+            routerVo.setRouteName(menu.getRouteName());
+            routerVo.setRouteLink(menu.getRouteLink());
+            routerVo.setPath(menu.getRouteLink());
+            routerVo.setHidden(CommonStatusEnum.isDisabled(menu.getVisible()));
+            routerVo.setComponent(menu.getComponentPath());
+            routerVo.setAlwaysShow(CommonStatusEnum.isEnabled(menu.getAlwaysShow()));
+            routerVo.setMeta(buildMeta(menu));
+            List<RouterVo> children = buildRouterChildren(menu.getId(), menus);
+            if (CollUtil.isNotEmpty(children)) {
+                routerVo.setChildren(children);
+            }
+            routers.add(routerVo);
+        }
+        return routers;
+    }
+
+    /**
+     * 构建路由元信息。
+     *
+     * @param menu 菜单
+     * @return 路由元信息
+     */
+    private MetaVo buildMeta(SysMenu menu) {
+        MetaVo metaVo = new MetaVo();
+        metaVo.setMenuName(menu.getMenuName());
+        metaVo.setIcon(menu.getIcon());
+        metaVo.setIsCache(menu.getIsCache());
+        return metaVo;
+    }
+
+    /**
+     * 判断是否拥有子节点。
+     *
+     * @param menuId 菜单ID
+     * @return 结果 true 存在 / false 不存在
+     */
+    private boolean hasChildNode(Long menuId) {
+        Long count = sysMenuMapper.selectCount(new LambdaQueryWrapperX<SysMenu>()
+                .eq(SysMenu::getParentId, menuId));
+        return count != null && count > 0;
     }
 }

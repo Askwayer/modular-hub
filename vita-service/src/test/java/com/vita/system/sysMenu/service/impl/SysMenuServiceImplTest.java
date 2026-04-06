@@ -1,16 +1,24 @@
 package com.vita.system.sysMenu.service.impl;
 
+import com.vita.constant.Constants;
 import com.vita.core.exception.ServiceException;
+import com.vita.system.associate.sysRoleMenu.service.ISysRoleMenuService;
+import com.vita.system.associate.sysUserRole.service.ISysUserRoleService;
 import com.vita.system.sysMenu.dto.SysMenuCreateDto;
 import com.vita.system.sysMenu.dto.SysMenuUpdateDto;
 import com.vita.system.sysMenu.entity.SysMenu;
 import com.vita.system.sysMenu.mapper.SysMenuMapper;
+import com.vita.system.sysMenu.vo.RouterVo;
+import com.vita.system.sysUser.entity.SysUser;
+import com.vita.system.sysUser.service.ISysUserService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
+
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -25,6 +33,12 @@ class SysMenuServiceImplTest {
 
     @Mock
     private SysMenuMapper sysMenuMapper;
+    @Mock
+    private ISysUserService sysUserService;
+    @Mock
+    private ISysUserRoleService sysUserRoleService;
+    @Mock
+    private ISysRoleMenuService sysRoleMenuService;
 
     private SysMenuServiceImpl sysMenuService;
 
@@ -32,6 +46,9 @@ class SysMenuServiceImplTest {
     void setUp() {
         sysMenuService = new SysMenuServiceImpl();
         ReflectionTestUtils.setField(sysMenuService, "sysMenuMapper", sysMenuMapper);
+        ReflectionTestUtils.setField(sysMenuService, "sysUserService", sysUserService);
+        ReflectionTestUtils.setField(sysMenuService, "sysUserRoleService", sysUserRoleService);
+        ReflectionTestUtils.setField(sysMenuService, "sysRoleMenuService", sysRoleMenuService);
     }
 
     @Test
@@ -78,5 +95,49 @@ class SysMenuServiceImplTest {
 
         assertTrue(sysMenuService.checkRouteConfigUnique(menu));
         verify(sysMenuMapper, never()).selectCount(any());
+    }
+
+    @Test
+    void getMenusByUserIdShouldReturnRoleMenusForNormalUser() {
+        SysUser user = new SysUser();
+        user.setId(2L);
+        user.setIsSuperAdmin(Constants.DISABLED);
+        when(sysUserService.getActiveById(2L)).thenReturn(user);
+        when(sysUserRoleService.getRoleIdsByUserId(2L)).thenReturn(List.of(11L));
+        when(sysRoleMenuService.getMenuIdsByRoleIds(List.of(11L))).thenReturn(List.of(1001L));
+        when(sysMenuMapper.selectList(any())).thenReturn(List.of(buildMenu(1001L, 0L, "用户管理", "SysUser", "/system/sysUser", 1)));
+
+        List<SysMenu> menus = sysMenuService.getMenusByUserId(2L);
+
+        assertEquals(1, menus.size());
+        assertEquals("/system/sysUser", menus.get(0).getRouteLink());
+    }
+
+    @Test
+    void buildMenusShouldBuildVisibleRouteTree() {
+        List<RouterVo> routers = sysMenuService.buildMenus(List.of(
+                buildMenu(1000L, 0L, "系统管理", "System", "/system", 1),
+                buildMenu(1001L, 1000L, "用户管理", "SysUser", "/system/sysUser", 1),
+                buildMenu(1002L, 1000L, "隐藏菜单", "HiddenMenu", "/hidden", 0)
+        ));
+
+        assertEquals(1, routers.size());
+        assertEquals("/system", routers.get(0).getRouteLink());
+        assertEquals(1, routers.get(0).getChildren().size());
+        assertEquals("/system/sysUser", routers.get(0).getChildren().get(0).getRouteLink());
+    }
+
+    private SysMenu buildMenu(Long id, Long parentId, String menuName, String routeName, String routeLink, Integer visible) {
+        SysMenu menu = new SysMenu();
+        menu.setId(id);
+        menu.setParentId(parentId);
+        menu.setMenuName(menuName);
+        menu.setRouteName(routeName);
+        menu.setRouteLink(routeLink);
+        menu.setComponentPath("Layout");
+        menu.setVisible(visible.byteValue());
+        menu.setAlwaysShow(Constants.DISABLED);
+        menu.setStatus(Constants.ENABLED);
+        return menu;
     }
 }
