@@ -1,0 +1,14 @@
+{
+  "properties": [
+    {
+      "name": "vita.qwen-coding-plan.api-url",
+      "type": "java.lang.String",
+      "description": "Description for vita.qwen-coding-plan.api-url."
+    },
+    {
+      "name": "vita.qwen-coding-plan.model-name",
+      "type": "java.lang.String",
+      "description": "Description for vita.qwen-coding-plan.model-name."
+    }
+  ]
+}
