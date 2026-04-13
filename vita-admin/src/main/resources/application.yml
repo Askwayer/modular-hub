@@ -6,7 +6,7 @@ server:
 # Spring Boot 配置
 spring:
   profiles:
-    active: dev
+    active: prod
   application:
     name: vita
   # 文件上传
