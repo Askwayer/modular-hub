@@ -109,3 +109,13 @@ logging:
   level:
     root: info
     com.vita: debug
+
+# Qwen Coding Plan 配置
+langchain4j:
+  open-ai:
+    chat-model:
+      api-key: ${vita.qwen-coding-plan.api-key}
+      # 模型名称，默认为 gpt-3.5-turbo
+      model-name: ${vita.qwen-coding-plan.model-name}
+      # 模型版本，默认为 2024-06-01
+      base-url: ${vita.qwen-coding-plan.api-url}
