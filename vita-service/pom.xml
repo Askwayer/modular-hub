@@ -29,6 +29,7 @@
             <artifactId>vita-common</artifactId>
         </dependency>
 
+        <!-- vita-captcha-spring-boot-starter -->
         <dependency>
             <groupId>com.vita</groupId>
             <artifactId>vita-captcha-spring-boot-starter</artifactId>

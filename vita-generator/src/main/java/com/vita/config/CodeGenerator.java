@@ -68,27 +68,27 @@ public class CodeGenerator {
     /**
      * 生成器配置 - TABLE NAME
      */
-    private static final String[] TABLE_NAMES = {"sys_role_dept_scope"};
+    private static final String[] TABLE_NAMES = {"ai_message"};
 
     /**
      * 默认目标模块（兼容旧配置）
      */
-    private static final String DEFAULT_TARGET_MODULE = "vita-service";
+    private static final String DEFAULT_TARGET_MODULE = "vita-aichat";
 
     /**
      * 默认控制器模块（与当前 sysUser 模块保持一致）
      */
-    private static final String DEFAULT_CONTROLLER_MODULE = "vita-admin";
+    private static final String DEFAULT_CONTROLLER_MODULE = "vita-aichat";
 
     /**
      * 默认业务模块（用于父包、路由和 mapper 目录）
      */
-    private static final String DEFAULT_BUSINESS_MODULE = "system";
+    private static final String DEFAULT_BUSINESS_MODULE = "aichat";
 
     /**
      * 默认领域模块（用于 packageConfig.moduleName）
      */
-    private static final String DEFAULT_DOMAIN_MODULE = "associate.sysRoleDeptScope";
+    private static final String DEFAULT_DOMAIN_MODULE = "aiMessage";
 
     /**
      * 默认基础包（兼容旧配置 com.vita.system + sysUser）

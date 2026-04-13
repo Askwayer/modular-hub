@@ -13,20 +13,20 @@ vita:
   # mysql 配置
   mysql:
     master:
-      host: 106.54.205.33
+      host: localhost
       port: 3306
       database: be_vita
       username: root
-      password: WQO6D9ax#f*QPJup
+      password: password
   # redis 配置
   redis:
     # 自动装配
     enabled: true
     # 是否启用 Redis
     open: true
-    host: 106.54.205.33
+    host: localhost
     port: 6379
-    passwd: dhQjF6HJfn@&bF6!
+    passwd: password
   # sa-token 配置
   sa-token:
     # token 名称（同时也是 cookie 名称）
@@ -44,4 +44,4 @@ vita:
     # 指定 token 提交时的前缀
     token-prefix: Bearer
     # jwt秘钥
-    jwt-secret-key: wiki-kangLe-Cloud
+    jwt-secret-key: secret-key

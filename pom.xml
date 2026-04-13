@@ -39,6 +39,7 @@
         <module>vita-generator</module>
         <module>vita-starters</module>
         <module>vita-admin</module>
+        <module>vita-aichat</module>
     </modules>
 
     <dependencyManagement>
