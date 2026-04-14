@@ -2,6 +2,9 @@ package com.vita.aichat.aiConversation.mapper;
 
 import com.vita.aichat.aiConversation.entity.AiConversation;
 import com.vita.core.mapper.BaseMapperX;
+import com.vita.core.page.PageRequest;
+import com.vita.core.page.PageResponse;
+import com.vita.mybatis.LambdaQueryWrapperX;
 import org.apache.ibatis.annotations.Mapper;
 
 /**
@@ -15,4 +18,18 @@ import org.apache.ibatis.annotations.Mapper;
 @Mapper
 public interface AiConversationMapper extends BaseMapperX<AiConversation> {
 
+    default AiConversation selectByIdAndUserId(Long id, Long userId) {
+        return selectOne(new LambdaQueryWrapperX<AiConversation>()
+                .eq(AiConversation::getId, id)
+                .eq(AiConversation::getUserId, userId));
+    }
+
+    default PageResponse<AiConversation> selectPageByUserId(PageRequest pageRequest, Long userId, String keyword) {
+        LambdaQueryWrapperX<AiConversation> queryWrapper = new LambdaQueryWrapperX<AiConversation>()
+                .eq(AiConversation::getUserId, userId)
+                .likeIfPresent(AiConversation::getTitle, keyword)
+                .orderByDesc(AiConversation::getLastMessageAt)
+                .orderByDesc(AiConversation::getId);
+        return selectPage(pageRequest, queryWrapper);
+    }
 }

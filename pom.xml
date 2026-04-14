@@ -20,6 +20,7 @@
         <maven.compiler.target>17</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <springboot.version>3.2.0</springboot.version>
+        <spring-ai.version>1.1.2</spring-ai.version>
         <lombok.version>1.18.28</lombok.version>
         <dynamic.version>4.3.1</dynamic.version>
         <HikariCP.version>5.0.1</HikariCP.version>
@@ -49,6 +50,15 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-dependencies</artifactId>
                 <version>${springboot.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- Spring AI 官方依赖配置 -->
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-bom</artifactId>
+                <version>${spring-ai.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -151,8 +161,6 @@
                 <artifactId>sa-token-jwt</artifactId>
                 <version>${sa-token.version}</version>
             </dependency>
-
-
 
             <!-- vita-common -->
             <dependency>

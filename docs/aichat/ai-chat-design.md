@@ -2,15 +2,16 @@
 
 ## 1. 文档目标
 
-本文档以当前仓库真实结构为基础，定义 `vita-aichat` 模块的正式演进方向。目标不是重新设计一个并行 AI 模块，而是在现有 `vita-aichat`、现有三张表和现有 CRUD 骨架上，明确正式 Chat 能力、Qwen 模型接入方案和后续开发顺序。
+本文档以当前仓库真实结构为基础，定义 `vita-aichat` 模块的正式设计与落地边界。目标不是重新设计一个并行 AI 模块，而是在现有 `vita-aichat` 和现有三张表上，明确正式 Chat 能力、Qwen 模型接入方案和后续演进顺序。
 
 本轮定稿范围：
 
 - 基于现有 `vita-aichat` 模块建设正式 Chat 业务接口
 - 保留 `AiModelGatewayService` 作为统一模型网关抽象
 - 首个对接模型定为 `Qwen`
-- 接入协议定为 `OpenAI-compatible`
-- 当前 CRUD 接口保留为脚手架或后台维护接口，不作为正式前端契约
+- 接入主线定为 `Spring AI`
+- `Qwen` 通过 `Spring AI OpenAI starter + OpenAI-compatible` 接口接入
+- 当前仅保留正式 Chat 接口，不再维护生成式 CRUD 入口
 
 ---
 
@@ -34,29 +35,25 @@
 | `ai_message` | `AiMessage` | 消息表，记录用户消息、模型回复、状态、token、错误信息等 |
 | `ai_conversation_summary` | `AiConversationSummary` | 摘要表，记录历史消息压缩结果和摘要版本 |
 
-初始化脚本以 [sql/init/aichat.sql](/Users/zhuningkang/Documents/git/github/vita/be-vita/sql/init/aichat.sql) 为准。
+初始化脚本以 [sql/init/aichat.sql](/sql/init/aichat.sql) 为准。
 
-### 2.3 已存在的 CRUD 骨架
+### 2.3 当前正式能力
 
-当前已经生成的控制器接口有：
+当前 `vita-aichat` 已经具备以下正式能力：
 
-| 路径 | 说明 |
-| --- | --- |
-| `/aichat/aiConversation/**` | 会话 CRUD 骨架 |
-| `/aichat/aiMessage/**` | 消息 CRUD 骨架 |
-| `/aichat/aiConversationSummary/**` | 摘要 CRUD 骨架 |
+- `/chat/**` 任务导向接口
+- 基于 `Spring AI` 的 `Qwen OpenAI-compatible` 模型调用
+- 同步发送消息与 SSE 流式回复
+- 消息占位落库、状态流转和统一错误码映射
+- 摘要参与上下文组装
 
-这些接口适合作为生成代码产物或后台维护接口，不应直接作为正式 Chat 前端接口继续扩展。正式对外契约需要换成任务导向接口。
+### 2.4 当前仍保留的后续能力
 
-### 2.4 当前缺口
+当前暂未落地、但文档保留为后续演进项的能力有：
 
-当前 `vita-aichat` 还没有完成以下正式能力：
-
-- 模型 provider 未落地
-- 没有正式的发送消息和流式回复接口
-- 没有统一的上下文组装与摘要压缩流程
-- 没有标题自动生成和摘要刷新闭环
-- 还没有把 `Qwen` 写成明确的配置契约和错误码映射
+- 自动标题生成闭环
+- 主动摘要刷新任务
+- 更细粒度的流式增量持久化
 
 ---
 
@@ -65,7 +62,8 @@
 - 以现有 `vita-aichat` 模块为基础演进，不新增平行模块。
 - 会话、消息、摘要三表继续沿用，不重建第二套数据模型。
 - 业务层只依赖统一模型网关抽象，不直接耦合厂商 SDK。
-- 正式接口走任务导向，当前 CRUD 只作为脚手架或后台维护接口。
+- 模型接入框架统一收敛到 `Spring AI`，不并行维护第二套调用框架。
+- 正式接口走任务导向，不再保留并行 CRUD 控制器。
 - 所有会话和消息都以当前登录用户为归属边界，核心归属字段使用 `user_id`。
 - 流式场景采用“先写占位消息，再增量回写”的持久化策略。
 
@@ -73,7 +71,7 @@
 
 ## 4. 模块边界与包结构建议
 
-### 4.1 现有结构保留
+### 4.1 当前结构
 
 现有包结构继续保留：
 
@@ -87,9 +85,9 @@ vita-aichat
     └── aiConversationSummary
 ```
 
-### 4.2 演进后的建议结构
+### 4.2 当前建议结构
 
-在现有结构上补充正式 Chat 能力：
+围绕正式 Chat 链路的推荐结构如下：
 
 ```text
 com.vita.aichat
@@ -98,11 +96,7 @@ com.vita.aichat
 ├── aiConversationSummary          # 保留现有摘要领域对象
 ├── chat                           # 正式 Chat 任务接口 DTO / VO / Service
 ├── gateway                        # AiModelGatewayService 及 provider 适配
-└── support
-    ├── context                    # 上下文组装
-    ├── compress                   # 摘要压缩
-    ├── sse                        # SSE 事件封装
-    └── title                      # 自动标题生成
+└── support                        # 组装器、SSE 写出器等纯辅助能力
 ```
 
 边界约束：
@@ -162,7 +156,7 @@ com.vita.aichat
 
 ## 6. 正式接口契约
 
-正式 Chat 接口统一挂在 `/aichat/api/chat` 下。当前 CRUD 控制器不作为正式前端调用契约。
+正式 Chat 接口统一挂在 `/aichat/api/chat` 下，代码中只保留这些正式接口。
 
 ### 6.1 会话接口
 
@@ -173,7 +167,6 @@ com.vita.aichat
 | `GET` | `/chat/conversations/{conversationId}` | 查询会话详情 |
 | `PATCH` | `/chat/conversations/{conversationId}/title` | 重命名会话 |
 | `DELETE` | `/chat/conversations/{conversationId}` | 删除会话 |
-| `POST` | `/chat/conversations/{conversationId}/summary/refresh` | 手动刷新摘要 |
 
 ### 6.2 消息接口
 
@@ -266,11 +259,10 @@ com.vita.aichat
 3. 创建 `ASSISTANT` 占位消息，状态设为 `GENERATING`
 4. 组装系统提示词、摘要、最近消息作为上下文
 5. 调用 `AiModelGatewayService` 发起流式请求
-6. 按 chunk 增量回写 `content` / `reasoning_content`
-7. 完成后更新 token 统计、消息状态、会话统计信息
-8. 必要时触发自动标题或摘要刷新
+6. 通过 SSE 输出 `message-start`、`message-delta`、`reasoning-delta`
+7. 完成后统一回写 token 统计、消息状态、会话统计信息
 
-### 7.3 摘要刷新
+### 7.3 摘要刷新（后续能力）
 
 触发时机：
 
@@ -285,7 +277,7 @@ com.vita.aichat
 4. 更新 `ai_conversation.summary_version`
 5. 将 `summary_status` 更新为 `READY`
 
-### 7.4 自动标题
+### 7.4 自动标题（后续能力）
 
 约束：
 
@@ -299,6 +291,8 @@ com.vita.aichat
 
 ### 8.1 网关抽象
 
+本模块正式模型接入基于 `Spring AI`。业务层通过 `AiModelGatewayService` 屏蔽具体供应商，网关实现内部使用 `Spring AI ChatModel` 或 `ChatClient` 调用模型。
+
 保留统一模型网关接口：
 
 ```java
@@ -307,18 +301,19 @@ public interface AiModelGatewayService {
     void chatStream(AiChatGatewayReq req, AiStreamListener listener);
 
     AiChatGatewayResp chat(AiChatGatewayReq req);
-
-    String summarize(AiSummaryGatewayReq req);
-
-    String generateTitle(AiTitleGatewayReq req);
 }
 ```
 
-业务层只依赖这层抽象，不直接感知具体供应商。
+业务层只依赖这层抽象，不直接感知具体供应商。本期只实现对话同步调用和流式调用。
 
 ### 8.2 首个 provider：Qwen
 
-本轮首个接入模型固定为 `Qwen`，接入方式按 `OpenAI-compatible` 设计。
+本轮首个接入模型固定为 `Qwen`，实现方式为：
+
+- 框架：`Spring AI`
+- 模型 starter：`spring-ai-starter-model-openai`
+- 供应商协议：`OpenAI-compatible`
+- 目标地址：DashScope 兼容接口
 
 约束：
 
@@ -331,16 +326,25 @@ public interface AiModelGatewayService {
 建议配置如下：
 
 ```yaml
+spring:
+  ai:
+    model:
+      chat: ${vita.aichat.model.chat:openai}
+    openai:
+      api-key: ${vita.aichat.openai.api-key:}
+      base-url: ${vita.aichat.openai.base-url:https://dashscope.aliyuncs.com/compatible-mode/v1}
+      chat:
+        options:
+          model: ${vita.aichat.openai.chat.options.model:qwen-plus}
+
 vita:
   aichat:
-    provider: qwen
-    qwen:
-      base-url: https://dashscope.aliyuncs.com/compatible-mode/v1
-      api-key: ${DASHSCOPE_API_KEY:}
-      model-code: qwen-plus
-      connect-timeout-ms: 5000
-      read-timeout-ms: 60000
-      stream-enabled: true
+    default-system-prompt: ${VITA_AICHAT_DEFAULT_SYSTEM_PROMPT:你是一个严谨的开发助手。}
+    default-model-code: ${vita.aichat.openai.chat.options.model:qwen-plus}
+    max-context-messages: ${VITA_AICHAT_MAX_CONTEXT_MESSAGES:12}
+    stream-enabled: ${VITA_AICHAT_STREAM_ENABLED:true}
+    connect-timeout-ms: ${VITA_AICHAT_CONNECT_TIMEOUT_MS:5000}
+    read-timeout-ms: ${VITA_AICHAT_READ_TIMEOUT_MS:60000}
 ```
 
 补充说明：
@@ -348,10 +352,11 @@ vita:
 - 面向中国区默认使用 `https://dashscope.aliyuncs.com/compatible-mode/v1`
 - 如部署在海外，可按环境切换到对应国际区兼容地址
 - `api-key` 不允许写死在仓库中，必须走环境变量或外部配置
+- 模型配置收敛为 `spring.ai.openai.*` + `vita.aichat.*` 两层，不再维护 `langchain4j.*` 的并行配置
 
 ### 8.4 请求映射
 
-网关层需要把业务请求映射成 OpenAI-compatible 请求：
+网关层基于 Spring AI 组装 `Prompt` 与 `OpenAiChatOptions`，再映射成 OpenAI-compatible 请求：
 
 - `modelCode -> model`
 - `systemPrompt + summary + recent messages -> messages`
@@ -417,11 +422,11 @@ GENERATING -> CANCELLED
 建议按以下顺序推进：
 
 1. 保持现有三表和实体不变，补正式 Chat DTO / VO / Service
-2. 新增任务导向控制器，和 CRUD 控制器做边界隔离
-3. 落 `AiModelGatewayService` 的 `Qwen OpenAI-compatible` 实现
+2. 保持 `/chat/**` 任务导向控制器为唯一正式入口
+3. 落 `AiModelGatewayService` 的 `Spring AI + Qwen OpenAI-compatible` 实现
 4. 完成发送消息、流式回写、消息状态流转
-5. 完成摘要刷新和自动标题
-6. 最后补错误码映射、限流、审计日志和测试
+5. 后续补摘要刷新和自动标题
+6. 最后补限流、审计日志和扩展测试
 
 ---
 
@@ -429,12 +434,12 @@ GENERATING -> CANCELLED
 
 - 文档中的模块名、表名、包名、启动类、上下文路径与当前源码一致
 - 不再保留旧模块名、旧表名前缀和旧模型接入表述
-- 正式接口契约明确为任务导向，CRUD 仅保留为脚手架说明
-- `Qwen` 被写成首个落地模型，协议按 `OpenAI-compatible`
+- 正式接口契约明确为任务导向，代码中不再保留并行 CRUD 控制器
+- `Qwen` 被写成首个落地模型，接入基于 `Spring AI + OpenAI-compatible`
 - 配置契约、错误码映射、SSE 事件、消息状态流转都有明确约定
 
 ---
 
 ## 12. 结论
 
-`vita-aichat` 当前已经具备三表模型和基础 CRUD 骨架，缺的不是第二套模块结构，而是正式 Chat 业务接口、统一模型网关和真实 provider 接入。本轮方案以现有 `vita-aichat` 为唯一承载模块，以 `Qwen + OpenAI-compatible` 为首个模型接入方向，在不推翻现有表结构的前提下，把对话、流式回复、摘要压缩和自动标题完整收口。
+`vita-aichat` 当前已经具备三表模型、正式 Chat 接口和 `Spring AI + Qwen OpenAI-compatible` 模型接入。后续重点不再是重建结构，而是围绕摘要刷新、自动标题和更细粒度的流式持久化继续完善。

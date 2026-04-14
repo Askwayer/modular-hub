@@ -2,6 +2,7 @@ package com.vita.aichat.aiConversationSummary.mapper;
 
 import com.vita.aichat.aiConversationSummary.entity.AiConversationSummary;
 import com.vita.core.mapper.BaseMapperX;
+import com.vita.mybatis.LambdaQueryWrapperX;
 import org.apache.ibatis.annotations.Mapper;
 
 /**
@@ -15,4 +16,12 @@ import org.apache.ibatis.annotations.Mapper;
 @Mapper
 public interface AiConversationSummaryMapper extends BaseMapperX<AiConversationSummary> {
 
+    default AiConversationSummary selectLatestReadySummary(Long conversationId, Long userId) {
+        return selectOne(new LambdaQueryWrapperX<AiConversationSummary>()
+                .eq(AiConversationSummary::getConversationId, conversationId)
+                .eq(AiConversationSummary::getUserId, userId)
+                .eq(AiConversationSummary::getStatus, "READY")
+                .orderByDesc(AiConversationSummary::getVersionNo)
+                .last("LIMIT 1"));
+    }
 }
