@@ -1,14 +1,64 @@
 {
   "properties": [
     {
-      "name": "vita.qwen-coding-plan.api-url",
+      "name": "vita.aichat.default-system-prompt",
       "type": "java.lang.String",
-      "description": "Description for vita.qwen-coding-plan.api-url."
+      "description": "AI Chat 默认系统提示词。"
     },
     {
-      "name": "vita.qwen-coding-plan.model-name",
+      "name": "vita.aichat.default-model-code",
       "type": "java.lang.String",
-      "description": "Description for vita.qwen-coding-plan.model-name."
+      "description": "AI Chat 默认模型编码。"
+    },
+    {
+      "name": "vita.aichat.max-context-messages",
+      "type": "java.lang.Integer",
+      "description": "AI Chat 默认上下文消息窗口大小。"
+    },
+    {
+      "name": "vita.aichat.stream-enabled",
+      "type": "java.lang.Boolean",
+      "description": "是否启用 AI Chat 流式回复。"
+    },
+    {
+      "name": "vita.aichat.connect-timeout-ms",
+      "type": "java.lang.Long",
+      "description": "AI Chat 模型连接超时时间，单位毫秒。"
+    },
+    {
+      "name": "vita.aichat.read-timeout-ms",
+      "type": "java.lang.Long",
+      "description": "AI Chat 模型读取超时时间，单位毫秒。"
+    },
+    {
+      "name": "vita.default-system-prompt",
+      "type": "java.lang.String",
+      "description": "Description for vita.default-system-prompt."
+    },
+    {
+      "name": "vita.max-context-messages",
+      "type": "java.lang.String",
+      "description": "Description for vita.max-context-messages."
+    },
+    {
+      "name": "vita.stream-enabled",
+      "type": "java.lang.String",
+      "description": "Description for vita.stream-enabled."
+    },
+    {
+      "name": "vita.connect-timeout-ms",
+      "type": "java.lang.String",
+      "description": "Description for vita.connect-timeout-ms."
+    },
+    {
+      "name": "vita.read-timeout-ms",
+      "type": "java.lang.String",
+      "description": "Description for vita.read-timeout-ms."
+    },
+    {
+      "name": "vita.default-model-code",
+      "type": "java.lang.String",
+      "description": "Description for vita.default-model-code."
     }
   ]
 }
