@@ -1,5 +1,6 @@
 package com.vita.aichat.chat.support;
 
+import cn.hutool.core.map.MapUtil;
 import com.vita.aichat.chat.model.result.AiChatCompletionResult;
 import com.vita.aichat.chat.model.result.AiChatResponseChunk;
 import org.springframework.ai.chat.messages.AssistantMessage;
@@ -16,6 +17,12 @@ import java.util.Map;
 @Component
 public class AiChatResponseExtractor {
 
+    /**
+     * 从模型响应中提取单个片段。
+     *
+     * @param response 模型响应对象
+     * @return 响应片段
+     */
     public AiChatResponseChunk extractChunk(ChatResponse response) {
         if (response == null || response.getResult() == null || response.getResult().getOutput() == null) {
             return new AiChatResponseChunk();
@@ -26,7 +33,7 @@ public class AiChatResponseExtractor {
         chunk.setProviderRequestId(response.getMetadata() != null ? response.getMetadata().getId() : null);
 
         Map<String, Object> metadata = assistantMessage.getMetadata();
-        if (metadata != null) {
+        if (MapUtil.isNotEmpty(metadata)) {
             Object reasoningContent = metadata.get("reasoningContent");
             if (reasoningContent != null) {
                 chunk.setReasoningDelta(String.valueOf(reasoningContent));
@@ -47,6 +54,12 @@ public class AiChatResponseExtractor {
         return chunk;
     }
 
+    /**
+     * 从模型响应中提取完整完成结果。
+     *
+     * @param response 模型响应对象
+     * @return 完成结果
+     */
     public AiChatCompletionResult extractCompletion(ChatResponse response) {
         AiChatResponseChunk chunk = extractChunk(response);
         AiChatCompletionResult result = new AiChatCompletionResult();

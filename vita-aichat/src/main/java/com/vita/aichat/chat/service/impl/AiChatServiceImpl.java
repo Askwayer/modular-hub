@@ -13,12 +13,12 @@ import com.vita.aichat.aiMessage.entity.AiMessage;
 import com.vita.aichat.aiMessage.service.IAiMessageService;
 import com.vita.aichat.aiMessageStreamBatch.entity.AiMessageStreamBatch;
 import com.vita.aichat.aiMessageStreamBatch.service.IAiMessageStreamBatchService;
-import com.vita.aichat.chat.config.AiChatProperties;
 import com.vita.aichat.chat.dto.*;
 import com.vita.aichat.chat.model.context.PreparedSendContext;
 import com.vita.aichat.chat.model.result.AiChatCompletionResult;
 import com.vita.aichat.chat.model.result.AiChatResponseChunk;
 import com.vita.aichat.chat.model.result.AiChatStreamBatchSnapshot;
+import com.vita.aichat.chat.property.AiChatProperty;
 import com.vita.aichat.chat.service.IAiChatService;
 import com.vita.aichat.chat.support.*;
 import com.vita.aichat.chat.vo.*;
@@ -77,7 +77,7 @@ public class AiChatServiceImpl implements IAiChatService {
     private final IAiChatRequestService aiChatRequestService;
     private final IAiMessageStreamBatchService aiMessageStreamBatchService;
     private final ChatModel chatModel;
-    private final AiChatProperties aiChatProperties;
+    private final AiChatProperty aiChatProperty;
     private final AiChatAssembler aiChatAssembler;
     private final AiChatResponseExtractor aiChatResponseExtractor;
     private final AiChatRedisCoordinator aiChatRedisCoordinator;
@@ -91,7 +91,7 @@ public class AiChatServiceImpl implements IAiChatService {
                              IAiChatRequestService aiChatRequestService,
                              IAiMessageStreamBatchService aiMessageStreamBatchService,
                              ChatModel chatModel,
-                             AiChatProperties aiChatProperties,
+                             AiChatProperty aiChatProperty,
                              AiChatAssembler aiChatAssembler,
                              AiChatResponseExtractor aiChatResponseExtractor,
                              AiChatRedisCoordinator aiChatRedisCoordinator,
@@ -104,7 +104,7 @@ public class AiChatServiceImpl implements IAiChatService {
         this.aiChatRequestService = aiChatRequestService;
         this.aiMessageStreamBatchService = aiMessageStreamBatchService;
         this.chatModel = chatModel;
-        this.aiChatProperties = aiChatProperties;
+        this.aiChatProperty = aiChatProperty;
         this.aiChatAssembler = aiChatAssembler;
         this.aiChatResponseExtractor = aiChatResponseExtractor;
         this.aiChatRedisCoordinator = aiChatRedisCoordinator;
@@ -113,6 +113,12 @@ public class AiChatServiceImpl implements IAiChatService {
         this.transactionTemplate = transactionTemplate;
     }
 
+    /**
+     * 创建会话。
+     *
+     * @param createDto 创建请求对象
+     * @return 会话ID
+     */
     @Override
     public Long createConversation(AiConversationCreateDto createDto) {
         Long userId = LoginUserInfoModelContext.getRequiredLoginUserId();
@@ -136,6 +142,12 @@ public class AiChatServiceImpl implements IAiChatService {
         return conversation.getId();
     }
 
+    /**
+     * 分页查询会话列表。
+     *
+     * @param queryDto 分页查询条件
+     * @return 会话分页数据
+     */
     @Override
     public PageResponse<AiConversationPageVo> pageConversations(AiConversationPageQueryDto queryDto) {
         Long userId = LoginUserInfoModelContext.getRequiredLoginUserId();
@@ -146,11 +158,23 @@ public class AiChatServiceImpl implements IAiChatService {
         return response;
     }
 
+    /**
+     * 查询会话详情。
+     *
+     * @param conversationId 会话ID
+     * @return 会话详情对象
+     */
     @Override
     public AiConversationDetailVo getConversation(Long conversationId) {
         return aiChatAssembler.toConversationDetailVo(requireConversation(conversationId));
     }
 
+    /**
+     * 重命名会话标题。
+     *
+     * @param conversationId 会话ID
+     * @param updateDto      标题更新请求对象
+     */
     @Override
     public void renameConversation(Long conversationId, AiConversationTitleUpdateDto updateDto) {
         AiConversation conversation = requireConversation(conversationId);
@@ -161,6 +185,11 @@ public class AiChatServiceImpl implements IAiChatService {
         aiConversationService.update(update);
     }
 
+    /**
+     * 删除会话及其关联数据。
+     *
+     * @param conversationId 会话ID
+     */
     @Override
     public void deleteConversation(Long conversationId) {
         Long userId = LoginUserInfoModelContext.getRequiredLoginUserId();
@@ -179,6 +208,13 @@ public class AiChatServiceImpl implements IAiChatService {
         });
     }
 
+    /**
+     * 分页查询消息列表。
+     *
+     * @param conversationId 会话ID
+     * @param queryDto       分页查询条件
+     * @return 消息分页数据
+     */
     @Override
     public PageResponse<AiMessagePageVo> pageMessages(Long conversationId, AiMessagePageQueryDto queryDto) {
         Long userId = LoginUserInfoModelContext.getRequiredLoginUserId();
@@ -190,6 +226,13 @@ public class AiChatServiceImpl implements IAiChatService {
         return response;
     }
 
+    /**
+     * 发送消息（同步模式）。
+     *
+     * @param conversationId 会话ID
+     * @param sendDto        消息发送请求对象
+     * @return 发送结果
+     */
     @Override
     public AiChatSendVo sendMessage(Long conversationId, AiMessageSendDto sendDto) {
         PreparedSendContext context = prepareSendContext(conversationId, sendDto, AiChatRequestModeEnum.SYNC);
@@ -212,9 +255,16 @@ public class AiChatServiceImpl implements IAiChatService {
         }
     }
 
+    /**
+     * 发送消息（流式模式）。
+     *
+     * @param conversationId 会话ID
+     * @param sendDto        消息发送请求对象
+     * @return SSE流式响应
+     */
     @Override
     public SseEmitter sendMessageStream(Long conversationId, AiMessageSendDto sendDto) {
-        if (!Boolean.TRUE.equals(aiChatProperties.getStreamEnabled())) {
+        if (!Boolean.TRUE.equals(aiChatProperty.getStreamEnabled())) {
             throw new ServiceException(AiChatErrorCode.CHAT_STREAM_DISABLED);
         }
 
@@ -242,6 +292,12 @@ public class AiChatServiceImpl implements IAiChatService {
         return emitter;
     }
 
+    /**
+     * 处理流式响应。
+     *
+     * @param context 发送准备上下文
+     * @param emitter SSE 发射器
+     */
     private void processStream(PreparedSendContext context, SseEmitter emitter) {
         AiStreamBatchAccumulator batchAccumulator = new AiStreamBatchAccumulator(
                 STREAM_BATCH_FLUSH_MILLIS,
@@ -378,6 +434,17 @@ public class AiChatServiceImpl implements IAiChatService {
         }
     }
 
+    /**
+     * 刷新批次数据。
+     *
+     * @param context          发送准备上下文
+     * @param emitter          SSE 发射器
+     * @param batchAccumulator 批次聚合器
+     * @param currentBatchNo   当前批次号
+     * @param providerSequence 模型提供方序列号
+     * @param flushReason      刷新原因
+     * @return 新批次号
+     */
     private int flushBatch(PreparedSendContext context,
                            SseEmitter emitter,
                            AiStreamBatchAccumulator batchAccumulator,
@@ -424,6 +491,14 @@ public class AiChatServiceImpl implements IAiChatService {
         return nextBatchNo;
     }
 
+    /**
+     * 准备发送消息上下文。
+     *
+     * @param conversationId 会话ID
+     * @param sendDto        消息发送请求对象
+     * @param requestMode    请求模式
+     * @return 发送准备上下文
+     */
     private PreparedSendContext prepareSendContext(Long conversationId,
                                                    AiMessageSendDto sendDto,
                                                    AiChatRequestModeEnum requestMode) {
@@ -454,6 +529,16 @@ public class AiChatServiceImpl implements IAiChatService {
         }
     }
 
+    /**
+     * 执行发送上下文准备。
+     *
+     * @param conversation 会话实体
+     * @param userId       用户ID
+     * @param requestId    请求唯一标识
+     * @param sendDto      消息发送请求对象
+     * @param requestMode  请求模式
+     * @return 发送准备上下文
+     */
     private PreparedSendContext doPrepareSendContext(AiConversation conversation,
                                                      Long userId,
                                                      String requestId,
@@ -489,6 +574,16 @@ public class AiChatServiceImpl implements IAiChatService {
         return context;
     }
 
+    /**
+     * 构建AI提示词。
+     *
+     * @param conversation 会话实体
+     * @param userId       用户ID
+     * @param userMessage  用户消息实体
+     * @param modelCode    模型编码
+     * @param stream       是否流式
+     * @return 提示词对象
+     */
     private Prompt buildPrompt(AiConversation conversation,
                                Long userId,
                                AiMessage userMessage,
@@ -522,6 +617,12 @@ public class AiChatServiceImpl implements IAiChatService {
         return new Prompt(messages, buildChatOptions(conversation, modelCode, stream));
     }
 
+    /**
+     * 将消息实体转换为提示词消息。
+     *
+     * @param aiMessage 消息实体
+     * @return 提示词消息
+     */
     private Message toPromptMessage(AiMessage aiMessage) {
         if (aiMessage == null || CharSequenceUtil.isBlank(aiMessage.getContent())) {
             return null;
@@ -534,6 +635,14 @@ public class AiChatServiceImpl implements IAiChatService {
         };
     }
 
+    /**
+     * 构建模型调用选项。
+     *
+     * @param conversation 会话实体
+     * @param modelCode    模型编码
+     * @param stream       是否流式
+     * @return 模型选项
+     */
     private DashScopeChatOptions buildChatOptions(AiConversation conversation, String modelCode, boolean stream) {
         var builder = DashScopeChatOptions.builder()
                 .withModel(modelCode)
@@ -550,6 +659,13 @@ public class AiChatServiceImpl implements IAiChatService {
         return builder.build();
     }
 
+    /**
+     * 应用成功结果。
+     *
+     * @param context          发送准备上下文
+     * @param completionResult 模型完成结果
+     * @param requestStatus    请求状态
+     */
     private void applySuccessOutcome(PreparedSendContext context,
                                      AiChatCompletionResult completionResult,
                                      String requestStatus) {
@@ -597,6 +713,14 @@ public class AiChatServiceImpl implements IAiChatService {
         });
     }
 
+    /**
+     * 应用失败结果。
+     *
+     * @param context          发送准备上下文
+     * @param completionResult 模型完成结果
+     * @param serviceException 服务异常
+     * @param requestStatus    请求状态
+     */
     private void applyFailureOutcome(PreparedSendContext context,
                                      AiChatCompletionResult completionResult,
                                      ServiceException serviceException,
@@ -644,6 +768,13 @@ public class AiChatServiceImpl implements IAiChatService {
         });
     }
 
+    /**
+     * 更新会话预准备请求信息。
+     *
+     * @param conversation 会话实体
+     * @param requestId    请求唯一标识
+     * @param modelCode    模型编码
+     */
     private void updateConversationForPreparedRequest(AiConversation conversation, String requestId, String modelCode) {
         AiConversation update = new AiConversation();
         update.setId(conversation.getId());
@@ -661,6 +792,12 @@ public class AiChatServiceImpl implements IAiChatService {
         conversation.setActiveRequestId(requestId);
     }
 
+    /**
+     * 标记请求状态。
+     *
+     * @param context 发送准备上下文
+     * @param status  请求状态
+     */
     private void markRequestStatus(PreparedSendContext context, String status) {
         AiChatRequest update = new AiChatRequest();
         update.setId(context.getChatRequest().getId());
@@ -668,6 +805,16 @@ public class AiChatServiceImpl implements IAiChatService {
         aiChatRequestService.update(update);
     }
 
+    /**
+     * 构建用户消息实体。
+     *
+     * @param conversationId 会话ID
+     * @param userId         用户ID
+     * @param requestId      请求唯一标识
+     * @param modelCode      模型编码
+     * @param sendDto        消息发送请求对象
+     * @return 用户消息实体
+     */
     private AiMessage buildUserMessage(Long conversationId,
                                        Long userId,
                                        String requestId,
@@ -688,6 +835,16 @@ public class AiChatServiceImpl implements IAiChatService {
         return userMessage;
     }
 
+    /**
+     * 构建助手消息占位符。
+     *
+     * @param conversationId 会话ID
+     * @param userId         用户ID
+     * @param requestId      请求唯一标识
+     * @param modelCode      模型编码
+     * @param replyToId      回复消息ID
+     * @return 助手消息实体
+     */
     private AiMessage buildAssistantPlaceholder(Long conversationId,
                                                 Long userId,
                                                 String requestId,
@@ -710,6 +867,18 @@ public class AiChatServiceImpl implements IAiChatService {
         return assistantMessage;
     }
 
+    /**
+     * 构建聊天请求实体。
+     *
+     * @param conversationId     会话ID
+     * @param userId             用户ID
+     * @param requestId          请求唯一标识
+     * @param requestMode        请求模式
+     * @param modelCode          模型编码
+     * @param userMessageId      用户消息ID
+     * @param assistantMessageId 助手消息ID
+     * @return 聊天请求实体
+     */
     private AiChatRequest buildChatRequest(Long conversationId,
                                            Long userId,
                                            String requestId,
@@ -731,6 +900,11 @@ public class AiChatServiceImpl implements IAiChatService {
         return chatRequest;
     }
 
+    /**
+     * 校验消息发送请求参数。
+     *
+     * @param sendDto 消息发送请求对象
+     */
     private void validateSendDto(AiMessageSendDto sendDto) {
         String messageType = defaultMessageType(sendDto.getMessageType());
         if (!AiMessageTypeEnum.TEXT.name().equals(messageType)) {
@@ -738,6 +912,11 @@ public class AiChatServiceImpl implements IAiChatService {
         }
     }
 
+    /**
+     * 校验模型完成结果。
+     *
+     * @param completionResult 模型完成结果
+     */
     private void validateCompletion(AiChatCompletionResult completionResult) {
         if (completionResult == null) {
             throw new ServiceException(AiChatErrorCode.MODEL_RESPONSE_INVALID);
@@ -748,49 +927,115 @@ public class AiChatServiceImpl implements IAiChatService {
         }
     }
 
+    /**
+     * 判断是否有内容增量。
+     *
+     * @param chunk 响应片段
+     * @return 是否有增量
+     */
     private boolean hasDelta(AiChatResponseChunk chunk) {
         return chunk != null && (CharSequenceUtil.isNotBlank(chunk.getContentDelta())
                 || CharSequenceUtil.isNotBlank(chunk.getReasoningDelta()));
     }
 
+    /**
+     * 获取默认会话标题。
+     *
+     * @param title 标题
+     * @return 默认标题
+     */
     private String defaultConversationTitle(String title) {
         return CharSequenceUtil.isBlank(title) ? "新对话" : title.trim();
     }
 
+    /**
+     * 获取默认系统提示词。
+     *
+     * @param systemPrompt 系统提示词
+     * @return 默认系统提示词
+     */
     private String defaultSystemPrompt(String systemPrompt) {
-        return CharSequenceUtil.isBlank(systemPrompt) ? aiChatProperties.getDefaultSystemPrompt() : systemPrompt.trim();
+        return CharSequenceUtil.isBlank(systemPrompt) ? aiChatProperty.getDefaultSystemPrompt() : systemPrompt.trim();
     }
 
+    /**
+     * 获取默认模型编码。
+     *
+     * @param modelCode 模型编码
+     * @return 默认模型编码
+     */
     private String defaultModelCode(String modelCode) {
-        return CharSequenceUtil.isBlank(modelCode) ? aiChatProperties.getDashscopeChatModel() : modelCode.trim();
+        return CharSequenceUtil.isBlank(modelCode) ? aiChatProperty.getDashscopeChatModel() : modelCode.trim();
     }
 
+    /**
+     * 获取默认最大上下文消息数。
+     *
+     * @param maxContextMessages 最大上下文消息数
+     * @return 默认最大上下文消息数
+     */
     private Integer defaultMaxContextMessages(Integer maxContextMessages) {
         return maxContextMessages == null || maxContextMessages <= 0
-                ? aiChatProperties.getMaxContextMessages()
+                ? aiChatProperty.getMaxContextMessages()
                 : maxContextMessages;
     }
 
+    /**
+     * 获取默认请求唯一标识。
+     *
+     * @param requestId 请求唯一标识
+     * @return 默认请求唯一标识
+     */
     private String defaultRequestId(String requestId) {
         return CharSequenceUtil.isBlank(requestId) ? IdUtil.fastSimpleUUID() : requestId.trim();
     }
 
+    /**
+     * 获取默认消息类型。
+     *
+     * @param messageType 消息类型
+     * @return 默认消息类型
+     */
     private String defaultMessageType(String messageType) {
         return CharSequenceUtil.isBlank(messageType) ? AiMessageTypeEnum.TEXT.name() : messageType.trim().toUpperCase();
     }
 
+    /**
+     * 获取默认数值。
+     *
+     * @param value 数值
+     * @return 默认数值
+     */
     private int defaultNumber(Integer value) {
         return value == null ? 0 : value;
     }
 
+    /**
+     * 获取默认批次数量。
+     *
+     * @param value 批次数量
+     * @return 默认批次数量
+     */
     private Integer defaultBatchCount(Integer value) {
         return value == null ? 0 : value;
     }
 
+    /**
+     * 判断是否为思考模型。
+     *
+     * @param modelCode 模型编码
+     * @return 是否为思考模型
+     */
     private boolean isThinkingModel(String modelCode) {
         return CharSequenceUtil.isNotBlank(modelCode) && modelCode.startsWith("qwq-");
     }
 
+    /**
+     * 获取并校验会话存在性。
+     *
+     * @param conversationId 会话ID
+     * @return 会话实体
+     */
     private AiConversation requireConversation(Long conversationId) {
         Long userId = LoginUserInfoModelContext.getRequiredLoginUserId();
         AiConversation conversation = aiConversationService.getByIdAndUserId(conversationId, userId);
@@ -800,6 +1045,11 @@ public class AiChatServiceImpl implements IAiChatService {
         return conversation;
     }
 
+    /**
+     * 构建空完成结果。
+     *
+     * @return 空完成结果
+     */
     private AiChatCompletionResult emptyCompletionResult() {
         AiChatCompletionResult completionResult = new AiChatCompletionResult();
         completionResult.setCompletedAt(LocalDateTime.now());
@@ -807,6 +1057,12 @@ public class AiChatServiceImpl implements IAiChatService {
         return completionResult;
     }
 
+    /**
+     * 将异常转换为服务异常。
+     *
+     * @param ex 原始异常
+     * @return 服务异常
+     */
     private ServiceException convertToServiceException(Exception ex) {
         if (ex instanceof ServiceException serviceException) {
             return serviceException;
@@ -839,6 +1095,12 @@ public class AiChatServiceImpl implements IAiChatService {
         return new ServiceException(AiChatErrorCode.MODEL_PROVIDER_ERROR.getCode(), fallbackMessage(ex.getMessage(), AiChatErrorCode.MODEL_PROVIDER_ERROR));
     }
 
+    /**
+     * 获取异常的根原因。
+     *
+     * @param throwable 异常
+     * @return 根异常
+     */
     private Throwable rootCause(Throwable throwable) {
         Throwable current = throwable;
         while (current.getCause() != null) {
@@ -847,14 +1109,36 @@ public class AiChatServiceImpl implements IAiChatService {
         return current;
     }
 
+    /**
+     * 忽略大小写判断是否包含子串。
+     *
+     * @param source 源字符串
+     * @param target 目标子串
+     * @return 是否包含
+     */
     private boolean containsIgnoreCase(String source, String target) {
         return CharSequenceUtil.isNotBlank(source) && source.toLowerCase().contains(target.toLowerCase());
     }
 
+    /**
+     * 获取回退消息。
+     *
+     * @param message   原始消息
+     * @param errorCode 错误码
+     * @return 回退消息
+     */
     private String fallbackMessage(String message, ErrorCode errorCode) {
         return CharSequenceUtil.isBlank(message) ? errorCode.getMsg() : message;
     }
 
+    /**
+     * 静默发送成功事件。
+     *
+     * @param emitter   SSE 发射器
+     * @param event     事件名称
+     * @param requestId 请求唯一标识
+     * @param content   事件内容
+     */
     private void sendStreamSuccessQuietly(SseEmitter emitter, String event, String requestId, Object content) {
         try {
             aiChatSseWriter.sendSuccess(emitter, event, requestId, content);
@@ -863,6 +1147,15 @@ public class AiChatServiceImpl implements IAiChatService {
         }
     }
 
+    /**
+     * 静默发送错误事件。
+     *
+     * @param emitter   SSE 发射器
+     * @param requestId 请求唯一标识
+     * @param code      错误码
+     * @param message   错误信息
+     * @param content   附加内容
+     */
     private void sendStreamErrorQuietly(SseEmitter emitter,
                                         String requestId,
                                         Integer code,

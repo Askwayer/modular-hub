@@ -40,7 +40,7 @@ public class ThreadPoolConfig {
      *
      * @return ThreadPoolTaskExecutor
      */
-    @Bean(name = "ThreadPoolTaskExecutor")
+    @Bean(name = "threadPoolTaskExecutor")
     @Primary
     public ThreadPoolTaskExecutor taskExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
