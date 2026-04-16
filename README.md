@@ -51,6 +51,7 @@ vita-starters -> 被业务模块按需依赖
 - `vita-admin` 只承载管理端 Web 启动与控制器，不直接下沉业务实现。
 - `vita-aichat` 是独立启动模块，不应依赖 `vita-admin` 内部实现。
 - 跨模块复用的公共能力继续沉淀到 `vita-common` 或对应 starter。
+- `application` 配置文件直接配置不要引入环境变量，保持模块独立可启动。
 
 ## AI Chat 模块现状
 
