@@ -4,10 +4,10 @@ import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.vita.core.entity.BaseEntity;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import lombok.EqualsAndHashCode;
 
 /**
  * @BelongsProject: vita
@@ -117,6 +117,24 @@ public class AiConversation extends BaseEntity {
      */
     @TableField("summary_status")
     private String summaryStatus;
+
+    /**
+     * 当前生成中的请求ID
+     */
+    @TableField("active_request_id")
+    private String activeRequestId;
+
+    /**
+     * 最近一次失败错误码
+     */
+    @TableField("last_error_code")
+    private String lastErrorCode;
+
+    /**
+     * 最近一次失败错误信息
+     */
+    @TableField("last_error_message")
+    private String lastErrorMessage;
 
     /**
      * 扩展字段

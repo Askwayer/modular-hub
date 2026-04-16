@@ -86,6 +86,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
                 .addPathPatterns("/**")
                 .excludePathPatterns("/auth/login",
                         "/captcha/**",
-                        "/public/**");
+                        "/public/**",
+                        "/chat/**");
     }
 }

@@ -45,3 +45,24 @@ vita:
     token-prefix: Bearer
     # jwt秘钥
     jwt-secret-key: secret-key
+
+spring:
+  ai:
+    model:
+      chat: dashscope
+    default-system-prompt: 你是一个严谨的开发助手。
+    max:
+      context:
+        messages: 12
+    stream:
+      enabled: true
+    connect:
+      timeout: 5000
+    read:
+      timeout: 60000
+    dashscope:
+      api-key: local-dashscope-key
+      base-url: https://dashscope.aliyuncs.com
+      chat:
+        options:
+          model: qwen-plus

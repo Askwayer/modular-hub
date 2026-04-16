@@ -1,14 +1,14 @@
 {
   "properties": [
     {
+      "name": "spring.ai.model.chat",
+      "type": "java.lang.String",
+      "description": "当前 AI Chat 使用的 Chat provider，当前仅支持 dashscope。"
+    },
+    {
       "name": "spring.ai.default-system-prompt",
       "type": "java.lang.String",
       "description": "AI Chat 默认系统提示词。"
-    },
-    {
-      "name": "spring.ai.model.chat",
-      "type": "java.lang.String",
-      "description": "当前激活的 Chat provider 类型。"
     },
     {
       "name": "spring.ai.max.context.messages",
@@ -44,26 +44,6 @@
       "name": "spring.ai.dashscope.chat.options.model",
       "type": "java.lang.String",
       "description": "DashScope 默认聊天模型编码。"
-    },
-    {
-      "name": "spring.ai.max-context-messages",
-      "type": "java.lang.String",
-      "description": "Description for spring.ai.max-context-messages."
-    },
-    {
-      "name": "spring.ai.stream-enabled",
-      "type": "java.lang.String",
-      "description": "Description for spring.ai.stream-enabled."
-    },
-    {
-      "name": "spring.ai.connect-timeout",
-      "type": "java.lang.String",
-      "description": "Description for spring.ai.connect-timeout."
-    },
-    {
-      "name": "spring.ai.read-timeout",
-      "type": "java.lang.String",
-      "description": "Description for spring.ai.read-timeout."
     }
   ]
 }

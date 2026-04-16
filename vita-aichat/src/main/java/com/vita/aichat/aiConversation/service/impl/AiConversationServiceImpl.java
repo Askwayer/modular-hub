@@ -40,7 +40,10 @@ public class AiConversationServiceImpl implements IAiConversationService {
     }
 
     @Override
-    public void deleteById(Long conversationId) {
-        aiConversationMapper.deleteById(conversationId);
+    public void deleteByIdAndUserId(Long conversationId, Long userId) {
+        AiConversation conversation = aiConversationMapper.selectByIdAndUserId(conversationId, userId);
+        if (conversation != null) {
+            aiConversationMapper.deleteById(conversationId);
+        }
     }
 }

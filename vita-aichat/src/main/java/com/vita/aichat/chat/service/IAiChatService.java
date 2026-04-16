@@ -1,12 +1,31 @@
 package com.vita.aichat.chat.service;
 
+import com.vita.aichat.chat.dto.*;
+import com.vita.aichat.chat.vo.AiChatSendVo;
+import com.vita.aichat.chat.vo.AiConversationDetailVo;
+import com.vita.aichat.chat.vo.AiConversationPageVo;
+import com.vita.aichat.chat.vo.AiMessagePageVo;
+import com.vita.core.page.PageResponse;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
 /**
- * @BelongsProject: be-vita
- * @BelongsPackage: com.vita.aichat.chat.service
- * @Author: znk
- * @CreateTime: 2026-04-16  16:05:45
- * @Description:
- * @Version: 1.0
+ * AI Chat 聚合服务。
  */
 public interface IAiChatService {
+
+    Long createConversation(AiConversationCreateDto createDto);
+
+    PageResponse<AiConversationPageVo> pageConversations(AiConversationPageQueryDto queryDto);
+
+    AiConversationDetailVo getConversation(Long conversationId);
+
+    void renameConversation(Long conversationId, AiConversationTitleUpdateDto updateDto);
+
+    void deleteConversation(Long conversationId);
+
+    PageResponse<AiMessagePageVo> pageMessages(Long conversationId, AiMessagePageQueryDto queryDto);
+
+    AiChatSendVo sendMessage(Long conversationId, AiMessageSendDto sendDto);
+
+    SseEmitter sendMessageStream(Long conversationId, AiMessageSendDto sendDto);
 }

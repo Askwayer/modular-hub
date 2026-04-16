@@ -7,6 +7,7 @@ import com.vita.core.page.PageResponse;
 import com.vita.mybatis.LambdaQueryWrapperX;
 import org.apache.ibatis.annotations.Mapper;
 
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
@@ -44,5 +45,26 @@ public interface AiMessageMapper extends BaseMapperX<AiMessage> {
                 .orderByDesc(AiMessage::getId)
                 .last("LIMIT " + limit);
         return selectList(queryWrapper);
+    }
+
+    default List<AiMessage> selectListByConversationIdAndUserId(Long conversationId, Long userId) {
+        return selectList(new LambdaQueryWrapperX<AiMessage>()
+                .eq(AiMessage::getConversationId, conversationId)
+                .eq(AiMessage::getUserId, userId)
+                .orderByAsc(AiMessage::getCreateTime)
+                .orderByAsc(AiMessage::getId));
+    }
+
+    default AiMessage selectByIdAndUserId(Long messageId, Long userId) {
+        return selectOne(new LambdaQueryWrapperX<AiMessage>()
+                .eq(AiMessage::getId, messageId)
+                .eq(AiMessage::getUserId, userId));
+    }
+
+    default List<AiMessage> selectListByIds(Collection<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return selectList(new LambdaQueryWrapperX<AiMessage>().in(AiMessage::getId, ids));
     }
 }

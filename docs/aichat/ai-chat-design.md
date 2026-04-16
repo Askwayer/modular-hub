@@ -2,254 +2,250 @@
 
 ## 1. 目标
 
-`vita-aichat` 作为独立启动模块，正式收敛到 `Spring AI Alibaba DashScope` 方案：
+`vita-aichat` 保持 `Spring MVC + SSE` 技术栈，对外继续提供 `/chat/**` 接口；内部统一使用 `spring-ai-alibaba-starter-dashscope` 和 `ChatModel.call/stream`。
 
-- 模型 starter：`spring-ai-alibaba-starter-dashscope`
-- 配置前缀：`spring.ai.dashscope.*`
-- 当前 provider：`spring.ai.model.chat=dashscope`
-- 默认模型：`qwen-plus`
-- 可选推理模型：`qwq-*`
+本轮重点不是把每个原始 token 都落库，而是把流式回复按批次切片后再落库，最终形成三层数据：
 
-本轮目标是让正式 `/chat/**` 接口直接依赖官方 `ChatModel` / `ChatClient` / `DashScopeChatOptions`，去掉旧的自定义网关层和 OpenAI-compatible 过渡实现。
+- 会话主表：记录会话状态和最近一次请求态
+- 最终消息表：记录用户消息和助手最终聚合结果
+- 流式批次表：记录中间分批快照，便于恢复、排障和审计
 
-## 2. 当前模块事实
+## 2. 依赖与配置
 
-### 2.1 模块与启动
+### 2.1 依赖
 
-- 模块：`vita-aichat`
-- 启动类：`com.vita.config.VitaAIChatApplication`
-- 上下文路径：`/aichat/api`
-- 日志目录：`logs/vita-aichat/`
+```xml
+<dependency>
+    <groupId>com.alibaba.cloud.ai</groupId>
+    <artifactId>spring-ai-alibaba-starter-dashscope</artifactId>
+</dependency>
+```
 
-### 2.2 当前数据模型
+### 2.2 配置约定
 
-正式 Chat 仍沿用现有三张表：
-
-| 表名 | 实体 | 说明 |
-| --- | --- | --- |
-| `ai_conversation` | `AiConversation` | 会话主表，记录标题、模型、系统提示词、上下文参数 |
-| `ai_message` | `AiMessage` | 消息表，记录用户消息、模型回复、状态、token、错误信息 |
-| `ai_conversation_summary` | `AiConversationSummary` | 会话摘要表，记录历史压缩摘要 |
-
-初始化脚本以 `sql/init/aichat.sql` 为准。
-
-### 2.3 正式接口
-
-当前正式接口只保留 `/chat/**`：
-
-- `POST /chat/conversations`
-- `GET /chat/conversations`
-- `GET /chat/conversations/{conversationId}`
-- `POST /chat/conversations/{conversationId}/title`
-- `DELETE /chat/conversations/{conversationId}`
-- `GET /chat/conversations/{conversationId}/messages`
-- `POST /chat/conversations/{conversationId}/messages`
-- `POST /chat/conversations/{conversationId}/messages/stream`
-
-这些接口要求登录态，通过 `SaTokenConfigure` 全局鉴权后，再由 `LoginUserInfoModelContext` 取当前用户。
-
-## 3. 技术方案
-
-### 3.1 选型
-
-正式模型接入方案：
-
-- Spring Boot 3.x
-- Spring AI 1.1.x
-- Spring AI Alibaba DashScope
-- MyBatis-Plus
-- Sa-Token
-- Redis
-- SSE
-
-不再保留旧的过渡网关、自定义 provider 前缀和 OpenAI-compatible 调用链。
-
-### 3.2 官方配置入口
-
-代码统一只读取 `spring.ai.*`：
+按用户要求，配置保留在 profile 配置文件里，不改为环境变量占位。`vita-aichat/src/main/resources/application-dev.yml` 和 `application-prod.yml` 统一使用下面这套结构：
 
 ```yaml
 spring:
   ai:
     model:
       chat: dashscope
-    default-system-prompt: ${AI_DEFAULT_SYSTEM_PROMPT:你是一个严谨的开发助手。}
+    default-system-prompt: 你是一个严谨的开发助手。
     max:
       context:
-        messages: ${AI_MAX_CONTEXT_MESSAGES:12}
+        messages: 12
     stream:
-      enabled: ${AI_STREAM_ENABLED:true}
+      enabled: true
     connect:
-      timeout: ${AI_CONNECT_TIMEOUT:5000}
+      timeout: 5000
     read:
-      timeout: ${AI_READ_TIMEOUT:60000}
+      timeout: 60000
     dashscope:
-      api-key: ${AI_DASHSCOPE_API_KEY:}
-      base-url: ${AI_DASHSCOPE_BASE_URL:https://dashscope.aliyuncs.com}
+      api-key: please-set-real-dashscope-key
+      base-url: https://dashscope.aliyuncs.com
       chat:
         options:
-          model: ${AI_DASHSCOPE_CHAT_MODEL:qwen-plus}
+          model: qwen-plus
 ```
 
 说明：
 
-- `spring.ai.dashscope.base-url` 使用 DashScope 官方地址 `https://dashscope.aliyuncs.com`
-- 官方 starter 会自动拼接 DashScope 原生 chat 路径
-- `application-prod.yml` 里也直接定义同一套 `spring.ai.*` 键，并通过环境变量注入敏感值
+- `spring.ai.model.chat` 当前只支持 `dashscope`
+- `spring.ai.dashscope.base-url` 固定指向 DashScope 官方入口
+- `qwq-*` 模型会自动开启 `enableThinking`
+- 文档中的 `api-key` 使用配置文件占位字符串，实际值由部署时维护
 
-### 3.3 最小自定义 Bean
+## 3. 表结构
 
-本模块只保留少量业务必需 Bean：
+### 3.1 `ai_conversation`
 
-- `AiChatProperties`
-  - 绑定业务默认值：系统提示词、上下文条数、流式开关、超时
-- `aiChatClient`
-  - 基于官方 `ChatClient.builder(chatModel)` 构建
-  - 当前主要用于后续 advisor / tool 扩展预留
-- `aiChatExecutor`
-  - 负责流式回复的异步执行
-- `RestClientCustomizer` / `WebClientCustomizer`
-  - 把 `spring.ai.connect.timeout`、`spring.ai.read.timeout` 应用到官方模型客户端
-- 启动期 provider 校验
-  - 校验 `spring.ai.model.chat`
-  - 校验 `spring.ai.dashscope.api-key`
-  - 校验 `spring.ai.dashscope.base-url`
-  - 校验 `spring.ai.dashscope.chat.options.model`
+在原有会话表基础上新增：
 
-## 4. 业务调用链路
+- `active_request_id`：当前正在生成中的请求 ID
+- `last_error_code`：最近一次失败错误码
+- `last_error_message`：最近一次失败信息
 
-### 4.1 创建会话
+### 3.2 `ai_message`
 
-创建会话时：
+继续一条逻辑消息一行，`USER` 与 `ASSISTANT` 都存这里。新增：
 
-- `userId` 从 `LoginUserInfoModelContext` 获取
-- `title` 默认值为 `新对话`
-- `titleSource=AUTO`
-- `status=ACTIVE`
-- `summaryStatus=NONE`
-- `currentModelCode` 默认取 `spring.ai.dashscope.chat.options.model`
+- `provider_request_id`
+- `finish_reason`
+- `first_token_at`
+- `completed_at`
+- `stream_batch_count`
 
-### 4.2 同步发送消息
+`content` 与 `reasoning_content` 只保存最终聚合后的完整结果。
 
-同步发送链路：
+### 3.3 `ai_chat_request`
 
-1. 校验会话归属和状态
-2. 写入一条 `USER` 消息
-3. 写入一条 `ASSISTANT` 占位消息，状态为 `GENERATING`
-4. 查询最新 `READY` 摘要
-5. 查询最近 `N` 条可参与上下文的历史消息
-6. 组装 `Prompt`
-7. 构造 `DashScopeChatOptions`
-8. 调用官方 `ChatModel.call(prompt)`
-9. 读取回复文本、`reasoningContent`、usage
-10. 回写助手消息状态为 `DONE`
-11. 更新会话统计信息
+新增请求生命周期表，一条发送请求一行，唯一键为 `(conversation_id, request_id)`。核心字段：
 
-### 4.3 流式发送消息
+- `request_mode`：`SYNC` / `STREAM`
+- `status`：`PENDING` / `STREAMING` / `SUCCESS` / `ERROR` / `CANCELLED`
+- `user_message_id`
+- `assistant_message_id`
+- `model_code`
+- `provider_request_id`
+- `finish_reason`
+- `token_input` / `token_output` / `token_total`
+- `started_at` / `first_token_at` / `completed_at`
+- `error_code` / `error_message`
 
-流式发送链路：
+### 3.4 `ai_message_stream_batch`
 
-1. 与同步链路共用落库和 Prompt 组装逻辑
-2. 使用 `ChatModel.stream(prompt)`
-3. 按 chunk 提取正文增量和 `reasoningContent` 增量
-4. 推送 SSE 事件：
-   - `message-start`
-   - `message-delta`
-   - `reasoning-delta`
-   - `message-end`
-   - `error`
-5. 流结束后落最终消息状态和 token 统计
+新增流式批次快照表，一条批次一行，唯一键为 `(assistant_message_id, batch_no)`。核心字段：
 
-## 5. Prompt 与模型规则
+- `assistant_message_id`
+- `request_id`
+- `batch_no`
+- `content_delta`
+- `reasoning_delta`
+- `flush_reason`
+- `delta_chars`
+- `provider_sequence`
 
-### 5.1 Prompt 组成
+`flush_reason` 枚举：
 
-当前 Prompt 顺序固定为：
+- `TIME_WINDOW`
+- `CHAR_THRESHOLD`
+- `FINAL`
+- `ERROR`
 
-1. 会话系统提示词
-2. 历史摘要（若存在）
-3. 最近上下文消息
-4. 当前用户消息
+### 3.5 `ai_conversation_summary`
 
-### 5.2 模型选择
+本轮不调整摘要表职责，仍只负责会话压缩摘要，不要求历史数据回填批次快照。
 
-- 会话创建时可显式传 `modelCode`
-- 未传时默认使用 `qwen-plus`
-- 后续消息直接沿用会话上的 `currentModelCode`
+## 4. Redis 角色
 
-### 5.3 QwQ 推理模型
+Redis 只做轻量协调，不存上下文，不存 chunk 主数据。
 
-当 `modelCode` 命中 `qwq-*` 时：
+使用两个 key：
 
-- 自动在 `DashScopeChatOptions` 中设置 `enableThinking=true`
-- 不新增单独的 `spring.ai.qwq.*` 配置
-- 推理内容从官方返回的 `reasoningContent` 元数据读取
-- 同步接口回写 `AiMessage.reasoningContent`
-- 流式接口输出 `reasoning-delta`
+- `aichat:conv:{conversationId}:lock`
+  - 会话级互斥锁，防止同一会话并发生成
+- `aichat:req:{conversationId}:{requestId}`
+  - 请求幂等标记，防止相同 `requestId` 重复落库
 
-## 6. 错误处理
+行为约定：
 
-统一错误码：
+- 命中重复 `requestId` 返回 `CHAT_REQUEST_DUPLICATE`
+- 同会话已有生成任务时返回 `CHAT_GENERATING_CONFLICT`
+- 如果在预处理阶段抢锁失败或事务回滚，会释放本次错误占用的 `requestId`
+- Redis 不可用时退化到进程内 `ConcurrentHashMap`，仅保证单实例最小可用
 
-- `MODEL_AUTH_ERROR`
-- `MODEL_TIMEOUT`
-- `MODEL_RATE_LIMIT`
-- `MODEL_PROVIDER_ERROR`
-- `MODEL_NETWORK_ERROR`
-- `MODEL_RESPONSE_INVALID`
+## 5. 调用链路
 
-映射策略：
+### 5.1 同步发送
 
-- 401 / 403 -> `MODEL_AUTH_ERROR`
-- 429 -> `MODEL_RATE_LIMIT`
-- timeout -> `MODEL_TIMEOUT`
-- 网络连接失败 -> `MODEL_NETWORK_ERROR`
-- 空响应或结构异常 -> `MODEL_RESPONSE_INVALID`
-- 其他供应商异常 -> `MODEL_PROVIDER_ERROR`
+1. 校验会话归属与状态
+2. 生成 `requestId`
+3. 占用请求幂等标记与会话锁
+4. 写入 `USER` 消息
+5. 写入 `ASSISTANT` 占位消息，状态为 `GENERATING`
+6. 写入 `ai_chat_request`，状态为 `PENDING`
+7. 组装 `Prompt`
+8. 调用 `ChatModel.call(prompt)`
+9. 回写 `ai_message` 最终内容与 token 信息
+10. 回写 `ai_chat_request` 为 `SUCCESS/ERROR`
+11. 清空 `ai_conversation.active_request_id`
 
-## 7. 代码结构
+### 5.2 流式发送
 
-正式代码结构收口为：
+1. 与同步链路共用预处理
+2. 发送 `message-start`
+3. 调用 `ChatModel.stream(prompt)`
+4. 内存累积正文增量与推理增量
+5. 满足以下任一条件时落一批 `ai_message_stream_batch`
+   - 间隔达到 1000ms
+   - 累积字符数达到 512
+6. 批次落库后推送 SSE 增量事件
+7. 结束或异常时强制 flush 最后一批
+8. 最终聚合回写 `ai_message`
+9. 结束 `ai_chat_request`
+10. 释放会话锁
 
-```text
-vita-aichat
-├── aiConversation                  # 会话领域 entity/mapper/service
-├── aiMessage                       # 消息领域 entity/mapper/service
-├── aiConversationSummary           # 摘要领域 entity/mapper/service
-├── chat
-│   ├── dto                         # 正式接口请求 DTO
-│   ├── model
-│   │   ├── context                 # PreparedSendContext
-│   │   └── result                  # AiChatCompletionResult
-│   ├── service                     # IAiChatService / AiChatServiceImpl
-│   ├── support                     # Assembler / SSE Writer
-│   └── vo                          # 正式接口返回 VO
-├── config                          # AiChatProperties / AiChatConfiguration
-└── controller/aichat              # AiChatController
+## 6. SSE 协议
+
+流式接口保持：
+
+- `POST /chat/conversations/{conversationId}/messages/stream`
+
+事件名固定：
+
+- `message-start`
+- `message-delta`
+- `reasoning-delta`
+- `message-end`
+- `error`
+
+事件体统一包含：
+
+- `conversationId`
+- `assistantMessageId`
+- `requestId`
+- `batchNo`
+- `contentStatus`
+- `finishReason`
+
+结束事件额外返回：
+
+- `firstTokenAt`
+- `completedAt`
+- `tokenInput`
+- `tokenOutput`
+- `tokenTotal`
+
+## 7. 参考实现说明
+
+参考 `/Users/zhuningkang/Documents/git/github/bailian-agent` 的流式消费方式，借鉴点仅限于：
+
+- 使用 DashScope 原生流式返回
+- 逐段提取正文与推理内容
+- 在服务层聚合后再统一输出
+
+不照搬其 `WebFlux Controller` 形式，`be-vita` 仍保持 `Spring MVC + SseEmitter`。
+
+## 8. 时序图
+
+```mermaid
+sequenceDiagram
+    participant Client as "Client"
+    participant Controller as "AiChatController"
+    participant Service as "AiChatServiceImpl"
+    participant Redis as "Redis"
+    participant DB as "MySQL"
+    participant Model as "DashScope ChatModel"
+
+    Client->>Controller: POST /chat/.../messages/stream
+    Controller->>Service: sendMessageStream(...)
+    Service->>Redis: setnx requestId
+    Service->>Redis: setnx conversation lock
+    Service->>DB: insert user message
+    Service->>DB: insert assistant placeholder
+    Service->>DB: insert ai_chat_request(PENDING)
+    Service-->>Client: message-start
+    Service->>Model: ChatModel.stream(prompt)
+    loop stream chunks
+        Model-->>Service: delta chunk
+        Service->>Service: accumulate content/reasoning
+        alt time window or char threshold reached
+            Service->>DB: insert ai_message_stream_batch
+            Service-->>Client: message-delta / reasoning-delta
+        end
+    end
+    Service->>DB: update ai_message(final)
+    Service->>DB: update ai_chat_request(SUCCESS)
+    Service->>DB: update ai_conversation(active_request_id=null)
+    Service->>Redis: delete conversation lock
+    Service-->>Client: message-end
 ```
 
-不再保留独立 `gateway` 层。
+## 9. 验收点
 
-## 8. 后续扩展边界
-
-未来扩展新模型时，优先遵循以下顺序：
-
-1. 增加对应官方 starter
-2. 增加对应官方配置前缀
-3. 通过 `spring.ai.model.chat` 切换 provider
-4. 业务层继续只依赖官方 `ChatModel` / `ChatClient`
-
-当前不做：
-
-- 自动摘要刷新任务
-- 自动会话命名
-- 多 provider 运行时动态热切换
-- 自定义网关协议层
-
-## 9. 验收标准
-
-- 正式接口只保留 `/chat/**`
-- 代码只认 `spring.ai.dashscope.*`
-- `qwq-*` 支持 `enableThinking` 和 `reasoningContent`
-- 同步与流式链路都基于官方 `ChatModel`
-- `application-prod.yml` 不再保留明文 DashScope Key
+- `/chat/**` 接口不改路由前缀
+- 同步与流式都落 `ai_chat_request`
+- 流式过程按批次写入 `ai_message_stream_batch`
+- `ai_message` 能返回 `contentStatus`、`finishReason`、`firstTokenAt`、`completedAt`
+- `requestId` 防重和会话并发锁都能生效
+- SQL 初始化脚本与升级脚本都可用

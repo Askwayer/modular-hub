@@ -20,4 +20,6 @@ public interface IAiMessageService {
     PageResponse<AiMessage> pageByConversationIdAndUserId(PageRequest pageRequest, Long conversationId, Long userId);
 
     List<AiMessage> listRecentContextMessages(Long conversationId, Long userId, Long excludeMessageId, Integer limit);
+
+    List<AiMessage> listByConversationIdAndUserId(Long conversationId, Long userId);
 }
