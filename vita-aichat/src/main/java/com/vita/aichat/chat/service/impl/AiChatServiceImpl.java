@@ -20,9 +20,7 @@ import com.vita.aichat.chat.service.IAiChatService;
 import com.vita.aichat.chat.support.*;
 import com.vita.aichat.chat.vo.*;
 import com.vita.aichat.enums.*;
-import com.vita.aichat.error.AiChatErrorCode;
 import com.vita.core.context.LoginUserInfoModelContext;
-import com.vita.core.exception.ErrorCode;
 import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
 import com.vita.core.model.LoginUserInfoModel;
@@ -41,14 +39,9 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
-import org.springframework.web.client.HttpClientErrorException;
-import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
-import java.net.ConnectException;
-import java.net.SocketTimeoutException;
-import java.net.UnknownHostException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -79,6 +72,7 @@ public class AiChatServiceImpl implements IAiChatService {
     private final AiChatStreamProcessor aiChatStreamProcessor;
     private final AiChatOutcomeApplier aiChatOutcomeApplier;
     private final AiChatMessageBuilder aiChatMessageBuilder;
+    private final AiChatExceptionConverter aiChatExceptionConverter;
 
     public AiChatServiceImpl(IAiConversationService aiConversationService,
                              IAiMessageService aiMessageService,
@@ -94,7 +88,8 @@ public class AiChatServiceImpl implements IAiChatService {
                              TransactionTemplate transactionTemplate,
                              AiChatStreamProcessor aiChatStreamProcessor,
                              AiChatOutcomeApplier aiChatOutcomeApplier,
-                             AiChatMessageBuilder aiChatMessageBuilder) {
+                             AiChatMessageBuilder aiChatMessageBuilder,
+                             AiChatExceptionConverter aiChatExceptionConverter) {
         this.aiConversationService = aiConversationService;
         this.aiMessageService = aiMessageService;
         this.aiConversationSummaryService = aiConversationSummaryService;
@@ -110,6 +105,7 @@ public class AiChatServiceImpl implements IAiChatService {
         this.aiChatStreamProcessor = aiChatStreamProcessor;
         this.aiChatOutcomeApplier = aiChatOutcomeApplier;
         this.aiChatMessageBuilder = aiChatMessageBuilder;
+        this.aiChatExceptionConverter = aiChatExceptionConverter;
     }
 
     /**
@@ -249,7 +245,7 @@ public class AiChatServiceImpl implements IAiChatService {
             aiChatOutcomeApplier.applySuccess(context, completionResult, AiChatRequestStatusEnum.SUCCESS.name());
             return aiChatAssembler.toSendVo(context.getUserMessage(), context.getAssistantMessage(), completionResult);
         } catch (Exception ex) {
-            ServiceException serviceException = convertToServiceException(ex);
+            ServiceException serviceException = aiChatExceptionConverter.convertToServiceException(ex);
             aiChatOutcomeApplier.applyFailure(context, emptyCompletionResult(), serviceException.getCode(), serviceException.getMessage(), AiChatRequestStatusEnum.ERROR.name());
             throw serviceException;
         } finally {
@@ -267,7 +263,7 @@ public class AiChatServiceImpl implements IAiChatService {
     @Override
     public SseEmitter sendMessageStream(Long conversationId, AiMessageSendDto sendDto) {
         if (!Boolean.TRUE.equals(aiChatProperty.getStreamEnabled())) {
-            throw new ServiceException(AiChatErrorCode.CHAT_STREAM_DISABLED);
+            throw new ServiceException(GlobalErrorCode.CHAT_STREAM_DISABLED);
         }
 
         PreparedSendContext context = prepareSendContext(conversationId, sendDto, AiChatRequestModeEnum.STREAM);
@@ -337,7 +333,7 @@ public class AiChatServiceImpl implements IAiChatService {
             aiChatStreamProcessor.sendEndEvent(context, emitter, streamResult);
             emitter.complete();
         } catch (Exception ex) {
-            ServiceException serviceException = convertToServiceException(ex);
+            ServiceException serviceException = aiChatExceptionConverter.convertToServiceException(ex);
 
             // 提取流式处理结果（如果有的话）
             AiChatCompletionResult completionResult = extractCompletionFromException(ex);
@@ -379,17 +375,17 @@ public class AiChatServiceImpl implements IAiChatService {
         validateSendDto(sendDto);
         AiConversation conversation = requireConversation(conversationId);
         if (!AiConversationStatusEnum.ACTIVE.name().equals(conversation.getStatus())) {
-            throw new ServiceException(AiChatErrorCode.CHAT_CONVERSATION_NOT_ACTIVE);
+            throw new ServiceException(GlobalErrorCode.CHAT_CONVERSATION_NOT_ACTIVE);
         }
 
         if (aiChatRequestService.getByConversationIdAndRequestId(conversationId, requestId) != null
                 || !aiChatRedisCoordinator.markRequestIfAbsent(conversationId, requestId)) {
-            throw new ServiceException(AiChatErrorCode.CHAT_REQUEST_DUPLICATE);
+            throw new ServiceException(GlobalErrorCode.CHAT_REQUEST_DUPLICATE);
         }
 
         if (!aiChatRedisCoordinator.acquireConversationLock(conversationId, requestId)) {
             aiChatRedisCoordinator.releaseRequestMark(conversationId, requestId);
-            throw new ServiceException(AiChatErrorCode.CHAT_GENERATING_CONFLICT);
+            throw new ServiceException(GlobalErrorCode.CHAT_GENERATING_CONFLICT);
         }
 
         try {
@@ -429,7 +425,7 @@ public class AiChatServiceImpl implements IAiChatService {
         try {
             aiChatRequestService.create(chatRequest);
         } catch (DuplicateKeyException ex) {
-            throw new ServiceException(AiChatErrorCode.CHAT_REQUEST_DUPLICATE);
+            throw new ServiceException(GlobalErrorCode.CHAT_REQUEST_DUPLICATE);
         }
 
         Prompt prompt = buildPrompt(conversation, userId, userMessage, modelCode, requestMode == AiChatRequestModeEnum.STREAM);
@@ -519,16 +515,17 @@ public class AiChatServiceImpl implements IAiChatService {
      */
     private DashScopeChatOptions buildChatOptions(AiConversation conversation, String modelCode, boolean stream) {
         var builder = DashScopeChatOptions.builder()
-                .withModel(modelCode)
-                .withStream(stream)
-                .withIncrementalOutput(stream)
-                .withEnableThinking(isThinkingModel(modelCode));
+                .model(modelCode)
+                .stream(stream)
+                .incrementalOutput(stream)
+                .enableSearch(Boolean.TRUE)
+                .enableThinking(isThinkingModel(modelCode));
 
         if (conversation.getMaxTokens() != null) {
-            builder.withMaxToken(conversation.getMaxTokens());
+            builder.maxToken(conversation.getMaxTokens());
         }
         if (conversation.getTemperature() != null) {
-            builder.withTemperature(conversation.getTemperature().doubleValue());
+            builder.temperature(conversation.getTemperature().doubleValue());
         }
         return builder.build();
     }
@@ -578,7 +575,7 @@ public class AiChatServiceImpl implements IAiChatService {
     private void validateSendDto(AiMessageSendDto sendDto) {
         String messageType = defaultMessageType(sendDto.getMessageType());
         if (!AiMessageTypeEnum.TEXT.name().equals(messageType)) {
-            throw new ServiceException(AiChatErrorCode.CHAT_MESSAGE_TYPE_UNSUPPORTED);
+            throw new ServiceException(GlobalErrorCode.CHAT_MESSAGE_TYPE_UNSUPPORTED);
         }
     }
 
@@ -589,11 +586,11 @@ public class AiChatServiceImpl implements IAiChatService {
      */
     private void validateCompletion(AiChatCompletionResult completionResult) {
         if (completionResult == null) {
-            throw new ServiceException(AiChatErrorCode.MODEL_RESPONSE_INVALID);
+            throw new ServiceException(GlobalErrorCode.MODEL_RESPONSE_INVALID);
         }
         if (CharSequenceUtil.isBlank(completionResult.getContent())
                 && CharSequenceUtil.isBlank(completionResult.getReasoningContent())) {
-            throw new ServiceException(AiChatErrorCode.MODEL_RESPONSE_INVALID);
+            throw new ServiceException(GlobalErrorCode.MODEL_RESPONSE_INVALID);
         }
     }
 
@@ -691,7 +688,7 @@ public class AiChatServiceImpl implements IAiChatService {
         Long userId = LoginUserInfoModelContext.getRequiredLoginUserId();
         AiConversation conversation = aiConversationService.getByIdAndUserId(conversationId, userId);
         if (conversation == null) {
-            throw new ServiceException(AiChatErrorCode.CHAT_CONVERSATION_NOT_FOUND);
+            throw new ServiceException(GlobalErrorCode.CHAT_CONVERSATION_NOT_FOUND);
         }
         return conversation;
     }
@@ -706,80 +703,6 @@ public class AiChatServiceImpl implements IAiChatService {
                 .completedAt(LocalDateTime.now())
                 .streamBatchCount(0)
                 .build();
-    }
-
-    /**
-     * 将异常转换为服务异常。
-     *
-     * @param ex 原始异常
-     * @return 服务异常
-     */
-    private ServiceException convertToServiceException(Exception ex) {
-        if (ex instanceof ServiceException serviceException) {
-            return serviceException;
-        }
-        Throwable rootCause = rootCause(ex);
-        if (ex instanceof HttpClientErrorException httpClientErrorException) {
-            if (httpClientErrorException.getStatusCode().value() == 401
-                    || httpClientErrorException.getStatusCode().value() == 403) {
-                return new ServiceException(AiChatErrorCode.MODEL_AUTH_ERROR);
-            }
-            if (httpClientErrorException.getStatusCode().value() == 429) {
-                return new ServiceException(AiChatErrorCode.MODEL_RATE_LIMIT);
-            }
-        }
-        if (rootCause instanceof SocketTimeoutException || containsIgnoreCase(ex.getMessage(), "timeout")) {
-            return new ServiceException(AiChatErrorCode.MODEL_TIMEOUT);
-        }
-        if (rootCause instanceof UnknownHostException
-                || rootCause instanceof ConnectException
-                || rootCause instanceof ResourceAccessException
-                || containsIgnoreCase(ex.getMessage(), "connection refused")) {
-            return new ServiceException(AiChatErrorCode.MODEL_NETWORK_ERROR);
-        }
-        if (containsIgnoreCase(ex.getMessage(), "401") || containsIgnoreCase(ex.getMessage(), "403")) {
-            return new ServiceException(AiChatErrorCode.MODEL_AUTH_ERROR);
-        }
-        if (containsIgnoreCase(ex.getMessage(), "429")) {
-            return new ServiceException(AiChatErrorCode.MODEL_RATE_LIMIT);
-        }
-        return new ServiceException(AiChatErrorCode.MODEL_PROVIDER_ERROR.getCode(), fallbackMessage(ex.getMessage(), AiChatErrorCode.MODEL_PROVIDER_ERROR));
-    }
-
-    /**
-     * 获取异常的根原因。
-     *
-     * @param throwable 异常
-     * @return 根异常
-     */
-    private Throwable rootCause(Throwable throwable) {
-        Throwable current = throwable;
-        while (current.getCause() != null) {
-            current = current.getCause();
-        }
-        return current;
-    }
-
-    /**
-     * 忽略大小写判断是否包含子串。
-     *
-     * @param source 源字符串
-     * @param target 目标子串
-     * @return 是否包含
-     */
-    private boolean containsIgnoreCase(String source, String target) {
-        return CharSequenceUtil.isNotBlank(source) && source.toLowerCase().contains(target.toLowerCase());
-    }
-
-    /**
-     * 获取回退消息。
-     *
-     * @param message   原始消息
-     * @param errorCode 错误码
-     * @return 回退消息
-     */
-    private String fallbackMessage(String message, ErrorCode errorCode) {
-        return CharSequenceUtil.isBlank(message) ? errorCode.getMsg() : message;
     }
 
     /**
