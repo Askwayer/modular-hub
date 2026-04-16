@@ -1,124 +1,61 @@
 package com.vita.aichat.chat.support;
 
+import cn.hutool.core.bean.BeanUtil;
 import com.vita.aichat.aiConversation.entity.AiConversation;
-import com.vita.aichat.aiConversationSummary.entity.AiConversationSummary;
 import com.vita.aichat.aiMessage.entity.AiMessage;
-import com.vita.aichat.chat.model.context.PreparedSendContext;
-import com.vita.aichat.chat.vo.AiChatConversationDetailVo;
-import com.vita.aichat.chat.vo.AiChatConversationPageVo;
-import com.vita.aichat.chat.vo.AiChatMessageVo;
-import com.vita.aichat.chat.vo.AiChatSendRespVo;
-import com.vita.aichat.enums.AiRoleTypeEnum;
-import com.vita.aichat.gateway.AiChatGatewayMessage;
-import com.vita.aichat.gateway.AiChatGatewayResp;
-import org.springframework.util.StringUtils;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import com.vita.aichat.chat.model.result.AiChatCompletionResult;
+import com.vita.aichat.chat.vo.*;
+import org.springframework.stereotype.Component;
 
 /**
- * 负责正式 Chat 链路里的对象转换和网关消息组装。
+ * AI Chat 视图装配器。
  */
-public final class AiChatAssembler {
+@Component
+public class AiChatAssembler {
 
-    private AiChatAssembler() {
+    public AiConversationPageVo toConversationPageVo(AiConversation conversation) {
+        return BeanUtil.copyProperties(conversation, AiConversationPageVo.class);
     }
 
-    public static AiChatConversationPageVo toConversationPageVo(AiConversation conversation) {
-        AiChatConversationPageVo vo = new AiChatConversationPageVo();
-        vo.setId(conversation.getId());
-        vo.setTitle(conversation.getTitle());
-        vo.setTitleSource(conversation.getTitleSource());
-        vo.setStatus(conversation.getStatus());
-        vo.setPinned(conversation.getPinned());
-        vo.setMessageCount(conversation.getMessageCount());
-        vo.setRoundCount(conversation.getRoundCount());
-        vo.setCurrentModelCode(conversation.getCurrentModelCode());
-        vo.setSummaryStatus(conversation.getSummaryStatus());
-        vo.setLastMessageAt(conversation.getLastMessageAt());
-        vo.setCreateTime(conversation.getCreateTime());
+    public AiConversationDetailVo toConversationDetailVo(AiConversation conversation) {
+        return BeanUtil.copyProperties(conversation, AiConversationDetailVo.class);
+    }
+
+    public AiMessagePageVo toMessagePageVo(AiMessage message) {
+        return BeanUtil.copyProperties(message, AiMessagePageVo.class);
+    }
+
+    public AiChatSendVo toSendVo(AiMessage userMessage,
+                                 AiMessage assistantMessage,
+                                 AiChatCompletionResult completionResult) {
+        AiChatSendVo vo = new AiChatSendVo();
+        vo.setConversationId(assistantMessage.getConversationId());
+        vo.setRequestId(assistantMessage.getRequestId());
+        vo.setUserMessageId(userMessage.getId());
+        vo.setAssistantMessageId(assistantMessage.getId());
+        vo.setModelCode(assistantMessage.getModelCode());
+        vo.setContent(completionResult.getContent());
+        vo.setReasoningContent(completionResult.getReasoningContent());
+        vo.setContentStatus(assistantMessage.getContentStatus());
+        vo.setFinishReason(completionResult.getFinishReason());
+        vo.setTokenInput(completionResult.getTokenInput());
+        vo.setTokenOutput(completionResult.getTokenOutput());
+        vo.setTokenTotal(completionResult.getTokenTotal());
+        vo.setFirstTokenAt(completionResult.getFirstTokenAt());
+        vo.setCompletedAt(completionResult.getCompletedAt());
+        vo.setStreamBatchCount(completionResult.getStreamBatchCount());
         return vo;
     }
 
-    public static AiChatConversationDetailVo toConversationDetailVo(AiConversation conversation) {
-        AiChatConversationDetailVo vo = new AiChatConversationDetailVo();
-        vo.setId(conversation.getId());
-        vo.setTitle(conversation.getTitle());
-        vo.setTitleSource(conversation.getTitleSource());
-        vo.setStatus(conversation.getStatus());
-        vo.setPinned(conversation.getPinned());
-        vo.setMessageCount(conversation.getMessageCount());
-        vo.setRoundCount(conversation.getRoundCount());
-        vo.setCurrentModelCode(conversation.getCurrentModelCode());
-        vo.setSystemPrompt(conversation.getSystemPrompt());
-        vo.setTemperature(conversation.getTemperature());
-        vo.setMaxTokens(conversation.getMaxTokens());
-        vo.setMaxContextMessages(conversation.getMaxContextMessages());
-        vo.setSummaryVersion(conversation.getSummaryVersion());
-        vo.setSummaryStatus(conversation.getSummaryStatus());
-        vo.setLastMessageAt(conversation.getLastMessageAt());
-        vo.setCreateTime(conversation.getCreateTime());
-        vo.setUpdateTime(conversation.getUpdateTime());
+    public AiChatStreamEventVo toStreamEventVo(Long conversationId,
+                                               Long assistantMessageId,
+                                               String requestId,
+                                               Integer batchNo) {
+        AiChatStreamEventVo vo = new AiChatStreamEventVo();
+        vo.setConversationId(conversationId);
+        vo.setAssistantMessageId(assistantMessageId);
+        vo.setRequestId(requestId);
+        vo.setBatchNo(batchNo);
         return vo;
-    }
-
-    public static AiChatMessageVo toMessageVo(AiMessage message) {
-        AiChatMessageVo vo = new AiChatMessageVo();
-        vo.setId(message.getId());
-        vo.setConversationId(message.getConversationId());
-        vo.setRoleType(message.getRoleType());
-        vo.setMessageType(message.getMessageType());
-        vo.setReplyToId(message.getReplyToId());
-        vo.setRequestId(message.getRequestId());
-        vo.setModelCode(message.getModelCode());
-        vo.setContent(message.getContent());
-        vo.setReasoningContent(message.getReasoningContent());
-        vo.setContentStatus(message.getContentStatus());
-        vo.setUseContext(message.getUseContext());
-        vo.setTokenInput(message.getTokenInput());
-        vo.setTokenOutput(message.getTokenOutput());
-        vo.setTokenTotal(message.getTokenTotal());
-        vo.setErrorCode(message.getErrorCode());
-        vo.setErrorMessage(message.getErrorMessage());
-        vo.setCreateTime(message.getCreateTime());
-        return vo;
-    }
-
-    public static AiChatSendRespVo toSendResp(PreparedSendContext context, AiChatGatewayResp response, String modelCode) {
-        AiChatSendRespVo vo = new AiChatSendRespVo();
-        vo.setConversationId(context.getConversation().getId());
-        vo.setUserMessageId(context.getUserMessage().getId());
-        vo.setAssistantMessageId(context.getAssistantMessage().getId());
-        vo.setRequestId(context.getRequestId());
-        vo.setContentStatus(context.getAssistantMessage().getContentStatus());
-        vo.setModelCode(modelCode);
-        vo.setContent(response.getContent());
-        vo.setReasoningContent(response.getReasoningContent());
-        vo.setTokenInput(response.getTokenInput());
-        vo.setTokenOutput(response.getTokenOutput());
-        vo.setTokenTotal(response.getTokenTotal());
-        return vo;
-    }
-
-    public static List<AiChatGatewayMessage> buildGatewayMessages(AiConversationSummary summary,
-                                                                  List<AiMessage> history,
-                                                                  AiMessage currentUserMessage) {
-        List<AiChatGatewayMessage> messages = new ArrayList<>();
-        if (summary != null && StringUtils.hasText(summary.getSummaryText())) {
-            messages.add(new AiChatGatewayMessage(AiRoleTypeEnum.SYSTEM.name(), "历史对话摘要:\n" + summary.getSummaryText()));
-        }
-        if (history != null && !history.isEmpty()) {
-            List<AiMessage> orderedHistory = new ArrayList<>(history);
-            Collections.reverse(orderedHistory);
-            for (AiMessage item : orderedHistory) {
-                if (!StringUtils.hasText(item.getContent())) {
-                    continue;
-                }
-                messages.add(new AiChatGatewayMessage(item.getRoleType(), item.getContent()));
-            }
-        }
-        messages.add(new AiChatGatewayMessage(AiRoleTypeEnum.USER.name(), currentUserMessage.getContent()));
-        return messages;
     }
 }

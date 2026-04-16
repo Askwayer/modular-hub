@@ -48,4 +48,9 @@ public class AiMessageServiceImpl implements IAiMessageService {
     public List<AiMessage> listRecentContextMessages(Long conversationId, Long userId, Long excludeMessageId, Integer limit) {
         return aiMessageMapper.selectRecentContextMessages(conversationId, userId, excludeMessageId, limit);
     }
+
+    @Override
+    public List<AiMessage> listByConversationIdAndUserId(Long conversationId, Long userId) {
+        return aiMessageMapper.selectListByConversationIdAndUserId(conversationId, userId);
+    }
 }

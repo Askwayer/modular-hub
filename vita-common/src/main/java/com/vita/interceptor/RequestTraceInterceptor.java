@@ -30,7 +30,7 @@ public class RequestTraceInterceptor implements HandlerInterceptor {
 
     public static final String REQUEST_ID_KEY = "requestId";
 
-    private static final String REQUEST_ID_HEADER = "X-Request-Id";
+    public static final String REQUEST_ID_HEADER = "X-Request-Id";
 
     private final ObjectProvider<LoginUserInfoContextLoader> loginUserInfoContextLoaderProvider;
 

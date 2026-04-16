@@ -7,6 +7,8 @@ import lombok.Data;
 
 import lombok.EqualsAndHashCode;
 
+import java.time.LocalDateTime;
+
 /**
  * @BelongsProject: vita
  * @BelongsPackage: com.vita.aichat.aiMessage.entity
@@ -57,6 +59,12 @@ public class AiMessage extends BaseEntity {
     private String requestId;
 
     /**
+     * 模型供应商请求ID
+     */
+    @TableField("provider_request_id")
+    private String providerRequestId;
+
+    /**
      * 模型ID
      */
     @TableField("model_id")
@@ -87,6 +95,12 @@ public class AiMessage extends BaseEntity {
     private String contentStatus;
 
     /**
+     * 模型结束原因
+     */
+    @TableField("finish_reason")
+    private String finishReason;
+
+    /**
      * 是否参与上下文 0否 1是
      */
     @TableField("use_context")
@@ -109,6 +123,24 @@ public class AiMessage extends BaseEntity {
      */
     @TableField("token_total")
     private Integer tokenTotal;
+
+    /**
+     * 首个有效输出时间
+     */
+    @TableField("first_token_at")
+    private LocalDateTime firstTokenAt;
+
+    /**
+     * 消息完成时间
+     */
+    @TableField("completed_at")
+    private LocalDateTime completedAt;
+
+    /**
+     * 流式批次快照数量
+     */
+    @TableField("stream_batch_count")
+    private Integer streamBatchCount;
 
     /**
      * 错误码

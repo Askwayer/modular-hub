@@ -2,10 +2,10 @@ package com.vita.controller.aichat;
 
 import com.vita.aichat.chat.dto.*;
 import com.vita.aichat.chat.service.IAiChatService;
-import com.vita.aichat.chat.vo.AiChatConversationDetailVo;
-import com.vita.aichat.chat.vo.AiChatConversationPageVo;
-import com.vita.aichat.chat.vo.AiChatMessageVo;
-import com.vita.aichat.chat.vo.AiChatSendRespVo;
+import com.vita.aichat.chat.vo.AiChatSendVo;
+import com.vita.aichat.chat.vo.AiConversationDetailVo;
+import com.vita.aichat.chat.vo.AiConversationPageVo;
+import com.vita.aichat.chat.vo.AiMessagePageVo;
 import com.vita.core.CommonResult;
 import com.vita.core.controller.BaseController;
 import com.vita.core.page.PageResponse;
@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 /**
- * 正式 Chat 接口入口，只暴露任务导向的会话和消息能力。
+ * AI Chat 控制器。
  */
 @Validated
 @RestController
@@ -29,50 +29,101 @@ public class AiChatController extends BaseController {
         this.aiChatService = aiChatService;
     }
 
+    /**
+     * 创建会话。
+     *
+     * @param createDto 创建请求对象
+     * @return 会话ID
+     */
     @PostMapping("/conversations")
-    public CommonResult<Long> createConversation(@RequestBody @Valid AiChatConversationCreateReqDto reqDto) {
-        return CommonResult.success(aiChatService.createConversation(reqDto));
+    public CommonResult<Long> createConversation(@RequestBody @Valid AiConversationCreateDto createDto) {
+        return CommonResult.success(aiChatService.createConversation(createDto));
     }
 
+    /**
+     * 分页查询会话列表。
+     *
+     * @param queryDto 分页查询条件
+     * @return 会话分页数据
+     */
     @GetMapping("/conversations")
-    public CommonResult<PageResponse<AiChatConversationPageVo>> pageConversations(@Valid AiChatConversationPageReqDto reqDto) {
-        return CommonResult.success(aiChatService.pageConversations(reqDto));
+    public CommonResult<PageResponse<AiConversationPageVo>> pageConversations(@Valid AiConversationPageQueryDto queryDto) {
+        return CommonResult.success(aiChatService.pageConversations(queryDto));
     }
 
+    /**
+     * 查询会话详情。
+     *
+     * @param conversationId 会话ID
+     * @return 会话详情对象
+     */
     @GetMapping("/conversations/{conversationId}")
-    public CommonResult<AiChatConversationDetailVo> getConversation(@PathVariable("conversationId") Long conversationId) {
+    public CommonResult<AiConversationDetailVo> getConversation(@PathVariable("conversationId") Long conversationId) {
         return CommonResult.success(aiChatService.getConversation(conversationId));
     }
 
-    @PatchMapping("/conversations/{conversationId}/title")
+    /**
+     * 重命名会话标题。
+     *
+     * @param conversationId 会话ID
+     * @param updateDto      标题更新请求对象
+     * @return 操作结果
+     */
+    @PostMapping("/conversations/{conversationId}/title")
     public CommonResult<Boolean> renameConversation(@PathVariable("conversationId") Long conversationId,
-                                                    @RequestBody @Valid AiChatConversationRenameReqDto reqDto) {
-        aiChatService.renameConversation(conversationId, reqDto);
-        return CommonResult.success(true);
+                                                    @RequestBody @Valid AiConversationTitleUpdateDto updateDto) {
+        aiChatService.renameConversation(conversationId, updateDto);
+        return CommonResult.success(Boolean.TRUE);
     }
 
+    /**
+     * 删除会话。
+     *
+     * @param conversationId 会话ID
+     * @return 操作结果
+     */
     @DeleteMapping("/conversations/{conversationId}")
     public CommonResult<Boolean> deleteConversation(@PathVariable("conversationId") Long conversationId) {
         aiChatService.deleteConversation(conversationId);
-        return CommonResult.success(true);
+        return CommonResult.success(Boolean.TRUE);
     }
 
+    /**
+     * 分页查询消息列表。
+     *
+     * @param conversationId 会话ID
+     * @param queryDto       分页查询条件
+     * @return 消息分页数据
+     */
     @GetMapping("/conversations/{conversationId}/messages")
-    public CommonResult<PageResponse<AiChatMessageVo>> pageMessages(@PathVariable("conversationId") Long conversationId,
-                                                                    @Valid AiChatMessagePageReqDto reqDto) {
-        return CommonResult.success(aiChatService.pageMessages(conversationId, reqDto));
+    public CommonResult<PageResponse<AiMessagePageVo>> pageMessages(@PathVariable("conversationId") Long conversationId,
+                                                                    @Valid AiMessagePageQueryDto queryDto) {
+        return CommonResult.success(aiChatService.pageMessages(conversationId, queryDto));
     }
 
+    /**
+     * 发送消息（同步模式）。
+     *
+     * @param conversationId 会话ID
+     * @param sendDto        消息发送请求对象
+     * @return 发送结果
+     */
     @PostMapping("/conversations/{conversationId}/messages")
-    public CommonResult<AiChatSendRespVo> sendMessage(@PathVariable("conversationId") Long conversationId,
-                                                      @RequestBody @Valid AiChatMessageSendReqDto reqDto) {
-        return CommonResult.success(aiChatService.sendMessage(conversationId, reqDto));
+    public CommonResult<AiChatSendVo> sendMessage(@PathVariable("conversationId") Long conversationId,
+                                                  @RequestBody @Valid AiMessageSendDto sendDto) {
+        return CommonResult.success(aiChatService.sendMessage(conversationId, sendDto));
     }
 
-    @PostMapping(value = "/conversations/{conversationId}/messages/stream",
-            produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter streamMessage(@PathVariable("conversationId") Long conversationId,
-                                    @RequestBody @Valid AiChatMessageSendReqDto reqDto) {
-        return aiChatService.streamMessage(conversationId, reqDto);
+    /**
+     * 发送消息（流式模式）。
+     *
+     * @param conversationId 会话ID
+     * @param sendDto        消息发送请求对象
+     * @return SSE流式响应
+     */
+    @PostMapping(value = "/conversations/{conversationId}/messages/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter sendMessageStream(@PathVariable("conversationId") Long conversationId,
+                                        @RequestBody @Valid AiMessageSendDto sendDto) {
+        return aiChatService.sendMessageStream(conversationId, sendDto);
     }
 }

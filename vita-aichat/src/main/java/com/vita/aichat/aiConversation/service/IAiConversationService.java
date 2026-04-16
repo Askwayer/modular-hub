@@ -17,5 +17,5 @@ public interface IAiConversationService {
 
     void update(AiConversation conversation);
 
-    void deleteById(Long conversationId);
+    void deleteByIdAndUserId(Long conversationId, Long userId);
 }
