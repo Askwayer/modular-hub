@@ -38,4 +38,10 @@ public class PreparedSendContext {
 
     /* AI提示词 */
     private Prompt prompt;
+
+    /* 活跃并发名额ID */
+    private String activePermitId;
+
+    /* 是否经历过等待 */
+    private boolean waited;
 }

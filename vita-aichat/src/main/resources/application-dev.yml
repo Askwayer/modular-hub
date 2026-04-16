@@ -51,6 +51,19 @@ spring:
     model:
       chat: dashscope
     default-system-prompt: 你是一个严谨的开发助手。
+    lock:
+      conversation:
+        lease-seconds: 600
+    concurrency:
+      max-active: 5
+      max-waiting: 20
+      wait-timeout-seconds: 30
+      active-permit-lease-seconds: 900
+    executor:
+      core-pool-size: 8
+      max-pool-size: 16
+      queue-capacity: 0
+      keep-alive-seconds: 60
     max:
       context:
         messages: 12

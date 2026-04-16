@@ -9,7 +9,9 @@ import com.vita.aichat.aiConversationSummary.service.IAiConversationSummaryServi
 import com.vita.aichat.aiMessage.entity.AiMessage;
 import com.vita.aichat.aiMessage.service.IAiMessageService;
 import com.vita.aichat.chat.dto.*;
+import com.vita.aichat.chat.model.context.AiChatCapacityPermit;
 import com.vita.aichat.chat.model.context.PreparedSendContext;
+import com.vita.aichat.chat.model.context.ReservedSendContext;
 import com.vita.aichat.chat.model.result.AiChatCompletionResult;
 import com.vita.aichat.chat.model.result.StreamProcessResult;
 import com.vita.aichat.chat.property.AiChatProperty;
@@ -36,6 +38,7 @@ import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * AI Chat 聚合服务实现。
@@ -52,7 +55,7 @@ public class AiChatServiceImpl implements IAiChatService {
     private final ChatModel chatModel;
     private final AiChatProperty aiChatProperty;
     private final AiChatAssembler aiChatAssembler;
-    private final AiChatRedisCoordinator aiChatRedisCoordinator;
+    private final AiChatConcurrencyCoordinator aiChatConcurrencyCoordinator;
     private final AiChatSseWriter aiChatSseWriter;
     private final AiChatResponseExtractor aiChatResponseExtractor;
     private final Executor aiChatExecutor;
@@ -68,10 +71,10 @@ public class AiChatServiceImpl implements IAiChatService {
                              ChatModel chatModel,
                              AiChatProperty aiChatProperty,
                              AiChatAssembler aiChatAssembler,
-                             AiChatRedisCoordinator aiChatRedisCoordinator,
+                             AiChatConcurrencyCoordinator aiChatConcurrencyCoordinator,
                              AiChatSseWriter aiChatSseWriter,
                              AiChatResponseExtractor aiChatResponseExtractor,
-                             @Qualifier("aiChatExecutor") Executor aiChatExecutor,
+                             @Qualifier("aiChatTaskExecutor") Executor aiChatExecutor,
                              AiChatStreamProcessor aiChatStreamProcessor,
                              AiChatOutcomeApplier aiChatOutcomeApplier,
                              AiChatRequestPreparer aiChatRequestPreparer,
@@ -83,7 +86,7 @@ public class AiChatServiceImpl implements IAiChatService {
         this.chatModel = chatModel;
         this.aiChatProperty = aiChatProperty;
         this.aiChatAssembler = aiChatAssembler;
-        this.aiChatRedisCoordinator = aiChatRedisCoordinator;
+        this.aiChatConcurrencyCoordinator = aiChatConcurrencyCoordinator;
         this.aiChatSseWriter = aiChatSseWriter;
         this.aiChatResponseExtractor = aiChatResponseExtractor;
         this.aiChatExecutor = aiChatExecutor;
@@ -209,8 +212,17 @@ public class AiChatServiceImpl implements IAiChatService {
      */
     @Override
     public AiChatSendVo sendMessage(Long conversationId, AiMessageSendDto sendDto) {
-        PreparedSendContext context = prepareSendContext(conversationId, sendDto, AiChatRequestModeEnum.SYNC);
+        ReservedSendContext reservedContext = aiChatRequestPreparer.reserveSendContext(conversationId, sendDto);
+        AiChatCapacityPermit capacityPermit = null;
+        PreparedSendContext context = null;
+        boolean conversationLockAcquired = false;
         try {
+            capacityPermit = aiChatConcurrencyCoordinator.acquireCapacityForSync();
+            if (!aiChatConcurrencyCoordinator.acquireConversationLock(conversationId)) {
+                throw new ServiceException(GlobalErrorCode.CHAT_GENERATING_CONFLICT);
+            }
+            conversationLockAcquired = true;
+            context = prepareSendContext(reservedContext, AiChatRequestModeEnum.SYNC, capacityPermit);
             ChatResponse response = chatModel.call(context.getPrompt());
             AiChatCompletionResult completionResult = aiChatResponseExtractor.extractCompletion(response);
             validateCompletion(completionResult);
@@ -230,11 +242,22 @@ public class AiChatServiceImpl implements IAiChatService {
             aiChatOutcomeApplier.applySuccess(context, completionResult, AiChatRequestStatusEnum.SUCCESS.name());
             return aiChatAssembler.toSendVo(context.getUserMessage(), context.getAssistantMessage(), completionResult);
         } catch (Exception ex) {
+            if (context == null) {
+                aiChatRequestPreparer.releaseRequestReservation(reservedContext);
+                throw ex instanceof ServiceException serviceException
+                        ? serviceException
+                        : aiChatExceptionConverter.convertToServiceException(ex);
+            }
             ServiceException serviceException = aiChatExceptionConverter.convertToServiceException(ex);
             aiChatOutcomeApplier.applyFailure(context, emptyCompletionResult(), serviceException.getCode(), serviceException.getMessage(), AiChatRequestStatusEnum.ERROR.name());
             throw serviceException;
         } finally {
-            aiChatRedisCoordinator.releaseConversationLock(conversationId);
+            if (conversationLockAcquired) {
+                aiChatConcurrencyCoordinator.releaseConversationLock(conversationId);
+            }
+            if (capacityPermit != null) {
+                aiChatConcurrencyCoordinator.releaseActivePermit(capacityPermit.getActivePermitId());
+            }
         }
     }
 
@@ -251,53 +274,177 @@ public class AiChatServiceImpl implements IAiChatService {
             throw new ServiceException(GlobalErrorCode.CHAT_STREAM_DISABLED);
         }
 
-        PreparedSendContext context = prepareSendContext(conversationId, sendDto, AiChatRequestModeEnum.STREAM);
+        ReservedSendContext reservedContext = aiChatRequestPreparer.reserveSendContext(conversationId, sendDto);
         SseEmitter emitter = aiChatSseWriter.createEmitter();
-
-        AiChatStreamEventVo startEvent = aiChatAssembler.toStreamEventVo(
-                context.getConversationId(),
-                context.getAssistantMessage().getId(),
-                context.getRequestId(),
-                0
-        );
-        startEvent.setContentStatus(AiContentStatusEnum.GENERATING.name());
-        sendStreamSuccessQuietly(emitter, "message-start", context.getRequestId(), startEvent);
+        LoginUserInfoModel currentUserInfo = LoginUserInfoModelContext.getLoginUserInfo();
+        StreamRequestState streamState = new StreamRequestState(reservedContext, emitter);
+        registerStreamEmitterCallbacks(streamState);
 
         try {
-            // 在提交异步任务时传递上下文信息，确保在异步线程中也能获取到登录用户信息等上下文数据
-            LoginUserInfoModel currentUserInfo = LoginUserInfoModelContext.getLoginUserInfo();
+            AiChatCapacityPermit capacityPermit = aiChatConcurrencyCoordinator.tryAcquireCapacityForStream();
+            if (capacityPermit != null) {
+                submitStreamTask(streamState, currentUserInfo, capacityPermit);
+                return emitter;
+            }
+
+            String waitingPermitId = aiChatConcurrencyCoordinator.tryAcquireWaitingPermit();
+            streamState.setWaitingPermitId(waitingPermitId);
+            sendWaitingEvent(streamState);
+            aiChatConcurrencyCoordinator.acquireActivePermitAsync().onComplete((activePermitId, throwable) ->
+                    handleAsyncCapacityReady(streamState, currentUserInfo, activePermitId, throwable));
+        } catch (ServiceException serviceException) {
+            aiChatRequestPreparer.releaseRequestReservation(reservedContext);
+            sendStreamErrorQuietly(
+                    emitter,
+                    reservedContext.getRequestId(),
+                    serviceException.getCode(),
+                    serviceException.getMessage(),
+                    buildStreamErrorEvent(reservedContext)
+            );
+            emitter.complete();
+        }
+        return emitter;
+    }
+
+    /**
+     * 处理异步获得活跃名额后的流式执行。
+     */
+    private void handleAsyncCapacityReady(StreamRequestState streamState,
+                                          LoginUserInfoModel currentUserInfo,
+                                          String activePermitId,
+                                          Throwable throwable) {
+        try {
+            if (streamState.getWaitingPermitId() != null) {
+                aiChatConcurrencyCoordinator.releaseWaitingPermit(streamState.getWaitingPermitId());
+                streamState.setWaitingPermitId(null);
+            }
+
+            if (streamState.getClientClosed().get() && !streamState.getWorkerSubmitted().get()) {
+                if (activePermitId != null) {
+                    aiChatConcurrencyCoordinator.releaseActivePermit(activePermitId);
+                }
+                aiChatRequestPreparer.releaseRequestReservation(streamState.getReservedContext());
+                return;
+            }
+
+            if (throwable != null) {
+                ServiceException serviceException = aiChatExceptionConverter.convertToServiceException(toException(throwable));
+                aiChatRequestPreparer.releaseRequestReservation(streamState.getReservedContext());
+                sendStreamErrorQuietly(
+                        streamState.getEmitter(),
+                        streamState.getReservedContext().getRequestId(),
+                        serviceException.getCode(),
+                        serviceException.getMessage(),
+                        buildStreamErrorEvent(streamState.getReservedContext())
+                );
+                streamState.getEmitter().complete();
+                return;
+            }
+
+            if (activePermitId == null) {
+                ServiceException serviceException = new ServiceException(GlobalErrorCode.CHAT_CAPACITY_WAIT_TIMEOUT);
+                aiChatRequestPreparer.releaseRequestReservation(streamState.getReservedContext());
+                sendStreamErrorQuietly(
+                        streamState.getEmitter(),
+                        streamState.getReservedContext().getRequestId(),
+                        serviceException.getCode(),
+                        serviceException.getMessage(),
+                        buildStreamErrorEvent(streamState.getReservedContext())
+                );
+                streamState.getEmitter().complete();
+                return;
+            }
+
+            AiChatCapacityPermit capacityPermit = new AiChatCapacityPermit(activePermitId, true);
+            submitStreamTask(streamState, currentUserInfo, capacityPermit);
+        } catch (Exception ex) {
+            ServiceException serviceException = aiChatExceptionConverter.convertToServiceException(toException(ex));
+            aiChatRequestPreparer.releaseRequestReservation(streamState.getReservedContext());
+            sendStreamErrorQuietly(
+                    streamState.getEmitter(),
+                    streamState.getReservedContext().getRequestId(),
+                    serviceException.getCode(),
+                    serviceException.getMessage(),
+                    buildStreamErrorEvent(streamState.getReservedContext())
+            );
+            streamState.getEmitter().complete();
+        }
+    }
+
+    /**
+     * 提交流式执行任务。
+     */
+    private void submitStreamTask(StreamRequestState streamState,
+                                  LoginUserInfoModel currentUserInfo,
+                                  AiChatCapacityPermit capacityPermit) {
+        streamState.getWorkerSubmitted().set(true);
+        streamState.setActivePermitId(capacityPermit.getActivePermitId());
+
+        try {
             aiChatExecutor.execute(() -> {
                 try {
                     LoginUserInfoModelContext.setLoginUserInfo(currentUserInfo);
-                    processStreamWithContext(context, emitter);
+                    processStreamWithReservation(streamState, capacityPermit);
                 } finally {
                     LoginUserInfoModelContext.removeLoginUserInfo();
                 }
             });
         } catch (RejectedExecutionException ex) {
             ServiceException serviceException = new ServiceException(GlobalErrorCode.SERVICE_UNAVAILABLE);
-            aiChatOutcomeApplier.applyFailure(context, emptyCompletionResult(), serviceException.getCode(), serviceException.getMessage(), AiChatRequestStatusEnum.ERROR.name());
-            sendStreamErrorQuietly(emitter, context.getRequestId(), serviceException.getCode(), serviceException.getMessage(), startEvent);
-            emitter.complete();
-            aiChatRedisCoordinator.releaseConversationLock(conversationId);
+            aiChatConcurrencyCoordinator.releaseActivePermit(capacityPermit.getActivePermitId());
+            aiChatRequestPreparer.releaseRequestReservation(streamState.getReservedContext());
+            sendStreamErrorQuietly(
+                    streamState.getEmitter(),
+                    streamState.getReservedContext().getRequestId(),
+                    serviceException.getCode(),
+                    serviceException.getMessage(),
+                    buildStreamErrorEvent(streamState.getReservedContext())
+            );
+            streamState.getEmitter().complete();
         }
-        return emitter;
     }
 
     /**
-     * 处理流式响应（带上下文）。
-     *
-     * @param context 发送准备上下文
-     * @param emitter SSE 发射器
+     * 处理流式响应（带预留上下文）。
      */
-    private void processStreamWithContext(PreparedSendContext context, SseEmitter emitter) {
-        markRequestStatus(context, AiChatRequestStatusEnum.STREAMING.name());
+    private void processStreamWithReservation(StreamRequestState streamState,
+                                              AiChatCapacityPermit capacityPermit) {
+        ReservedSendContext reservedContext = streamState.getReservedContext();
+        boolean conversationLockAcquired = false;
+        PreparedSendContext context = null;
 
         try {
-            // 委托给流式处理器
-            StreamProcessResult streamResult = aiChatStreamProcessor.process(context, emitter);
+            if (streamState.getClientClosed().get()) {
+                aiChatRequestPreparer.releaseRequestReservation(reservedContext);
+                return;
+            }
+            if (!aiChatConcurrencyCoordinator.acquireConversationLock(reservedContext.getConversationId())) {
+                aiChatRequestPreparer.releaseRequestReservation(reservedContext);
+                ServiceException serviceException = new ServiceException(GlobalErrorCode.CHAT_GENERATING_CONFLICT);
+                sendStreamErrorQuietly(
+                        streamState.getEmitter(),
+                        reservedContext.getRequestId(),
+                        serviceException.getCode(),
+                        serviceException.getMessage(),
+                        buildStreamErrorEvent(reservedContext)
+                );
+                streamState.getEmitter().complete();
+                return;
+            }
+            conversationLockAcquired = true;
 
-            // 转换为完成结果
+            if (streamState.getClientClosed().get()) {
+                aiChatRequestPreparer.releaseRequestReservation(reservedContext);
+                return;
+            }
+
+            context = prepareSendContext(reservedContext, AiChatRequestModeEnum.STREAM, capacityPermit);
+            streamState.getRequestPrepared().set(true);
+            sendStartEvent(context, streamState.getEmitter());
+            markRequestStatus(context, AiChatRequestStatusEnum.STREAMING.name());
+
+            StreamProcessResult streamResult = aiChatStreamProcessor.process(context, streamState.getEmitter());
+
             AiChatCompletionResult completionResult = AiChatCompletionResult.builder()
                     .providerRequestId(streamResult.getProviderRequestId())
                     .content(streamResult.getContent())
@@ -311,26 +458,35 @@ public class AiChatServiceImpl implements IAiChatService {
                     .streamBatchCount(streamResult.getStreamBatchCount())
                     .build();
 
-            // 应用成功结果
             aiChatOutcomeApplier.applySuccess(context, completionResult, AiChatRequestStatusEnum.SUCCESS.name());
-
-            // 发送结束事件
-            aiChatStreamProcessor.sendEndEvent(context, emitter, streamResult);
-            emitter.complete();
+            aiChatStreamProcessor.sendEndEvent(context, streamState.getEmitter(), streamResult);
+            streamState.getEmitter().complete();
         } catch (Exception ex) {
+            if (context == null) {
+                ServiceException serviceException = ex instanceof ServiceException service
+                        ? service
+                        : aiChatExceptionConverter.convertToServiceException(ex);
+                aiChatRequestPreparer.releaseRequestReservation(reservedContext);
+                sendStreamErrorQuietly(
+                        streamState.getEmitter(),
+                        reservedContext.getRequestId(),
+                        serviceException.getCode(),
+                        serviceException.getMessage(),
+                        buildStreamErrorEvent(reservedContext)
+                );
+                streamState.getEmitter().complete();
+                return;
+            }
             ServiceException serviceException = aiChatExceptionConverter.convertToServiceException(ex);
-
-            // 提取流式处理结果（如果有的话）
             AiChatCompletionResult completionResult = extractCompletionFromException(ex);
-
-            // 应用失败结果
             aiChatOutcomeApplier.applyFailure(context, completionResult, serviceException.getCode(), serviceException.getMessage(), AiChatRequestStatusEnum.ERROR.name());
-
-            // 发送错误事件
-            aiChatStreamProcessor.sendErrorEvent(context, emitter, serviceException.getCode(), serviceException.getMessage(), null);
-            emitter.complete();
+            aiChatStreamProcessor.sendErrorEvent(context, streamState.getEmitter(), serviceException.getCode(), serviceException.getMessage(), null);
+            streamState.getEmitter().complete();
         } finally {
-            aiChatRedisCoordinator.releaseConversationLock(context.getConversationId());
+            if (conversationLockAcquired) {
+                aiChatConcurrencyCoordinator.releaseConversationLock(reservedContext.getConversationId());
+            }
+            aiChatConcurrencyCoordinator.releaseActivePermit(capacityPermit.getActivePermitId());
         }
     }
 
@@ -346,16 +502,14 @@ public class AiChatServiceImpl implements IAiChatService {
 
     /**
      * 准备发送消息上下文。
-     *
-     * @param conversationId 会话ID
-     * @param sendDto        消息发送请求对象
-     * @param requestMode    请求模式
-     * @return 发送准备上下文
      */
-    private PreparedSendContext prepareSendContext(Long conversationId,
-                                                   AiMessageSendDto sendDto,
-                                                   AiChatRequestModeEnum requestMode) {
-        return aiChatRequestPreparer.prepareSendContext(conversationId, sendDto, requestMode);
+    private PreparedSendContext prepareSendContext(ReservedSendContext reservedContext,
+                                                   AiChatRequestModeEnum requestMode,
+                                                   AiChatCapacityPermit capacityPermit) {
+        PreparedSendContext context = aiChatRequestPreparer.prepareSendContext(reservedContext, requestMode);
+        context.setActivePermitId(capacityPermit.getActivePermitId());
+        context.setWaited(capacityPermit.isWaited());
+        return context;
     }
 
     /**
@@ -399,6 +553,88 @@ public class AiChatServiceImpl implements IAiChatService {
     }
 
     /**
+     * 注册 SSE 生命周期回调，用于等待阶段提前清理。
+     */
+    private void registerStreamEmitterCallbacks(StreamRequestState streamState) {
+        streamState.getEmitter().onCompletion(() -> onStreamEmitterClosed(streamState));
+        streamState.getEmitter().onTimeout(() -> onStreamEmitterClosed(streamState));
+        streamState.getEmitter().onError(ex -> onStreamEmitterClosed(streamState));
+    }
+
+    /**
+     * 处理 SSE 提前关闭。
+     */
+    private void onStreamEmitterClosed(StreamRequestState streamState) {
+        streamState.getClientClosed().set(true);
+        if (!streamState.getWorkerSubmitted().get()) {
+            if (streamState.getWaitingPermitId() != null) {
+                aiChatConcurrencyCoordinator.releaseWaitingPermit(streamState.getWaitingPermitId());
+                streamState.setWaitingPermitId(null);
+            }
+            if (streamState.getActivePermitId() != null) {
+                aiChatConcurrencyCoordinator.releaseActivePermit(streamState.getActivePermitId());
+                streamState.setActivePermitId(null);
+            }
+            if (!streamState.getRequestPrepared().get()) {
+                aiChatRequestPreparer.releaseRequestReservation(streamState.getReservedContext());
+            }
+        }
+    }
+
+    /**
+     * 发送 waiting 事件。
+     */
+    private void sendWaitingEvent(StreamRequestState streamState) {
+        AiChatStreamEventVo waitingEvent = aiChatAssembler.toStreamEventVo(
+                streamState.getReservedContext().getConversationId(),
+                null,
+                streamState.getReservedContext().getRequestId(),
+                0
+        );
+        waitingEvent.setContentStatus(AiContentStatusEnum.WAITING.name());
+        waitingEvent.setContent("当前并发较高，已进入等待队列");
+        sendStreamSuccessQuietly(streamState.getEmitter(), "waiting", streamState.getReservedContext().getRequestId(), waitingEvent);
+    }
+
+    /**
+     * 发送 message-start 事件。
+     */
+    private void sendStartEvent(PreparedSendContext context, SseEmitter emitter) {
+        AiChatStreamEventVo startEvent = aiChatAssembler.toStreamEventVo(
+                context.getConversationId(),
+                context.getAssistantMessage().getId(),
+                context.getRequestId(),
+                0
+        );
+        startEvent.setContentStatus(AiContentStatusEnum.GENERATING.name());
+        sendStreamSuccessQuietly(emitter, "message-start", context.getRequestId(), startEvent);
+    }
+
+    /**
+     * 构造未进入正式生成前的错误事件内容。
+     */
+    private AiChatStreamEventVo buildStreamErrorEvent(ReservedSendContext reservedContext) {
+        AiChatStreamEventVo errorEvent = aiChatAssembler.toStreamEventVo(
+                reservedContext.getConversationId(),
+                null,
+                reservedContext.getRequestId(),
+                0
+        );
+        errorEvent.setContentStatus(AiContentStatusEnum.ERROR.name());
+        return errorEvent;
+    }
+
+    /**
+     * 将 Throwable 归一为 Exception。
+     */
+    private Exception toException(Throwable throwable) {
+        if (throwable instanceof Exception exception) {
+            return exception;
+        }
+        return new RuntimeException(throwable);
+    }
+
+    /**
      * 静默发送成功事件。
      *
      * @param emitter   SSE 发射器
@@ -432,6 +668,61 @@ public class AiChatServiceImpl implements IAiChatService {
             aiChatSseWriter.sendError(emitter, requestId, code, message, content);
         } catch (IOException ioException) {
             LOG.warn("SSE error event send failed, requestId={}", requestId, ioException);
+        }
+    }
+
+    /**
+     * 流式请求运行时状态。
+     */
+    private static final class StreamRequestState {
+
+        private final ReservedSendContext reservedContext;
+        private final SseEmitter emitter;
+        private final AtomicBoolean clientClosed = new AtomicBoolean(false);
+        private final AtomicBoolean workerSubmitted = new AtomicBoolean(false);
+        private final AtomicBoolean requestPrepared = new AtomicBoolean(false);
+        private volatile String waitingPermitId;
+        private volatile String activePermitId;
+
+        private StreamRequestState(ReservedSendContext reservedContext, SseEmitter emitter) {
+            this.reservedContext = reservedContext;
+            this.emitter = emitter;
+        }
+
+        public ReservedSendContext getReservedContext() {
+            return reservedContext;
+        }
+
+        public SseEmitter getEmitter() {
+            return emitter;
+        }
+
+        public AtomicBoolean getClientClosed() {
+            return clientClosed;
+        }
+
+        public AtomicBoolean getWorkerSubmitted() {
+            return workerSubmitted;
+        }
+
+        public AtomicBoolean getRequestPrepared() {
+            return requestPrepared;
+        }
+
+        public String getWaitingPermitId() {
+            return waitingPermitId;
+        }
+
+        public void setWaitingPermitId(String waitingPermitId) {
+            this.waitingPermitId = waitingPermitId;
+        }
+
+        public String getActivePermitId() {
+            return activePermitId;
+        }
+
+        public void setActivePermitId(String activePermitId) {
+            this.activePermitId = activePermitId;
         }
     }
 }

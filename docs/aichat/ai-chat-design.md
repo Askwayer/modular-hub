@@ -1,31 +1,36 @@
 # be-vita AI Chat 设计文档
 
-## 1. 文档目标与定位
+## 1. 文档目标
 
-本文档面向 `vita-aichat` 后端研发与维护者，基于当前仓库中的真实实现说明 AI Chat 模块的设计思路、核心链路和演进边界。
+本文档面向 `vita-aichat` 后端研发与维护者，描述当前仓库中 AI Chat 的真实实现，而不是抽象方案。
 
-事实来源以以下实现为准：
+当前事实来源以以下代码和 SQL 为准：
 
+- 接口入口：`vita-aichat/src/main/java/com/vita/controller/aichat/AiChatController.java`
+- 聚合服务：`vita-aichat/src/main/java/com/vita/aichat/chat/service/impl/AiChatServiceImpl.java`
+- 支撑组件：`vita-aichat/src/main/java/com/vita/aichat/chat/support/*`
+- 配置：`vita-aichat/src/main/java/com/vita/aichat/chat/config/AiChatConfiguration.java`
 - 表结构：`sql/init/aichat.sql`
-- 接口入口：`com.vita.controller.aichat.AiChatController`
-- 聚合服务：`com.vita.aichat.chat.service.impl.AiChatServiceImpl`
-- 支撑组件：`com.vita.aichat.chat.support.*`
 
-如果旧文档与当前代码冲突，以当前代码行为为准。
+本文档重点说明：
 
-当前模块的目标是提供一个稳定的会话式 AI Chat 基础能力：
-
-- 保持 `Spring MVC + SseEmitter` 技术栈
-- 统一通过 `spring-ai-alibaba-starter-dashscope` 调用 DashScope
-- 支持同步回复和流式回复
-- 支持请求防重、会话级并发控制、结果持久化和流式切片落库
-- 为后续扩展 AI agent 能力预留清晰的结构边界
+- 模块架构与职责分层
+- 表设计与业务拆分思路
+- 同步/流式消息的执行链路
+- DashScope 请求参数构建与响应回写
+- 当前已落地的 AI agent 基础能力与后续演进边界
 
 ## 2. 模块架构
 
-### 2.1 依赖与配置入口
+### 2.1 技术栈
 
-当前模型接入依赖：
+- Web 层：`Spring MVC + SseEmitter`
+- 模型接入：`spring-ai-alibaba-starter-dashscope`
+- 持久化：`MyBatis-Plus + MySQL`
+- 分布式协调：`RedisCache + Redisson`
+- 并发执行：`aiChatTaskExecutor` 独立线程池
+
+模型依赖：
 
 ```xml
 <dependency>
@@ -34,78 +39,46 @@
 </dependency>
 ```
 
-当前业务配置由 `AiChatProperty` 读取，启动阶段由 `AiChatConfiguration` 做校验。关键配置项如下：
-
-```yaml
-spring:
-  ai:
-    model:
-      chat: dashscope
-    default-system-prompt: 你是一个严谨的开发助手。
-    max:
-      context:
-        messages: 12
-    stream:
-      enabled: true
-    connect:
-      timeout: 5000
-    read:
-      timeout: 60000
-    dashscope:
-      api-key: your-api-key
-      base-url: https://dashscope.aliyuncs.com
-      chat:
-        options:
-          model: qwen-plus
-```
-
-启动校验会显式检查：
-
-- `spring.ai.model.chat` 只允许 `dashscope`
-- `spring.ai.dashscope.api-key` 必须存在
-- `spring.ai.dashscope.base-url` 必须存在
-- `spring.ai.dashscope.chat.options.model` 必须存在
-
-### 2.2 架构分层
-
-当前模块按照“控制层 -> 聚合服务层 -> 支撑组件层 -> 领域数据层 -> 外部依赖”组织。
+### 2.2 分层结构
 
 ```mermaid
 flowchart LR
-    Client["Client / Frontend"] --> Controller["AiChatController"]
-    Controller --> Service["IAiChatService / AiChatServiceImpl"]
+    Client["Frontend / Client"] --> Controller["AiChatController"]
+    Controller --> Service["AiChatServiceImpl"]
 
-    Service --> Support["chat/support/*"]
-    Support --> Domain["aiConversation / aiMessage / aiConversationSummary / aiChatRequest / aiMessageStreamBatch"]
+    Service --> Preparer["AiChatRequestPreparer"]
+    Service --> Concurrency["AiChatConcurrencyCoordinator"]
+    Service --> Outcome["AiChatOutcomeApplier"]
+    Service --> Stream["AiChatStreamProcessor"]
+    Service --> Writer["AiChatSseWriter"]
+    Service --> Extractor["AiChatResponseExtractor"]
 
-    Support --> Redis["Redis / Local Fallback"]
-    Support --> Model["DashScope ChatModel"]
+    Concurrency --> RedisCoord["AiChatRedisCoordinator"]
+    RedisCoord --> Redis["Redis / Redisson"]
+
+    Preparer --> Domain["ai_conversation / ai_message / ai_chat_request / ai_conversation_summary"]
+    Stream --> Batch["ai_message_stream_batch"]
+    Service --> Model["DashScope ChatModel"]
     Domain --> DB["MySQL"]
+    Batch --> DB
 ```
 
-### 2.3 主要职责划分
+### 2.3 组件职责
 
-| 层级 | 组件 | 当前职责 |
-| --- | --- | --- |
-| Controller | `AiChatController` | 暴露 `/chat/**` HTTP 与 SSE 接口，接收 DTO，返回 `CommonResult` 或 `SseEmitter` |
-| Service | `AiChatServiceImpl` | 编排会话创建、消息查询、同步发送、流式发送、异步上下文透传 |
-| Support | `AiChatRequestPreparer` | 校验请求、生成 `requestId`、检查会话状态、防重、抢锁、构建 Prompt、落用户消息/助手占位消息/请求记录 |
-| Support | `AiChatMessageBuilder` | 构建 `AiMessage` 与 `AiChatRequest` 实体 |
-| Support | `AiChatStreamProcessor` | 消费 `ChatModel.stream`、做批次聚合、流式批次落库、发送增量 SSE 事件 |
-| Support | `AiChatOutcomeApplier` | 将模型成功/失败结果回写到消息表、请求表、会话表 |
-| Support | `AiChatResponseExtractor` | 从 Spring AI 的 `ChatResponse` 中抽取正文、推理内容、finish reason 与 usage |
-| Support | `AiChatExceptionConverter` | 将网络、鉴权、超时、限流等异常统一转为业务异常 |
-| Support | `AiChatRedisCoordinator` | 维护 `requestId` 防重标记与会话级生成锁 |
-| Support | `AiChatSseWriter` | 用 `CommonStreamResult` 封装 SSE 成功/失败事件 |
-| Domain | `aiConversation/*` | 会话主状态与配置 |
-| Domain | `aiMessage/*` | 逻辑消息与最终聚合结果 |
-| Domain | `aiConversationSummary/*` | 历史摘要 |
-| Domain | `aiChatRequest/*` | 单次模型请求生命周期 |
-| Domain | `aiMessageStreamBatch/*` | 流式批次快照 |
+| 组件 | 当前职责 |
+| --- | --- |
+| `AiChatController` | 暴露 `/chat/**` HTTP/SSE 接口，接收 DTO，返回 `CommonResult` 或 `SseEmitter` |
+| `AiChatServiceImpl` | 聚合同步/流式发送、并发治理、SSE 生命周期和结果回写 |
+| `AiChatRequestPreparer` | 将发送流程拆成“轻校验与 requestId 预留”以及“持久化消息/请求 + Prompt 组装”两段 |
+| `AiChatConcurrencyCoordinator` | 统一管理全局活跃并发、等待队列和会话级互斥锁 |
+| `AiChatRedisCoordinator` | 用 `RedisCache` 做 requestId 防重，用 `Redisson` 做 `RLock` 和 `RPermitExpirableSemaphore` |
+| `AiChatStreamProcessor` | 处理 `ChatModel.stream(prompt)` 的增量结果、批次聚合、SSE delta 事件和批次落库 |
+| `AiChatOutcomeApplier` | 将成功/失败结果回写到消息表、请求表、会话表 |
+| `AiChatResponseExtractor` | 从 Spring AI `ChatResponse` 中抽取正文、推理内容、finish reason 和 usage |
+| `AiChatExceptionConverter` | 将网络异常、超时、限流等转换为统一业务异常 |
+| `AiChatSseWriter` | 统一封装 `CommonStreamResult` 的 SSE 成功/失败事件 |
 
 ### 2.4 当前公开接口
-
-当前公开接口全部位于 `/chat` 域下：
 
 - `POST /chat/conversations`
 - `GET /chat/conversations`
@@ -118,575 +91,466 @@ flowchart LR
 
 说明：
 
-- 会话重命名当前使用 `POST`，不是 `PATCH`
+- 路由域保持 `/chat/**` 不变
+- 同步接口返回普通 JSON
 - 流式接口返回 `SseEmitter`
-- 所有接口都依赖当前登录态，通过 `LoginUserInfoModelContext` 获取用户上下文
+- 所有会话和消息查询都按当前登录用户隔离
 
-## 3. 数据设计与表结构思路
+## 3. 表设计与拆分思路
 
-### 3.1 设计原则
+### 3.1 拆分原则
 
-当前数据模型不是把一次对话全部塞进一张表，而是按“会话主状态、逻辑消息、请求生命周期、流式过程快照、历史摘要”拆分：
+当前数据结构按“会话主状态、逻辑消息、请求生命周期、流式批次、历史摘要”拆分：
 
-- 会话负责管理状态和运行参数
-- 消息负责保存最终可展示内容
-- 请求负责记录一次模型调用的生命周期
-- 批次负责保存流式过程中的切片快照
-- 摘要负责压缩历史，减少上下文窗口压力
+- 会话只保存主状态和默认参数
+- 消息只保存逻辑消息和最终聚合结果
+- 请求保存一次模型调用的生命周期与幂等追踪
+- 流式批次保存增量快照，不存每个原始 token
+- 摘要保存历史压缩结果，不代替实时消息
 
-这样拆分的原因是：
+这样拆分后，消息展示、请求治理、流式排障、后续摘要压缩可以分别演进。
 
-- 同一条助手消息有“生成中”和“最终完成”两个时间维度
-- 流式切片天然不适合直接堆进消息主表
-- 请求防重、错误追踪、token 统计更适合放在独立请求表
-- 摘要属于上下文压缩产物，不应与实时消息耦合
+### 3.2 核心表关系
 
-### 3.2 五张核心表关系
+| 表名 | 关键字段 | 设计目标 |
+| --- | --- | --- |
+| `ai_conversation` | `id`、`active_request_id`、`current_model_code` | 保存会话配置、运行状态和最近错误 |
+| `ai_message` | `id`、`conversation_id`、`reply_to_id`、`request_id` | 保存用户消息和助手最终结果 |
+| `ai_chat_request` | `id`、`conversation_id`、`request_id` | 保存单次模型请求生命周期 |
+| `ai_message_stream_batch` | `assistant_message_id`、`request_id`、`batch_no` | 保存流式增量快照 |
+| `ai_conversation_summary` | `conversation_id`、`version_no` | 保存历史摘要结果 |
 
-| 表名 | 主键/核心键 | 关系 | 当前职责 |
-| --- | --- | --- | --- |
-| `ai_conversation` | `id` | 1:N `ai_message` / 1:N `ai_chat_request` / 1:N `ai_conversation_summary` | 保存会话配置、当前模型、摘要状态、最近一次错误和当前活动请求 |
-| `ai_message` | `id` | N:1 `ai_conversation` / `reply_to_id` 自关联 / 1:N `ai_message_stream_batch` 间接关联 | 保存用户消息和助手最终结果 |
-| `ai_conversation_summary` | `id`, `(conversation_id, version_no)` | N:1 `ai_conversation` | 保存历史摘要及压缩范围 |
-| `ai_chat_request` | `id`, `(conversation_id, request_id)` | N:1 `ai_conversation` / 1:1 `user_message_id` / 1:1 `assistant_message_id` | 保存单次模型调用生命周期和幂等追踪 |
-| `ai_message_stream_batch` | `id`, `(assistant_message_id, batch_no)` | N:1 `assistant_message_id` | 保存流式回复的批次快照 |
+### 3.3 `ai_conversation`
 
-### 3.3 `ai_conversation` 设计思路
+`ai_conversation` 解决的是“当前会话以什么配置运行、是否有活跃请求、最近一次失败是什么”。
 
-`ai_conversation` 解决的是“一个会话当前是什么状态、以什么参数运行”的问题。
+关键字段：
 
-关键字段含义：
+- `status`：当前代码要求发送消息前必须是 `ACTIVE`
+- `current_model_code` / `system_prompt` / `temperature` / `max_tokens` / `max_context_messages`：会话级模型参数
+- `summary_version` / `summary_status`：摘要版本与状态
+- `active_request_id`：当前正在生成的请求 ID
+- `last_error_code` / `last_error_message`：最近一次失败信息
 
-- `title` / `title_source`：区分自动标题与手动标题
-- `status`：控制会话是否允许继续发送消息，当前代码要求必须是 `ACTIVE`
-- `current_model_code` / `system_prompt` / `temperature` / `max_tokens` / `max_context_messages`：会话级默认模型参数
-- `summary_version` / `summary_status`：描述摘要是否存在、是否过期
-- `active_request_id`：标记当前是否有生成中的请求
-- `last_error_code` / `last_error_message`：保留最近一次失败态，方便会话页快速展示
-- `message_count` / `round_count` / `last_message_at`：为列表展示和排序服务
+### 3.4 `ai_message`
 
-这张表不存具体消息正文，只存会话主状态和配置。
+`ai_message` 只保存逻辑消息和最终聚合结果，不保存流式过程切片。
 
-### 3.4 `ai_message` 设计思路
+关键点：
 
-`ai_message` 只保存逻辑消息，不保存每个原始 token。
+- `role_type` 区分 `USER` / `ASSISTANT` / `SYSTEM` / `SUMMARY`
+- `reply_to_id` 用于把助手消息关联回用户消息
+- `content` / `reasoning_content` 存最终聚合内容
+- `content_status` 数据库主状态仍以 `GENERATING`、`DONE`、`ERROR`、`CANCELLED` 为主；`WAITING` 主要用于流式 SSE 事件提示
+- `stream_batch_count` 标记该消息最终累计了多少个批次
 
-核心原则：
+### 3.5 `ai_chat_request`
 
-- 用户消息和助手消息共用一张表
-- `role_type` 区分 `USER`、`ASSISTANT`、`SYSTEM`、`SUMMARY`
-- `reply_to_id` 把助手回复和对应的用户消息关联起来
-- `content` 与 `reasoning_content` 只保存最终聚合结果
-- `content_status` 记录 `GENERATING`、`DONE`、`ERROR`、`CANCELLED`
-- `request_id` 和 `provider_request_id` 支撑链路追踪
-- `use_context` 决定该消息是否进入后续 Prompt 构建
-- `stream_batch_count` 记录这条助手消息对应了多少个流式批次
+`ai_chat_request` 是请求治理表，用来回答“一次模型调用做了什么、执行到了哪里、最终结果如何”。
 
-当前消息类型虽然预留了 `TEXT/IMAGE/FILE/EVENT`，但业务实现只允许 `TEXT`。
+关键点：
 
-### 3.5 `ai_chat_request` 设计思路
+- `(conversation_id, request_id)` 唯一，配合 Redis request mark 实现幂等
+- `request_mode` 区分 `SYNC` 和 `STREAM`
+- `status` 追踪 `PENDING -> STREAMING -> SUCCESS/ERROR/CANCELLED`
+- `user_message_id` / `assistant_message_id` 把一次调用和具体消息绑定
+- `provider_request_id` / token 字段 / `finish_reason` 记录供应商返回元数据
 
-`ai_chat_request` 是当前设计中最关键的治理表，解决的是“一次模型调用发生了什么”。
+### 3.6 `ai_message_stream_batch`
 
-典型用途：
+`ai_message_stream_batch` 记录流式过程中的批次快照，而不是 token 明细。
 
-- `requestId` 幂等防重
-- 区分同步与流式：`SYNC` / `STREAM`
-- 跟踪状态变化：`PENDING -> STREAMING -> SUCCESS/ERROR`
-- 记录供应商请求 ID 与 token 使用量
-- 将请求与 `user_message_id`、`assistant_message_id` 绑定
-- 独立保存错误码、错误信息、完成时间
+关键字段：
 
-这张表使得“消息内容”和“请求生命周期”分离，避免把调用过程状态塞进消息主表。
+- `assistant_message_id`
+- `request_id`
+- `batch_no`
+- `content_delta`
+- `reasoning_delta`
+- `flush_reason`
+- `delta_chars`
+- `provider_sequence`
 
-### 3.6 `ai_message_stream_batch` 设计思路
-
-`ai_message_stream_batch` 用来保存流式回复过程中的阶段性快照，而不是原始 token 明细。
-
-核心字段：
-
-- `assistant_message_id`：属于哪条助手消息
-- `request_id`：属于哪次请求
-- `batch_no`：第几个批次，从 1 开始
-- `content_delta` / `reasoning_delta`：本批次的正文与推理增量
-- `flush_reason`：为什么触发了本次落库
-- `delta_chars`：本批次字符数
-- `provider_sequence`：已经消费到的供应商 chunk 序号
-
-当前批次策略以代码常量为准：
+当前刷批阈值以代码常量为准：
 
 - 时间窗口：`200ms`
 - 字符阈值：`64`
 
-这张表的价值在于：
+### 3.7 `ai_conversation_summary`
 
-- 流式中断时可回溯已落库片段
-- 排查模型返回与前端渲染差异
-- 后续如需做断点续传、审计或细粒度分析，有真实切片数据可用
+`ai_conversation_summary` 只承担历史压缩摘要职责，不承担实时消息存储。
 
-### 3.7 `ai_conversation_summary` 设计思路
+Prompt 构建时只会读取最新 `READY` 摘要，把它作为系统消息插入上下文。
 
-`ai_conversation_summary` 表示会话历史的压缩结果，而不是原始消息的替代品。
+## 4. 并发治理与分布式协调
 
-当前设计含义：
+### 4.1 为什么要单独治理并发
 
-- `version_no`：摘要版本
-- `source_message_start_id` / `source_message_end_id`：摘要覆盖的消息范围
-- `source_message_count`：压缩了多少条消息
-- `summary_text` / `summary_json`：摘要正文与结构化摘要
-- `token_saved_estimate`：预计节省的上下文开销
-- `status`：当前是否可用，代码读取最新 `READY` 摘要
+AI Chat 的正确性和容量是两件事：
 
-摘要表的职责是“辅助 Prompt 构建”，不承担实时消息持久化。
+- 正确性：同一会话不能并发生成
+- 容量：多人同时使用时，系统需要限制全局生成并发并给出等待反馈
 
-## 4. 核心业务逻辑
+因此当前实现引入了两层治理：
 
-### 4.1 创建会话
+- 会话级互斥：同一会话只能有一个生成请求
+- 全局活跃并发：同一时刻只允许固定数量的生成任务真正调用模型
 
-创建会话链路较轻，主要完成会话默认值初始化：
+### 4.2 当前实现方式
 
-1. 从 `LoginUserInfoModelContext` 获取当前用户
+#### requestId 防重
+
+- Redis key：`aichat:req:{conversationId}:{requestId}`
+- 方式：`RedisCache.setIfAbsent + 24h TTL`
+- 语义：预留成功后才允许后续进入容量治理
+
+#### 会话锁
+
+- Redis key：`aichat:conv:{conversationId}:lock`
+- 实现：`Redisson RLock`
+- 模式：固定租期，不启用 watchdog
+- 默认租期：`600s`
+
+#### 全局活跃并发
+
+- Redis key：`aichat:concurrency:active`
+- 实现：`RPermitExpirableSemaphore`
+- 默认上限：`5`
+- 默认 permit 租期：`900s`
+
+#### 等待队列
+
+- Redis key：`aichat:concurrency:waiting`
+- 实现：`RPermitExpirableSemaphore`
+- 默认容量：`20`
+- 默认等待超时：`30s`
+- 顺序语义：非 FIFO，只保证“有位则等，超时则退”
+
+### 4.3 为什么使用 `RPermitExpirableSemaphore`
+
+当前方案没有用 JVM 本地计数或数据库排队，而是使用 Redisson expirable permit，原因是：
+
+- 多实例部署时共享同一套并发上限
+- 节点异常退出时 permit 能自动回收
+- 流式等待阶段可以走异步回调，不需要占住业务线程
+
+### 4.4 独立线程池
+
+当前 `vita-aichat` 不再复用全局 `threadPoolTaskExecutor`，而是单独声明：
+
+- Bean：`aiChatTaskExecutor`
+- 拒绝策略：`AbortPolicy`
+- 默认核心线程数：`8`
+- 默认最大线程数：`16`
+- 默认队列容量：`0`
+
+`queue-capacity=0` 的目的，是避免“Java 线程池排队”和“分布式等待队列”同时存在，导致等待语义混乱。
+
+## 5. 核心业务链路
+
+### 5.1 创建会话
+
+创建会话流程较轻：
+
+1. 获取当前登录用户
 2. 生成雪花 ID
-3. 处理默认标题，默认值为 `新对话`
-4. 处理默认模型编码，默认取 `spring.ai.dashscope.chat.options.model`
-5. 处理默认系统提示词和最大上下文消息数
-6. 初始化 `summaryStatus=NONE`、`messageCount=0`、`roundCount=0`
-7. 落库 `ai_conversation`
+3. 写入默认标题、默认模型编码、默认系统提示词
+4. 初始化 `summaryStatus=NONE`
+5. 持久化 `ai_conversation`
 
-### 4.2 查询会话与消息
+### 5.2 查询会话与消息
 
-查询链路的核心点是“按当前登录用户隔离数据”：
+查询链路核心是用户隔离：
 
-- 会话分页：按用户维度查询会话列表
-- 会话详情：会校验会话是否属于当前用户
-- 消息分页：先校验会话归属，再按会话维度分页拉消息
+- 会话分页按 `userId` 查询
+- 会话详情要求会话归属当前用户
+- 消息分页要求会话归属当前用户
 
-因此，用户不会直接读到别人的会话或消息。
+### 5.3 同步发送消息
 
-### 4.3 同步发送消息
-
-同步发送通过 `sendMessage` 走完整闭环。
+同步发送链路：
 
 ```mermaid
 sequenceDiagram
-    participant Client as "Client"
-    participant Controller as "AiChatController"
-    participant Service as "AiChatServiceImpl"
-    participant Preparer as "AiChatRequestPreparer"
-    participant Redis as "Redis"
-    participant DB as "MySQL"
-    participant Model as "DashScope ChatModel"
+    participant Client
+    participant Service as AiChatServiceImpl
+    participant Preparer as AiChatRequestPreparer
+    participant Concurrency as AiChatConcurrencyCoordinator
+    participant Model as DashScope ChatModel
+    participant DB as MySQL
 
-    Client->>Controller: POST /chat/conversations/{id}/messages
-    Controller->>Service: sendMessage(...)
-    Service->>Preparer: prepareSendContext(...)
-    Preparer->>Redis: setnx requestId
-    Preparer->>Redis: setnx conversation lock
-    Preparer->>DB: insert user message
-    Preparer->>DB: insert assistant placeholder
-    Preparer->>DB: insert ai_chat_request(PENDING)
-    Preparer->>DB: update ai_conversation(active_request_id)
-    Service->>Model: ChatModel.call(prompt)
-    Model-->>Service: ChatResponse
-    Service->>DB: update ai_message(final)
-    Service->>DB: update ai_chat_request(SUCCESS/ERROR)
-    Service->>DB: update ai_conversation(active_request_id=null)
-    Service->>Redis: delete conversation lock
-    Service-->>Controller: AiChatSendVo
-```
-
-关键点：
-
-- 同步发送也会先写一条助手占位消息，状态为 `GENERATING`
-- 只有成功拿到模型结果后，才会把助手消息回写为最终内容
-- 成功和失败都统一通过 `AiChatOutcomeApplier` 回写
-- 最后总会释放会话锁
-
-### 4.4 流式发送消息
-
-流式发送在预处理阶段与同步一致，不同点在于模型响应消费和前端输出。
-
-```mermaid
-sequenceDiagram
-    participant Client as "Client"
-    participant Controller as "AiChatController"
-    participant Service as "AiChatServiceImpl"
-    participant Preparer as "AiChatRequestPreparer"
-    participant Streamer as "AiChatStreamProcessor"
-    participant Redis as "Redis"
-    participant DB as "MySQL"
-    participant Model as "DashScope ChatModel"
-
-    Client->>Controller: POST /chat/conversations/{id}/messages/stream
-    Controller->>Service: sendMessageStream(...)
-    Service->>Preparer: prepareSendContext(...)
-    Preparer->>Redis: setnx requestId
-    Preparer->>Redis: setnx conversation lock
-    Preparer->>DB: insert user message
-    Preparer->>DB: insert assistant placeholder
-    Preparer->>DB: insert ai_chat_request(PENDING)
-    Service-->>Client: message-start
-    Service->>DB: update ai_chat_request(STREAMING)
-    Service->>Model: ChatModel.stream(prompt)
-    loop each chunk
-        Model-->>Streamer: ChatResponse chunk
-        Streamer->>Streamer: extract + accumulate
-        alt reaches 200ms or 64 chars
-            Streamer->>DB: insert ai_message_stream_batch
-            Streamer-->>Client: message-delta / reasoning-delta
-        end
+    Client->>Service: POST /messages
+    Service->>Preparer: reserveSendContext()
+    Preparer->>DB: 校验会话 + requestId 防重预留
+    Service->>Concurrency: acquireCapacityForSync()
+    alt 活跃名额已满
+        Concurrency->>Concurrency: 进入等待队列并阻塞等待
     end
-    Streamer->>DB: flush final batch if needed
-    Service->>DB: update ai_message(final)
-    Service->>DB: update ai_chat_request(SUCCESS/ERROR)
-    Service->>DB: update ai_conversation(active_request_id=null)
-    Service->>Redis: delete conversation lock
-    Service-->>Client: message-end / error
+    Service->>Concurrency: acquireConversationLock()
+    Service->>Preparer: prepareSendContext()
+    Preparer->>DB: 写 USER / ASSISTANT 占位 / ai_chat_request / 更新 ai_conversation
+    Service->>Model: chatModel.call(prompt)
+    Model-->>Service: ChatResponse
+    Service->>DB: applySuccess / applyFailure
+    Service->>Concurrency: releaseConversationLock()
+    Service->>Concurrency: releaseActivePermit()
 ```
 
-关键点：
+关键特征：
 
-- `message-start` 在异步任务提交前就会先发出
-- 异步线程会显式透传 `LoginUserInfoModelContext`，保证线程切换后仍能访问用户上下文
-- `AiChatStreamProcessor` 负责读取模型流、聚合切片、落批次表、发增量 SSE
-- 成功时发送 `message-end`，失败时发送 `error`
-- 无论成功失败，最终都会释放会话锁
+- 同步接口也参与全局并发治理
+- 活跃名额不足时会阻塞等待，而不是立即失败
+- 只有拿到活跃名额后，才会去抢会话锁
 
-### 4.5 失败处理与状态清理
+### 5.4 流式发送消息
 
-失败处理由 `AiChatExceptionConverter + AiChatOutcomeApplier` 完成。
+流式发送链路：
 
-当前错误治理策略：
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Service as AiChatServiceImpl
+    participant Preparer as AiChatRequestPreparer
+    participant Concurrency as AiChatConcurrencyCoordinator
+    participant Worker as aiChatTaskExecutor
+    participant Stream as AiChatStreamProcessor
+    participant Model as DashScope ChatModel
+    participant DB as MySQL
 
-- 鉴权失败 -> `MODEL_AUTH_ERROR`
-- 超时 -> `MODEL_TIMEOUT`
-- 限流 -> `MODEL_RATE_LIMIT`
-- 网络错误 -> `MODEL_NETWORK_ERROR`
-- 其他异常 -> `MODEL_PROVIDER_ERROR`
+    Client->>Service: POST /messages/stream
+    Service->>Preparer: reserveSendContext()
+    Preparer->>DB: 校验会话 + requestId 防重预留
+    Service->>Concurrency: tryAcquireCapacityForStream()
+    alt 可立即开始
+        Service->>Worker: 提交流式生成任务
+    else 活跃名额已满
+        Service->>Concurrency: tryAcquireWaitingPermit()
+        Service-->>Client: SSE waiting
+        Concurrency-->>Service: 异步回调 active permit
+        Service->>Worker: 提交流式生成任务
+    end
 
-失败回写时会做三件事：
+    Worker->>Concurrency: acquireConversationLock()
+    Worker->>Preparer: prepareSendContext()
+    Preparer->>DB: 写 USER / ASSISTANT 占位 / ai_chat_request / 更新 ai_conversation
+    Worker-->>Client: SSE message-start
+    Worker->>Stream: process()
+    Stream->>Model: chatModel.stream(prompt)
+    loop 增量输出
+        Stream->>DB: ai_message_stream_batch 落库
+        Stream-->>Client: message-delta / reasoning-delta
+    end
+    Worker->>DB: applySuccess / applyFailure
+    Worker-->>Client: message-end / error
+    Worker->>Concurrency: releaseConversationLock()
+    Worker->>Concurrency: releaseActivePermit()
+```
 
-- 把助手消息标记为 `ERROR` 并写入错误码/错误信息
-- 把请求记录标记为 `ERROR`
-- 把会话的 `active_request_id` 清空，并记录最近一次错误
+关键特征：
 
-### 4.6 Redis 防重与会话锁
+- `message-start` 发送时机后移到了真正开始生成之后
+- 如果超过并发阈值，先发 `waiting` 事件
+- 等待队列阶段不占用 `aiChatTaskExecutor` 工作线程
 
-当前实现使用两个键：
+### 5.5 SSE 事件协议
 
-- `aichat:req:{conversationId}:{requestId}`
-- `aichat:conv:{conversationId}:lock`
+当前事件名：
 
-协作规则如下：
-
-1. 先检查数据库里是否已存在 `(conversationId, requestId)`
-2. 再通过 Redis `setIfAbsent` 做请求级防重
-3. 然后通过 Redis `setIfAbsent` 做会话级互斥
-4. 如果抢会话锁失败，会主动释放刚刚打上的请求标记
-5. 如果预处理事务失败，也会释放请求标记与会话锁
-6. Redis 不可用时，退化到本地 `ConcurrentHashMap`
-
-这套机制避免了：
-
-- 前端重复点击导致重复落库
-- 同一会话多个生成任务并发写消息
-
-## 5. 大模型请求参数构建与响应处理
-
-### 5.1 发送前参数校验与默认值
-
-当前请求准备逻辑由 `AiChatRequestPreparer` 统一处理。
-
-发送前会执行：
-
-- 校验会话是否存在且属于当前用户
-- 校验会话状态必须为 `ACTIVE`
-- 校验 `messageType` 当前只能是 `TEXT`
-- 若前端未传 `requestId`，则使用 `IdUtil.fastSimpleUUID()` 自动生成
-
-默认值规则：
-
-- `title` 为空 -> `新对话`
-- `systemPrompt` 为空 -> 走 `spring.ai.default-system-prompt`
-- `modelCode` 为空 -> 走 `spring.ai.dashscope.chat.options.model`
-- `maxContextMessages` 为空或 `<= 0` -> 走 `spring.ai.max.context.messages`
-- `useContext` 为空 -> 默认 `1`
-
-### 5.2 Prompt 构建顺序
-
-当前 Prompt 组装顺序是固定的：
-
-1. `systemPrompt`
-2. 最新可用摘要 `summary`
-3. 历史上下文消息 `historyMessages`
-4. 当前用户消息 `currentUserMessage`
-
-这也是当前实现最重要的上下文构建规则。
-
-### 5.3 历史上下文筛选规则
-
-历史上下文来自 `ai_messageService.listRecentContextMessages(...)`，代码层面的意图是：
-
-- 只取当前会话内的历史消息
-- 只取当前用户可见的消息
-- 排除刚刚新写入的当前用户消息
-- 只取允许参与上下文的消息，即受 `use_context` 控制
-- 最多取 `maxContextMessages` 条
-- 查询结果在进入 Prompt 前会 `Collections.reverse(...)`，最终按时间正序拼装
-
-消息到 Prompt 的映射规则：
-
-- `USER` -> `UserMessage`
-- `ASSISTANT` -> `AssistantMessage`
-- `SYSTEM` -> `SystemMessage`
-- `SUMMARY` -> `SystemMessage("历史摘要：...")`
-
-### 5.4 DashScope 请求参数构建
-
-当前模型调用使用 DashScope Chat Options，关键参数如下：
-
-| 参数 | 当前来源 | 说明 |
-| --- | --- | --- |
-| `model` | 会话 `current_model_code`，为空时取默认配置 | 当前请求要调用的模型 |
-| `stream` | 由同步/流式接口决定 | 是否开启流式 |
-| `incrementalOutput` | 与 `stream` 同步 | 流式模式下按增量返回 |
-| `enableSearch` | 固定 `true` | 当前实现默认打开搜索增强开关 |
-| `enableThinking` | `modelCode` 以 `qwq-` 开头时为 `true` | 推理模型开启思考模式 |
-| `maxToken` | 会话 `max_tokens` | 限制单次最大输出 token |
-| `temperature` | 会话 `temperature` | 控制输出随机性 |
-
-说明：
-
-- 当前实现只支持 DashScope，不支持运行时多 Provider 切换
-- `current_model_id` / `model_id` 字段已预留，但当前主要使用 `modelCode`
-
-### 5.5 同步响应处理
-
-同步响应处理链路：
-
-1. `chatModel.call(prompt)`
-2. `AiChatResponseExtractor.extractCompletion(response)`
-3. 从 `ChatResponse` 抽取：
-   - `content`
-   - `reasoningContent`
-   - `finishReason`
-   - `providerRequestId`
-   - `tokenInput` / `tokenOutput` / `tokenTotal`
-4. 如果正文和推理内容都为空，视为无效返回
-5. 通过 `AiChatOutcomeApplier.applySuccess/applyFailure` 回写
-
-### 5.6 流式响应处理
-
-流式响应不是直接把 chunk 发给前端，而是先经过一层统一处理。
-
-`AiChatResponseExtractor` 的抽取逻辑：
-
-- 正文：取 `AssistantMessage.getText()`
-- 推理内容：取 `AssistantMessage.metadata["reasoningContent"]`
-- 结束原因：取 `ChatGenerationMetadata.finishReason`
-- token 使用量：取 `ChatResponse.metadata.usage`
-- 供应商请求 ID：取 `ChatResponse.metadata.id`
-
-`AiChatStreamProcessor` 的处理逻辑：
-
-1. 遍历 `chatModel.stream(prompt)` 返回的每个 `ChatResponse`
-2. 累积完整正文和完整推理内容
-3. 将增量片段交给 `AiStreamBatchAccumulator`
-4. 满足 `200ms` 或 `64` 字符阈值时落一批 `ai_message_stream_batch`
-5. 为正文和推理分别发送 `message-delta` 与 `reasoning-delta`
-6. 结束时强制 flush 最后一批
-7. 组装 `StreamProcessResult`
-8. 最终再统一回写 `ai_message` 与 `ai_chat_request`
-
-### 5.7 SSE 响应协议
-
-当前事件名固定为：
-
+- `waiting`
 - `message-start`
 - `message-delta`
 - `reasoning-delta`
 - `message-end`
 - `error`
 
-SSE 内容通过 `AiChatSseWriter` 统一包装成 `CommonStreamResult` JSON，再写入 `SseEmitter`。
+其中：
 
-事件体核心字段：
+- `waiting`：`assistantMessageId` 可以为空，`contentStatus=WAITING`
+- `message-start`：表示已经拿到名额、拿到会话锁并完成预处理
+- `message-delta` / `reasoning-delta`：正文和推理增量分开发送
+- `message-end`：最终结束事件，附带 token 和 finish reason
+- `error`：容量不足、等待超时、线程池拒绝、模型异常等统一通过该事件返回
 
-- `conversationId`
-- `assistantMessageId`
-- `requestId`
-- `batchNo`
-- `contentStatus`
-- `finishReason`
+## 6. 大模型请求构建与响应处理
 
-结束事件还会带上：
+### 6.1 请求前构建
 
-- `firstTokenAt`
-- `completedAt`
-- `tokenInput`
-- `tokenOutput`
-- `tokenTotal`
+发送链路被显式拆成两段：
 
-## 6. AI Agent 相关知识点
+#### 第一段：轻校验与 requestId 预留
 
-当前 `vita-aichat` 还不是完整意义上的 AI agent 框架，但已经具备 AI agent 基础设施中的若干关键能力。
+`AiChatRequestPreparer.reserveSendContext()` 负责：
 
-### 6.1 Provider
+1. 生成或标准化 `requestId`
+2. 校验消息类型，当前只允许 `TEXT`
+3. 校验会话存在且归属当前用户
+4. 校验会话 `status=ACTIVE`
+5. 校验 `(conversationId, requestId)` 没有重复
+6. 用 Redis 预留 request mark
 
-Provider 指底层模型服务供应商。当前系统的唯一 Provider 是 DashScope。
+#### 第二段：正式准备上下文
 
-系统层面已经具备：
+`AiChatRequestPreparer.prepareSendContext()` 只在以下条件都满足后执行：
 
-- Provider 配置入口
-- 启动校验
-- 统一异常映射
+- 已拿到活跃并发名额
+- 已拿到会话锁
 
-但尚未实现多 Provider 路由策略。
+这一步会完成：
 
-### 6.2 Model
+- 写入 `USER` 消息
+- 写入 `ASSISTANT` 占位消息
+- 写入 `ai_chat_request`
+- 更新 `ai_conversation.active_request_id`
+- 构建 Spring AI `Prompt`
 
-Model 指具体调用的模型实例，例如 `qwen-plus` 或 `qwq-*`。
+### 6.2 Prompt 组装顺序
 
-当前实现特点：
+当前 Prompt 顺序固定为：
 
-- 会话维度保存 `current_model_code`
-- 每次请求记录 `model_code`
-- 可在会话创建时覆盖默认模型
-- 推理模型通过 `qwq-*` 前缀触发思考模式
+1. `systemPrompt`
+2. 最新 `READY` 摘要
+3. 最近上下文消息
+4. 当前用户消息
 
-### 6.3 Prompt
+历史消息筛选规则：
 
-Prompt 是当前系统最核心的 agent 输入构造物。
+- 只读取 `use_context=1` 的消息
+- 排除当前这条用户消息
+- 上下文条数取 `conversation.max_context_messages`，为空或非法时回退到 `spring.ai.max.context.messages`
 
-当前设计不是直接拿用户输入发模型，而是把以下信息组合起来：
+### 6.3 DashScope 参数构建
 
-- 系统设定
-- 历史摘要
-- 最近上下文消息
-- 当前用户输入
+当前通过 `DashScopeChatOptions` 构建模型选项，真实代码行为如下：
 
-这本质上已经是一个最基础的“上下文增强型 agent 输入构建器”。
+- `model(modelCode)`
+- `stream(stream)`
+- `incrementalOutput(stream)`
+- `enableSearch(true)`
+- `enableThinking(isThinkingModel(modelCode))`
+- `maxToken(conversation.maxTokens)`，仅在会话配置有值时设置
+- `temperature(conversation.temperature)`，仅在会话配置有值时设置
 
-### 6.4 Context Window
+思考模式开启规则：
 
-Context Window 指单次送给模型的上下文窗口。
+- 当 `modelCode` 以 `qwq-` 开头时，`enableThinking=true`
 
-当前系统通过两种方式控制窗口大小：
+### 6.4 响应处理
 
-- `maxContextMessages`：限制实时消息条数
-- `ai_conversation_summary`：用摘要压缩更长历史
+#### 同步响应
 
-这说明当前系统已经具备了最基础的短期记忆治理机制。
+同步请求走：
 
-### 6.5 Summary Memory
+- `chatModel.call(prompt)`
+- `AiChatResponseExtractor.extractCompletion(response)`
+- `AiChatOutcomeApplier.applySuccess/applyFailure(...)`
 
-Summary Memory 指把历史消息压缩为摘要再参与后续对话。
+#### 流式响应
 
-当前实现中：
+流式请求走：
 
-- 最新 `READY` 摘要会被插入 Prompt
-- 摘要与原消息分表存储
-- 摘要版本化管理
+- `chatModel.stream(prompt)`
+- `AiChatResponseExtractor.extractChunk(response)`
+- `AiStreamBatchAccumulator` 聚合批次
+- `ai_message_stream_batch` 落库
+- `AiChatSseWriter` 推送 SSE
+- `AiChatOutcomeApplier` 回写最终结果
 
-这是一种典型的“会话级短期记忆压缩”能力。
+## 7. AI agent 相关知识点与演进边界
 
-### 6.6 Request Lifecycle
+### 7.1 当前已具备的 agent 基础能力
 
-Request Lifecycle 指一次用户请求从进入系统到完成的全过程。
+当前 `aichat` 已具备一部分 AI agent runtime 的基础要素，但还不是完整 agent 编排系统。
 
-当前系统通过 `ai_chat_request` 明确保存：
+已经具备：
 
-- 请求模式
-- 请求状态
-- 关联消息
-- token 使用
-- 首 token 时间
-- 完成时间
-- 错误信息
-
-这为未来做 agent trace、链路分析、执行回放提供了基础。
-
-### 6.7 Idempotency
-
-Idempotency 指同一请求多次提交只生效一次。
-
-当前系统的实现方式是：
-
-- 数据库唯一键：`(conversation_id, request_id)`
-- Redis `setnx`
-- 请求失败时释放无效标记
-
-这是 AI 场景里很重要的基础能力，否则前端重试会造成重复生成和重复计费。
-
-### 6.8 Streaming Snapshot
-
-Streaming Snapshot 指流式输出过程中保留阶段性切片，而不是只保留最终结果。
-
-当前系统的批次表就是这一能力的体现：
-
-- 既保留最终助手消息
-- 又保留生成过程中的切片快照
-
-这比只存最终答案更接近 agent runtime 的真实执行轨迹。
-
-### 6.9 Reasoning Content
-
-Reasoning Content 指模型在支持推理模式时输出的思考内容。
-
-当前系统已经支持：
-
-- 从模型 metadata 中提取 `reasoningContent`
-- 在同步与流式两条链路中分别返回
-- 最终写入 `ai_message.reasoning_content`
-
-这使得系统不只是“展示答案”，还能展示模型的推理痕迹。
-
-## 7. 当前边界与后续演进
-
-### 7.1 当前已具备的基础能力
-
-当前 `vita-aichat` 已具备：
-
-- 多轮会话管理
-- 同步/流式两种回复模式
-- 请求级幂等和会话级互斥
-- 会话摘要接入 Prompt
-- 推理内容提取
-- 流式切片快照落库
-- 错误分类与统一回写
-
-这意味着它已经不是一个“只会转发模型调用”的薄封装，而是具备了一层 AI runtime 的基础治理能力。
-
-### 7.2 当前未落地能力
-
-以下概念可以在文档中被提及，但应明确标记为未落地：
-
-- Tool Calling
-- RAG
-- 长期记忆
-- Planning / ReAct
-- MCP / 外部工具编排
-- 多 Agent 协作
-
-也就是说，当前系统“已具备 agent 基础能力”，但“尚未实现完整 agent 编排”。
-
-### 7.3 当前实现边界说明
-
-有几处边界需要明确：
-
-- 当前只支持 DashScope，不支持多 Provider 动态切换
-- 当前只支持 `TEXT` 消息，图片/文件/事件类型仍属于保留设计
-- 流式刷批阈值是代码常量 `200ms / 64 chars`，还没有配置化
-- `ai_message_stream_batch` 已有独立领域服务，但当前会话删除链路主要删除 `ai_chat_request`、`ai_conversation_summary`、`ai_message` 与 `ai_conversation`，未在服务层显式串上批次表删除
-
-### 7.4 推荐演进方向
-
-如果后续要把当前 aichat 演进为更完整的 AI agent 平台，建议优先沿以下路径扩展：
-
-1. 让 `ai_chat_request` 承担更完整的 trace 记录
-2. 在 Prompt 层引入工具说明和可调用工具上下文
-3. 引入知识库检索结果并和摘要一起进入上下文
-4. 将流式批次快照升级为可观测的 runtime event 流
-5. 在不破坏当前会话模型的前提下扩展 tool calling / memory / planning
-
-当前这套结构的价值就在于：它已经把会话、消息、请求、流式过程、摘要分层拆开，后续扩展 AI agent 能力时不需要推翻重来。
+- Provider：当前固定为 DashScope
+- Model：按 `modelCode` 选择具体模型
+- Prompt：支持系统提示词、摘要、历史上下文、当前输入
+- Context Window：支持最近上下文消息截断
+- Summary Memory：通过 `ai_conversation_summary` 预留长期摘要压缩能力
+- Request Lifecycle：`ai_chat_request` 记录一次模型调用的完整生命周期
+- Idempotency：`requestId + Redis mark + DB 唯一键`
+- Streaming Snapshot：`ai_message_stream_batch`
+- Reasoning Content：独立存储 `reasoning_content`
+
+### 7.2 当前还不是完整 agent 的原因
+
+当前系统还没有落地以下能力：
+
+- Tool Calling / Function Calling
+- RAG 检索链路
+- 长期记忆回写与召回
+- Planning / ReAct / 多步任务编排
+- MCP / 外部工具协议接入
+
+因此更准确的定位是：
+
+- 当前是“具备 agent 基础能力的会话式 AI Chat”
+- 还不是“完整的 AI agent orchestration runtime”
+
+### 7.3 后续演进建议
+
+未来如果要继续演进成 agent 运行时，建议在当前结构上扩展，而不是推翻：
+
+- 在 `ai_chat_request` 上扩展 `tool_calls_json`
+- 在 `ai_message` 上扩展工具事件消息类型
+- 新增检索结果与引用片段表，支撑 RAG
+- 把摘要从“单纯历史压缩”扩展为“长期记忆”
+- 为工具执行、规划步骤和外部回调新增专属生命周期表
+
+## 8. 关键配置
+
+当前实现依赖的核心配置如下：
+
+```yaml
+spring:
+  ai:
+    model:
+      chat: dashscope
+    default-system-prompt: 你是一个严谨的开发助手。
+    lock:
+      conversation:
+        lease-seconds: 600
+    concurrency:
+      max-active: 5
+      max-waiting: 20
+      wait-timeout-seconds: 30
+      active-permit-lease-seconds: 900
+    executor:
+      core-pool-size: 8
+      max-pool-size: 16
+      queue-capacity: 0
+      keep-alive-seconds: 60
+    max:
+      context:
+        messages: 12
+    stream:
+      enabled: true
+    dashscope:
+      api-key: local-dashscope-key
+      base-url: https://dashscope.aliyuncs.com
+      chat:
+        options:
+          model: qwen-plus
+```
+
+启动时会额外校验：
+
+- DashScope 相关配置是否完整
+- Redis / Redisson 是否可用
+- `max-active > 0`
+- `max-waiting >= 0`
+- `wait-timeout-seconds > 0`
+- `max-pool-size >= max-active`
+
+## 9. 当前实现结论
+
+当前 `vita-aichat` 的结论可以概括为：
+
+- 对外继续保持 Spring MVC + SSE
+- 对内统一通过 Spring AI 调用 DashScope
+- 存储上采用“最终消息主表 + 请求生命周期表 + 流式批次表”
+- 并发上采用“全局活跃名额 + 等待队列 + 会话级分布式锁”
+- 线程模型上采用 `aichat` 独立线程池，避免复用全局业务线程池
+
+这使得当前系统已经能在多实例部署下正确支持“多人同时使用、同会话串行、超限等待提示”的 AI Chat 基础能力。

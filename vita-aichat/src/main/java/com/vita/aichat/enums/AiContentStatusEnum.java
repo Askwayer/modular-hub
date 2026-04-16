@@ -4,6 +4,8 @@ package com.vita.aichat.enums;
  * AI 消息内容状态枚举。
  */
 public enum AiContentStatusEnum {
+    /* 等待生成 */
+    WAITING,
     /* 正在生成 */
     GENERATING,
     /* 生成完成 */

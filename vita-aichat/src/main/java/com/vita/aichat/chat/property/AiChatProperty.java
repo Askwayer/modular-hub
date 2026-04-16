@@ -64,4 +64,58 @@ public class AiChatProperty {
      */
     @Value("${spring.ai.default-system-prompt:你是一个严谨的开发助手。}")
     private String defaultSystemPrompt;
+
+    /**
+     * 会话锁租期（秒）。
+     */
+    @Value("${spring.ai.lock.conversation.lease-seconds:600}")
+    private Long conversationLockLeaseSeconds;
+
+    /**
+     * 全局活跃生成并发数。
+     */
+    @Value("${spring.ai.concurrency.max-active:5}")
+    private Integer concurrencyMaxActive;
+
+    /**
+     * 等待队列容量。
+     */
+    @Value("${spring.ai.concurrency.max-waiting:20}")
+    private Integer concurrencyMaxWaiting;
+
+    /**
+     * 等待活跃名额超时时间（秒）。
+     */
+    @Value("${spring.ai.concurrency.wait-timeout-seconds:30}")
+    private Long concurrencyWaitTimeoutSeconds;
+
+    /**
+     * 活跃名额租期（秒）。
+     */
+    @Value("${spring.ai.concurrency.active-permit-lease-seconds:900}")
+    private Long activePermitLeaseSeconds;
+
+    /**
+     * AI Chat 独立线程池核心线程数。
+     */
+    @Value("${spring.ai.executor.core-pool-size:8}")
+    private Integer executorCorePoolSize;
+
+    /**
+     * AI Chat 独立线程池最大线程数。
+     */
+    @Value("${spring.ai.executor.max-pool-size:16}")
+    private Integer executorMaxPoolSize;
+
+    /**
+     * AI Chat 独立线程池队列容量。
+     */
+    @Value("${spring.ai.executor.queue-capacity:0}")
+    private Integer executorQueueCapacity;
+
+    /**
+     * AI Chat 独立线程池空闲线程存活时间（秒）。
+     */
+    @Value("${spring.ai.executor.keep-alive-seconds:60}")
+    private Integer executorKeepAliveSeconds;
 }
