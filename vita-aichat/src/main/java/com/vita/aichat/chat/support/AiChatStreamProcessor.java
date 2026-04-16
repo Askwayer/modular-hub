@@ -27,9 +27,21 @@ import java.time.LocalDateTime;
 @Component
 public class AiChatStreamProcessor {
 
-    private static final long STREAM_BATCH_FLUSH_MILLIS = 1000L;
+    /**
+     * 批次刷新时间窗口（毫秒）。
+     *
+     * <p>控制 SSE 事件推送频率：值越小，前端响应越实时，但 SSE 事件数量越多。
+     * 当前设置为 200ms，在实时性和网络开销之间取得平衡。</p>
+     */
+    private static final long STREAM_BATCH_FLUSH_MILLIS = 200L;
 
-    private static final int STREAM_BATCH_CHAR_THRESHOLD = 512;
+    /**
+     * 批次刷新字符阈值。
+     *
+     * <p>控制 SSE 事件推送频率：累积到此字符数时立即推送，无需等待时间窗口。
+     * 当前设置为 64 字符，确保较短文本也能快速推送到前端。</p>
+     */
+    private static final int STREAM_BATCH_CHAR_THRESHOLD = 64;
 
     private final ChatModel chatModel;
 

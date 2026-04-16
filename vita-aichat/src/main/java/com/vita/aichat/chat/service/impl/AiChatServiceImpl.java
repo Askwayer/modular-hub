@@ -1,13 +1,10 @@
 package com.vita.aichat.chat.service.impl;
 
 import cn.hutool.core.text.CharSequenceUtil;
-import cn.hutool.core.util.IdUtil;
-import com.alibaba.cloud.ai.dashscope.chat.DashScopeChatOptions;
 import com.vita.aichat.aiChatRequest.entity.AiChatRequest;
 import com.vita.aichat.aiChatRequest.service.IAiChatRequestService;
 import com.vita.aichat.aiConversation.entity.AiConversation;
 import com.vita.aichat.aiConversation.service.IAiConversationService;
-import com.vita.aichat.aiConversationSummary.entity.AiConversationSummary;
 import com.vita.aichat.aiConversationSummary.service.IAiConversationSummaryService;
 import com.vita.aichat.aiMessage.entity.AiMessage;
 import com.vita.aichat.aiMessage.service.IAiMessageService;
@@ -28,24 +25,15 @@ import com.vita.core.page.PageResponse;
 import com.vita.utils.SnowUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.chat.messages.AssistantMessage;
-import org.springframework.ai.chat.messages.Message;
-import org.springframework.ai.chat.messages.SystemMessage;
-import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
-import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 
@@ -68,10 +56,9 @@ public class AiChatServiceImpl implements IAiChatService {
     private final AiChatSseWriter aiChatSseWriter;
     private final AiChatResponseExtractor aiChatResponseExtractor;
     private final Executor aiChatExecutor;
-    private final TransactionTemplate transactionTemplate;
     private final AiChatStreamProcessor aiChatStreamProcessor;
     private final AiChatOutcomeApplier aiChatOutcomeApplier;
-    private final AiChatMessageBuilder aiChatMessageBuilder;
+    private final AiChatRequestPreparer aiChatRequestPreparer;
     private final AiChatExceptionConverter aiChatExceptionConverter;
 
     public AiChatServiceImpl(IAiConversationService aiConversationService,
@@ -85,10 +72,9 @@ public class AiChatServiceImpl implements IAiChatService {
                              AiChatSseWriter aiChatSseWriter,
                              AiChatResponseExtractor aiChatResponseExtractor,
                              @Qualifier("aiChatExecutor") Executor aiChatExecutor,
-                             TransactionTemplate transactionTemplate,
                              AiChatStreamProcessor aiChatStreamProcessor,
                              AiChatOutcomeApplier aiChatOutcomeApplier,
-                             AiChatMessageBuilder aiChatMessageBuilder,
+                             AiChatRequestPreparer aiChatRequestPreparer,
                              AiChatExceptionConverter aiChatExceptionConverter) {
         this.aiConversationService = aiConversationService;
         this.aiMessageService = aiMessageService;
@@ -101,10 +87,9 @@ public class AiChatServiceImpl implements IAiChatService {
         this.aiChatSseWriter = aiChatSseWriter;
         this.aiChatResponseExtractor = aiChatResponseExtractor;
         this.aiChatExecutor = aiChatExecutor;
-        this.transactionTemplate = transactionTemplate;
         this.aiChatStreamProcessor = aiChatStreamProcessor;
         this.aiChatOutcomeApplier = aiChatOutcomeApplier;
-        this.aiChatMessageBuilder = aiChatMessageBuilder;
+        this.aiChatRequestPreparer = aiChatRequestPreparer;
         this.aiChatExceptionConverter = aiChatExceptionConverter;
     }
 
@@ -120,7 +105,7 @@ public class AiChatServiceImpl implements IAiChatService {
         AiConversation conversation = new AiConversation();
         conversation.setId(SnowUtils.getSnowflakeNextId());
         conversation.setUserId(userId);
-        conversation.setTitle(defaultConversationTitle(createDto.getTitle()));
+        conversation.setTitle(aiChatRequestPreparer.generateConversationTitle(createDto.getTitle()));
         conversation.setTitleSource(AiTitleSourceEnum.AUTO.name());
         conversation.setStatus(AiConversationStatusEnum.ACTIVE.name());
         conversation.setPinned((byte) 0);
@@ -128,11 +113,11 @@ public class AiChatServiceImpl implements IAiChatService {
         conversation.setRoundCount(0);
         conversation.setSummaryVersion(0);
         conversation.setSummaryStatus(AiSummaryStatusEnum.NONE.name());
-        conversation.setCurrentModelCode(defaultModelCode(createDto.getModelCode()));
-        conversation.setSystemPrompt(defaultSystemPrompt(createDto.getSystemPrompt()));
+        conversation.setCurrentModelCode(aiChatRequestPreparer.generateModelCode(createDto.getModelCode()));
+        conversation.setSystemPrompt(aiChatRequestPreparer.generateSystemPrompt(createDto.getSystemPrompt()));
         conversation.setTemperature(createDto.getTemperature());
         conversation.setMaxTokens(createDto.getMaxTokens());
-        conversation.setMaxContextMessages(defaultMaxContextMessages(createDto.getMaxContextMessages()));
+        conversation.setMaxContextMessages(aiChatRequestPreparer.generateMaxContextMessages(createDto.getMaxContextMessages()));
         aiConversationService.create(conversation);
         return conversation.getId();
     }
@@ -161,7 +146,7 @@ public class AiChatServiceImpl implements IAiChatService {
      */
     @Override
     public AiConversationDetailVo getConversation(Long conversationId) {
-        return aiChatAssembler.toConversationDetailVo(requireConversation(conversationId));
+        return aiChatAssembler.toConversationDetailVo(aiChatRequestPreparer.requireConversation(conversationId));
     }
 
     /**
@@ -172,7 +157,7 @@ public class AiChatServiceImpl implements IAiChatService {
      */
     @Override
     public void renameConversation(Long conversationId, AiConversationTitleUpdateDto updateDto) {
-        AiConversation conversation = requireConversation(conversationId);
+        AiConversation conversation = aiChatRequestPreparer.requireConversation(conversationId);
         AiConversation update = new AiConversation();
         update.setId(conversation.getId());
         update.setTitle(updateDto.getTitle().trim());
@@ -186,15 +171,15 @@ public class AiChatServiceImpl implements IAiChatService {
      * @param conversationId 会话ID
      */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void deleteConversation(Long conversationId) {
         Long userId = LoginUserInfoModelContext.getRequiredLoginUserId();
-        AiConversation conversation = requireConversation(conversationId);
-        transactionTemplate.executeWithoutResult(status -> {
-            aiChatRequestService.deleteByConversationIdAndUserId(conversation.getId(), userId);
-            aiConversationSummaryService.deleteByConversationIdAndUserId(conversation.getId(), userId);
-            aiMessageService.deleteByConversationIdAndUserId(conversation.getId(), userId);
-            aiConversationService.deleteByIdAndUserId(conversation.getId(), userId);
-        });
+        AiConversation conversation = aiChatRequestPreparer.requireConversation(conversationId);
+
+        aiChatRequestService.deleteByConversationIdAndUserId(conversation.getId(), userId);
+        aiConversationSummaryService.deleteByConversationIdAndUserId(conversation.getId(), userId);
+        aiMessageService.deleteByConversationIdAndUserId(conversation.getId(), userId);
+        aiConversationService.deleteByIdAndUserId(conversation.getId(), userId);
     }
 
     /**
@@ -207,7 +192,7 @@ public class AiChatServiceImpl implements IAiChatService {
     @Override
     public PageResponse<AiMessagePageVo> pageMessages(Long conversationId, AiMessagePageQueryDto queryDto) {
         Long userId = LoginUserInfoModelContext.getRequiredLoginUserId();
-        requireConversation(conversationId);
+        aiChatRequestPreparer.requireConversation(conversationId);
         PageResponse<AiMessage> pageResponse = aiMessageService.pageByConversationIdAndUserId(queryDto, conversationId, userId);
         PageResponse<AiMessagePageVo> response = new PageResponse<>();
         response.setTotal(pageResponse.getTotal());
@@ -370,188 +355,7 @@ public class AiChatServiceImpl implements IAiChatService {
     private PreparedSendContext prepareSendContext(Long conversationId,
                                                    AiMessageSendDto sendDto,
                                                    AiChatRequestModeEnum requestMode) {
-        Long userId = LoginUserInfoModelContext.getRequiredLoginUserId();
-        String requestId = defaultRequestId(sendDto.getRequestId());
-        validateSendDto(sendDto);
-        AiConversation conversation = requireConversation(conversationId);
-        if (!AiConversationStatusEnum.ACTIVE.name().equals(conversation.getStatus())) {
-            throw new ServiceException(GlobalErrorCode.CHAT_CONVERSATION_NOT_ACTIVE);
-        }
-
-        if (aiChatRequestService.getByConversationIdAndRequestId(conversationId, requestId) != null
-                || !aiChatRedisCoordinator.markRequestIfAbsent(conversationId, requestId)) {
-            throw new ServiceException(GlobalErrorCode.CHAT_REQUEST_DUPLICATE);
-        }
-
-        if (!aiChatRedisCoordinator.acquireConversationLock(conversationId, requestId)) {
-            aiChatRedisCoordinator.releaseRequestMark(conversationId, requestId);
-            throw new ServiceException(GlobalErrorCode.CHAT_GENERATING_CONFLICT);
-        }
-
-        try {
-            return transactionTemplate.execute(status -> doPrepareSendContext(conversation, userId, requestId, sendDto, requestMode));
-        } catch (RuntimeException ex) {
-            aiChatRedisCoordinator.releaseConversationLock(conversationId);
-            aiChatRedisCoordinator.releaseRequestMark(conversationId, requestId);
-            throw ex;
-        }
-    }
-
-    /**
-     * 执行发送上下文准备。
-     *
-     * @param conversation 会话实体
-     * @param userId       用户ID
-     * @param requestId    请求唯一标识
-     * @param sendDto      消息发送请求对象
-     * @param requestMode  请求模式
-     * @return 发送准备上下文
-     */
-    private PreparedSendContext doPrepareSendContext(AiConversation conversation,
-                                                     Long userId,
-                                                     String requestId,
-                                                     AiMessageSendDto sendDto,
-                                                     AiChatRequestModeEnum requestMode) {
-        String modelCode = defaultModelCode(conversation.getCurrentModelCode());
-
-        // 使用消息构建器创建实体
-        AiMessage userMessage = aiChatMessageBuilder.buildUserMessage(conversation.getId(), userId, requestId, modelCode, sendDto);
-        aiMessageService.create(userMessage);
-
-        AiMessage assistantMessage = aiChatMessageBuilder.buildAssistantPlaceholder(conversation.getId(), userId, requestId, modelCode, userMessage.getId());
-        aiMessageService.create(assistantMessage);
-
-        AiChatRequest chatRequest = aiChatMessageBuilder.buildChatRequest(conversation.getId(), userId, requestId, requestMode, modelCode, userMessage.getId(), assistantMessage.getId());
-        try {
-            aiChatRequestService.create(chatRequest);
-        } catch (DuplicateKeyException ex) {
-            throw new ServiceException(GlobalErrorCode.CHAT_REQUEST_DUPLICATE);
-        }
-
-        Prompt prompt = buildPrompt(conversation, userId, userMessage, modelCode, requestMode == AiChatRequestModeEnum.STREAM);
-        updateConversationForPreparedRequest(conversation, requestId, modelCode);
-
-        PreparedSendContext context = new PreparedSendContext();
-        context.setUserId(userId);
-        context.setConversationId(conversation.getId());
-        context.setRequestId(requestId);
-        context.setModelCode(modelCode);
-        context.setConversation(conversation);
-        context.setUserMessage(userMessage);
-        context.setAssistantMessage(assistantMessage);
-        context.setChatRequest(chatRequest);
-        context.setPrompt(prompt);
-        return context;
-    }
-
-    /**
-     * 构建AI提示词。
-     *
-     * @param conversation 会话实体
-     * @param userId       用户ID
-     * @param userMessage  用户消息实体
-     * @param modelCode    模型编码
-     * @param stream       是否流式
-     * @return 提示词对象
-     */
-    private Prompt buildPrompt(AiConversation conversation,
-                               Long userId,
-                               AiMessage userMessage,
-                               String modelCode,
-                               boolean stream) {
-        List<Message> messages = new ArrayList<>();
-        String systemPrompt = defaultSystemPrompt(conversation.getSystemPrompt());
-        if (CharSequenceUtil.isNotBlank(systemPrompt)) {
-            messages.add(new SystemMessage(systemPrompt));
-        }
-
-        AiConversationSummary summary = aiConversationSummaryService.getLatestReadySummary(conversation.getId(), userId);
-        if (summary != null && CharSequenceUtil.isNotBlank(summary.getSummaryText())) {
-            messages.add(new SystemMessage("以下是当前会话的历史摘要：\n" + summary.getSummaryText()));
-        }
-
-        List<AiMessage> historyMessages = aiMessageService.listRecentContextMessages(
-                conversation.getId(),
-                userId,
-                userMessage.getId(),
-                defaultMaxContextMessages(conversation.getMaxContextMessages())
-        );
-        Collections.reverse(historyMessages);
-        for (AiMessage historyMessage : historyMessages) {
-            Message promptMessage = toPromptMessage(historyMessage);
-            if (promptMessage != null) {
-                messages.add(promptMessage);
-            }
-        }
-        messages.add(new UserMessage(userMessage.getContent()));
-        return new Prompt(messages, buildChatOptions(conversation, modelCode, stream));
-    }
-
-    /**
-     * 将消息实体转换为提示词消息。
-     *
-     * @param aiMessage 消息实体
-     * @return 提示词消息
-     */
-    private Message toPromptMessage(AiMessage aiMessage) {
-        if (aiMessage == null || CharSequenceUtil.isBlank(aiMessage.getContent())) {
-            return null;
-        }
-        return switch (AiRoleTypeEnum.valueOf(aiMessage.getRoleType())) {
-            case USER -> new UserMessage(aiMessage.getContent());
-            case ASSISTANT -> new AssistantMessage(aiMessage.getContent());
-            case SYSTEM -> new SystemMessage(aiMessage.getContent());
-            case SUMMARY -> new SystemMessage("历史摘要：\n" + aiMessage.getContent());
-        };
-    }
-
-    /**
-     * 构建模型调用选项。
-     *
-     * @param conversation 会话实体
-     * @param modelCode    模型编码
-     * @param stream       是否流式
-     * @return 模型选项
-     */
-    private DashScopeChatOptions buildChatOptions(AiConversation conversation, String modelCode, boolean stream) {
-        var builder = DashScopeChatOptions.builder()
-                .model(modelCode)
-                .stream(stream)
-                .incrementalOutput(stream)
-                .enableSearch(Boolean.TRUE)
-                .enableThinking(isThinkingModel(modelCode));
-
-        if (conversation.getMaxTokens() != null) {
-            builder.maxToken(conversation.getMaxTokens());
-        }
-        if (conversation.getTemperature() != null) {
-            builder.temperature(conversation.getTemperature().doubleValue());
-        }
-        return builder.build();
-    }
-
-    /**
-     * 更新会话预准备请求信息。
-     *
-     * @param conversation 会话实体
-     * @param requestId    请求唯一标识
-     * @param modelCode    模型编码
-     */
-    private void updateConversationForPreparedRequest(AiConversation conversation, String requestId, String modelCode) {
-        AiConversation update = new AiConversation();
-        update.setId(conversation.getId());
-        update.setActiveRequestId(requestId);
-        update.setCurrentModelCode(modelCode);
-        update.setLastMessageAt(LocalDateTime.now());
-        update.setMessageCount(defaultNumber(conversation.getMessageCount()) + 2);
-        update.setRoundCount(defaultNumber(conversation.getRoundCount()) + 1);
-        update.setLastErrorCode(null);
-        update.setLastErrorMessage(null);
-        aiConversationService.update(update);
-        conversation.setMessageCount(update.getMessageCount());
-        conversation.setRoundCount(update.getRoundCount());
-        conversation.setCurrentModelCode(modelCode);
-        conversation.setActiveRequestId(requestId);
+        return aiChatRequestPreparer.prepareSendContext(conversationId, sendDto, requestMode);
     }
 
     /**
@@ -568,18 +372,6 @@ public class AiChatServiceImpl implements IAiChatService {
     }
 
     /**
-     * 校验消息发送请求参数。
-     *
-     * @param sendDto 消息发送请求对象
-     */
-    private void validateSendDto(AiMessageSendDto sendDto) {
-        String messageType = defaultMessageType(sendDto.getMessageType());
-        if (!AiMessageTypeEnum.TEXT.name().equals(messageType)) {
-            throw new ServiceException(GlobalErrorCode.CHAT_MESSAGE_TYPE_UNSUPPORTED);
-        }
-    }
-
-    /**
      * 校验模型完成结果。
      *
      * @param completionResult 模型完成结果
@@ -592,105 +384,6 @@ public class AiChatServiceImpl implements IAiChatService {
                 && CharSequenceUtil.isBlank(completionResult.getReasoningContent())) {
             throw new ServiceException(GlobalErrorCode.MODEL_RESPONSE_INVALID);
         }
-    }
-
-
-    /**
-     * 获取默认会话标题。
-     *
-     * @param title 标题
-     * @return 默认标题
-     */
-    private String defaultConversationTitle(String title) {
-        return CharSequenceUtil.isBlank(title) ? "新对话" : title.trim();
-    }
-
-    /**
-     * 获取默认系统提示词。
-     *
-     * @param systemPrompt 系统提示词
-     * @return 默认系统提示词
-     */
-    private String defaultSystemPrompt(String systemPrompt) {
-        return CharSequenceUtil.isBlank(systemPrompt) ? aiChatProperty.getDefaultSystemPrompt() : systemPrompt.trim();
-    }
-
-    /**
-     * 获取默认模型编码。
-     *
-     * @param modelCode 模型编码
-     * @return 默认模型编码
-     */
-    private String defaultModelCode(String modelCode) {
-        return CharSequenceUtil.isBlank(modelCode) ? aiChatProperty.getDashscopeChatModel() : modelCode.trim();
-    }
-
-    /**
-     * 获取默认最大上下文消息数。
-     *
-     * @param maxContextMessages 最大上下文消息数
-     * @return 默认最大上下文消息数
-     */
-    private Integer defaultMaxContextMessages(Integer maxContextMessages) {
-        return maxContextMessages == null || maxContextMessages <= 0
-                ? aiChatProperty.getMaxContextMessages()
-                : maxContextMessages;
-    }
-
-    /**
-     * 获取默认请求唯一标识。
-     *
-     * @param requestId 请求唯一标识
-     * @return 默认请求唯一标识
-     */
-    private String defaultRequestId(String requestId) {
-        return CharSequenceUtil.isBlank(requestId) ? IdUtil.fastSimpleUUID() : requestId.trim();
-    }
-
-    /**
-     * 获取默认消息类型。
-     *
-     * @param messageType 消息类型
-     * @return 默认消息类型
-     */
-    private String defaultMessageType(String messageType) {
-        return CharSequenceUtil.isBlank(messageType) ? AiMessageTypeEnum.TEXT.name() : messageType.trim().toUpperCase();
-    }
-
-    /**
-     * 获取默认数值。
-     *
-     * @param value 数值
-     * @return 默认数值
-     */
-    private int defaultNumber(Integer value) {
-        return value == null ? 0 : value;
-    }
-
-
-    /**
-     * 判断是否为思考模型。
-     *
-     * @param modelCode 模型编码
-     * @return 是否为思考模型
-     */
-    private boolean isThinkingModel(String modelCode) {
-        return CharSequenceUtil.isNotBlank(modelCode) && modelCode.startsWith("qwq-");
-    }
-
-    /**
-     * 获取并校验会话存在性。
-     *
-     * @param conversationId 会话ID
-     * @return 会话实体
-     */
-    private AiConversation requireConversation(Long conversationId) {
-        Long userId = LoginUserInfoModelContext.getRequiredLoginUserId();
-        AiConversation conversation = aiConversationService.getByIdAndUserId(conversationId, userId);
-        if (conversation == null) {
-            throw new ServiceException(GlobalErrorCode.CHAT_CONVERSATION_NOT_FOUND);
-        }
-        return conversation;
     }
 
     /**
