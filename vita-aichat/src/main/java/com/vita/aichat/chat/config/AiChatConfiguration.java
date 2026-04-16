@@ -2,7 +2,7 @@ package com.vita.aichat.chat.config;
 
 import cn.hutool.core.text.CharSequenceUtil;
 import com.vita.aichat.chat.property.AiChatProperty;
-import com.vita.aichat.error.AiChatErrorCode;
+import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
 import jakarta.annotation.Resource;
 import org.springframework.beans.factory.InitializingBean;
@@ -42,16 +42,16 @@ public class AiChatConfiguration {
     public InitializingBean aiChatStartupValidator() {
         return () -> {
             if (!"dashscope".equalsIgnoreCase(aiChatProperty.getModelChat())) {
-                throw new ServiceException(AiChatErrorCode.MODEL_PROVIDER_ERROR.getCode(), "spring.ai.model.chat 仅支持 dashscope");
+                throw new ServiceException(GlobalErrorCode.MODEL_PROVIDER_ERROR.getCode(), "spring.ai.model.chat 仅支持 dashscope");
             }
             if (CharSequenceUtil.isBlank(aiChatProperty.getDashscopeApiKey())) {
-                throw new ServiceException(AiChatErrorCode.MODEL_AUTH_ERROR.getCode(), "spring.ai.dashscope.api-key 未配置");
+                throw new ServiceException(GlobalErrorCode.MODEL_AUTH_ERROR.getCode(), "spring.ai.dashscope.api-key 未配置");
             }
             if (CharSequenceUtil.isBlank(aiChatProperty.getDashscopeBaseUrl())) {
-                throw new ServiceException(AiChatErrorCode.MODEL_PROVIDER_ERROR.getCode(), "spring.ai.dashscope.base-url 未配置");
+                throw new ServiceException(GlobalErrorCode.MODEL_PROVIDER_ERROR.getCode(), "spring.ai.dashscope.base-url 未配置");
             }
             if (CharSequenceUtil.isBlank(aiChatProperty.getDashscopeChatModel())) {
-                throw new ServiceException(AiChatErrorCode.MODEL_PROVIDER_ERROR.getCode(), "spring.ai.dashscope.chat.options.model 未配置");
+                throw new ServiceException(GlobalErrorCode.MODEL_PROVIDER_ERROR.getCode(), "spring.ai.dashscope.chat.options.model 未配置");
             }
         };
     }
