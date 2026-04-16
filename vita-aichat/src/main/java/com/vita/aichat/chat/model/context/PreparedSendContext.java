@@ -12,21 +12,30 @@ import org.springframework.ai.chat.prompt.Prompt;
 @Data
 public class PreparedSendContext {
 
+    /* 用户ID */
     private Long userId;
 
+    /* 会话ID */
     private Long conversationId;
 
+    /* 请求唯一标识 */
     private String requestId;
 
+    /* 模型编码 */
     private String modelCode;
 
+    /* 会话实体 */
     private AiConversation conversation;
 
+    /* 用户消息实体 */
     private AiMessage userMessage;
 
+    /* 助手消息实体 */
     private AiMessage assistantMessage;
 
+    /* 聊天请求实体 */
     private AiChatRequest chatRequest;
 
+    /* AI提示词 */
     private Prompt prompt;
 }
