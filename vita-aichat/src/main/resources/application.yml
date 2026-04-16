@@ -5,25 +5,11 @@ server:
     context-path: /aichat/api
 # Spring Boot 配置
 spring:
-  profiles:
-    active: prod
-  # Spring AI 模型接入配置。
-  # 这里不直接写死 provider 参数，而是统一引用 vita.aichat.* 下的原始配置，便于按 profile 管理。
-  ai:
-    model:
-      # 当前 Chat 模型类型，Qwen 通过 OpenAI-compatible 方式接入。
-      chat: ${vita.aichat.model.chat}
-    openai:
-      # 模型 API Key，由 profile 或外部环境提供。
-      api-key: ${vita.aichat.openai.api-key}
-      # Qwen DashScope OpenAI-compatible 接口地址。
-      base-url: ${vita.aichat.openai.base-url}
-      chat:
-        options:
-          # 当前默认模型编码，例如 qwen-plus。
-          model: ${vita.aichat.openai.chat.options.model}
   application:
     name: vita
+  profiles:
+    active: prod
+
   # 文件上传
   servlet:
     multipart:
