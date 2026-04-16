@@ -56,6 +56,8 @@ public interface GlobalErrorCode {
     ErrorCode CHAT_REQUEST_DUPLICATE = new ErrorCode(2004, "请求ID重复，请勿重复提交");
     ErrorCode CHAT_GENERATING_CONFLICT = new ErrorCode(2005, "当前会话已有生成任务，请稍后重试");
     ErrorCode CHAT_STREAM_DISABLED = new ErrorCode(2006, "当前环境未开启流式回复");
+    ErrorCode CHAT_CAPACITY_QUEUE_FULL = new ErrorCode(2007, "当前并发较高，等待队列已满，请稍后重试");
+    ErrorCode CHAT_CAPACITY_WAIT_TIMEOUT = new ErrorCode(2008, "当前并发较高，等待生成超时，请稍后重试");
 
     // --- 模型错误 2101-2199 ---
     ErrorCode MODEL_AUTH_ERROR = new ErrorCode(2101, "模型鉴权失败");
@@ -65,4 +67,3 @@ public interface GlobalErrorCode {
     ErrorCode MODEL_NETWORK_ERROR = new ErrorCode(2105, "模型网络异常");
     ErrorCode MODEL_RESPONSE_INVALID = new ErrorCode(2106, "模型返回内容无效");
 }
-

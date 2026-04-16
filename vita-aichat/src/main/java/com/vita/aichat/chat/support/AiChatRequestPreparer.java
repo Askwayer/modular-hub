@@ -12,6 +12,7 @@ import com.vita.aichat.aiMessage.entity.AiMessage;
 import com.vita.aichat.aiMessage.service.IAiMessageService;
 import com.vita.aichat.chat.dto.AiMessageSendDto;
 import com.vita.aichat.chat.model.context.PreparedSendContext;
+import com.vita.aichat.chat.model.context.ReservedSendContext;
 import com.vita.aichat.chat.property.AiChatProperty;
 import com.vita.aichat.enums.AiChatRequestModeEnum;
 import com.vita.aichat.enums.AiConversationStatusEnum;
@@ -37,7 +38,7 @@ import java.util.List;
 /**
  * AI Chat 请求准备器。
  *
- * <p>负责请求大模型前的所有准备工作，包括：前置校验、锁获取、消息构建、Prompt 组装等。</p>
+ * <p>负责请求大模型前的所有准备工作，包括：前置校验、requestId 预留、消息构建、Prompt 组装等。</p>
  */
 @Component
 public class AiChatRequestPreparer {
@@ -67,33 +68,28 @@ public class AiChatRequestPreparer {
     }
 
     /**
-     * 准备发送消息上下文。
+     * 预留一次发送请求。
      *
-     * <p>执行完整的请求前准备流程：前置校验 → 锁获取 → 数据准备 → 上下文组装。</p>
+     * <p>执行轻量前置校验：参数校验 → 会话状态检查 → requestId 防重预留。</p>
      *
      * @param conversationId 会话ID
      * @param sendDto        消息发送请求对象
-     * @param requestMode    请求模式
-     * @return 发送准备上下文
+     * @return 预留上下文
      */
-    public PreparedSendContext prepareSendContext(Long conversationId,
-                                                  AiMessageSendDto sendDto,
-                                                  AiChatRequestModeEnum requestMode) {
+    public ReservedSendContext reserveSendContext(Long conversationId, AiMessageSendDto sendDto) {
         Long userId = LoginUserInfoModelContext.getRequiredLoginUserId();
         String requestId = generateRequestId(sendDto.getRequestId());
         validateSendDto(sendDto);
         AiConversation conversation = requireConversation(conversationId);
         validateConversationStatus(conversation);
         validateRequestUniqueness(conversationId, requestId);
-        acquireConversationLock(conversationId, requestId);
-
-        try {
-            return doPrepareSendContext(conversation, userId, requestId, sendDto, requestMode);
-        } catch (RuntimeException ex) {
-            aiChatRedisCoordinator.releaseConversationLock(conversationId);
-            aiChatRedisCoordinator.releaseRequestMark(conversationId, requestId);
-            throw ex;
-        }
+        ReservedSendContext context = new ReservedSendContext();
+        context.setUserId(userId);
+        context.setConversationId(conversationId);
+        context.setRequestId(requestId);
+        context.setConversation(conversation);
+        context.setSendDto(sendDto);
+        return context;
     }
 
     /**
@@ -104,6 +100,17 @@ public class AiChatRequestPreparer {
      */
     public AiConversation requireConversation(Long conversationId) {
         Long userId = LoginUserInfoModelContext.getRequiredLoginUserId();
+        return requireConversation(conversationId, userId);
+    }
+
+    /**
+     * 按指定用户校验会话存在性。
+     *
+     * @param conversationId 会话ID
+     * @param userId         用户ID
+     * @return 会话实体
+     */
+    public AiConversation requireConversation(Long conversationId, Long userId) {
         AiConversation conversation = aiConversationService.getByIdAndUserId(conversationId, userId);
         if (conversation == null) {
             throw new ServiceException(GlobalErrorCode.CHAT_CONVERSATION_NOT_FOUND);
@@ -148,20 +155,45 @@ public class AiChatRequestPreparer {
     }
 
     /**
-     * 获取会话锁。
+     * 执行发送上下文准备。
      *
-     * @param conversationId 会话ID
-     * @param requestId      请求唯一标识
+     * <p>调用前必须确保已经拿到全局活跃名额和会话锁。</p>
+     *
+     * @param reservedContext 预留上下文
+     * @param requestMode     请求模式
+     * @return 发送准备上下文
      */
-    private void acquireConversationLock(Long conversationId, String requestId) {
-        if (!aiChatRedisCoordinator.acquireConversationLock(conversationId, requestId)) {
-            aiChatRedisCoordinator.releaseRequestMark(conversationId, requestId);
-            throw new ServiceException(GlobalErrorCode.CHAT_GENERATING_CONFLICT);
+    public PreparedSendContext prepareSendContext(ReservedSendContext reservedContext,
+                                                  AiChatRequestModeEnum requestMode) {
+        AiConversation conversation = requireConversation(reservedContext.getConversationId(), reservedContext.getUserId());
+        validateConversationStatus(conversation);
+        try {
+            return doPrepareSendContext(
+                    conversation,
+                    reservedContext.getUserId(),
+                    reservedContext.getRequestId(),
+                    reservedContext.getSendDto(),
+                    requestMode
+            );
+        } catch (RuntimeException ex) {
+            aiChatRedisCoordinator.releaseRequestMark(reservedContext.getConversationId(), reservedContext.getRequestId());
+            throw ex;
         }
     }
 
     /**
-     * 执行发送上下文准备。
+     * 释放请求预留标记。
+     *
+     * @param reservedContext 预留上下文
+     */
+    public void releaseRequestReservation(ReservedSendContext reservedContext) {
+        if (reservedContext != null) {
+            aiChatRedisCoordinator.releaseRequestMark(reservedContext.getConversationId(), reservedContext.getRequestId());
+        }
+    }
+
+    /**
+     * 事务内完成消息、请求和 Prompt 组装。
      *
      * @param conversation 会话实体
      * @param userId       用户ID
