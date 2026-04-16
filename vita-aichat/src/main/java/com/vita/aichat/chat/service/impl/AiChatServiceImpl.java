@@ -1,6 +1,8 @@
 package com.vita.aichat.chat.service.impl;
 
 import cn.hutool.core.text.CharSequenceUtil;
+import com.alibaba.cloud.ai.autoconfigure.dashscope.DashScopeChatProperties;
+import com.alibaba.cloud.ai.dashscope.chat.DashScopeChatOptions;
 import com.vita.aichat.aiConversation.entity.AiConversation;
 import com.vita.aichat.aiConversation.service.IAiConversationService;
 import com.vita.aichat.aiConversationSummary.entity.AiConversationSummary;
@@ -10,6 +12,7 @@ import com.vita.aichat.aiMessage.service.IAiMessageService;
 import com.vita.aichat.chat.AiChatConstants;
 import com.vita.aichat.chat.dto.*;
 import com.vita.aichat.chat.model.context.PreparedSendContext;
+import com.vita.aichat.chat.model.result.AiChatCompletionResult;
 import com.vita.aichat.chat.service.IAiChatService;
 import com.vita.aichat.chat.support.AiChatAssembler;
 import com.vita.aichat.chat.support.AiChatStreamWriter;
@@ -20,25 +23,35 @@ import com.vita.aichat.chat.vo.AiChatMessageVo;
 import com.vita.aichat.chat.vo.AiChatSendRespVo;
 import com.vita.aichat.config.AiChatProperties;
 import com.vita.aichat.enums.*;
-import com.vita.aichat.gateway.*;
 import com.vita.core.context.LoginUserInfoModelContext;
 import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
 import com.vita.core.page.PageResponse;
 import com.vita.utils.SnowUtils;
+import org.springframework.ai.chat.messages.Message;
+import org.springframework.ai.chat.messages.SystemMessage;
+import org.springframework.ai.chat.metadata.ChatGenerationMetadata;
+import org.springframework.ai.chat.metadata.ChatResponseMetadata;
+import org.springframework.ai.chat.metadata.Usage;
+import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestClientResponseException;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.net.ConnectException;
+import java.net.SocketTimeoutException;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.Executor;
+import java.util.concurrent.TimeoutException;
 
 /**
- * 编排正式 Chat 的会话管理、消息落库和模型调用流程。
+ * 编排正式 Chat 的会话管理、消息落库、Prompt 组装和模型调用流程。
  */
 @Service
 public class AiChatServiceImpl implements IAiChatService {
@@ -46,22 +59,25 @@ public class AiChatServiceImpl implements IAiChatService {
     private final IAiConversationService aiConversationService;
     private final IAiMessageService aiMessageService;
     private final IAiConversationSummaryService aiConversationSummaryService;
-    private final AiModelGatewayService aiModelGatewayService;
-    private final AiChatProperties aiChatProperties;
+    private final ChatModel chatModel;
     private final Executor aiChatExecutor;
+    private final AiChatProperties aiChatProperties;
+    private final DashScopeChatProperties dashScopeChatProperties;
 
     public AiChatServiceImpl(IAiConversationService aiConversationService,
                              IAiMessageService aiMessageService,
                              IAiConversationSummaryService aiConversationSummaryService,
-                             AiModelGatewayService aiModelGatewayService,
+                             ChatModel chatModel,
+                             @Qualifier("aiChatExecutor") Executor aiChatExecutor,
                              AiChatProperties aiChatProperties,
-                             @Qualifier("aiChatExecutor") Executor aiChatExecutor) {
+                             DashScopeChatProperties dashScopeChatProperties) {
         this.aiConversationService = aiConversationService;
         this.aiMessageService = aiMessageService;
         this.aiConversationSummaryService = aiConversationSummaryService;
-        this.aiModelGatewayService = aiModelGatewayService;
-        this.aiChatProperties = aiChatProperties;
+        this.chatModel = chatModel;
         this.aiChatExecutor = aiChatExecutor;
+        this.aiChatProperties = aiChatProperties;
+        this.dashScopeChatProperties = dashScopeChatProperties;
     }
 
     /**
@@ -141,7 +157,7 @@ public class AiChatServiceImpl implements IAiChatService {
     }
 
     /**
-     * 写入用户消息、助手占位消息，再同步调用模型返回完整回复。
+     * 写入用户消息、助手占位消息，再同步调用 DashScope 模型返回完整回复。
      */
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -149,23 +165,17 @@ public class AiChatServiceImpl implements IAiChatService {
         Long userId = LoginUserInfoModelContext.getRequiredLoginUserId();
         PreparedSendContext context = prepareSend(conversationId, reqDto, userId);
         try {
-            AiChatGatewayResp gatewayResp = aiModelGatewayService.chat(buildGatewayReq(context));
-            handleGatewaySuccess(context, gatewayResp);
-            return AiChatAssembler.toSendResp(context, gatewayResp, defaultModelCode(gatewayResp.getModelCode()));
-        } catch (AiModelGatewayException ex) {
-            handleGatewayFailure(context, ex.getModelErrorCode(), ex.getMessage());
-            throw ex.toServiceException();
-        } catch (ServiceException ex) {
-            handleGatewayFailure(context, AiChatConstants.MODEL_PROVIDER_ERROR, ex.getMessage());
-            throw ex;
-        } catch (Exception ex) {
-            handleGatewayFailure(context, AiChatConstants.MODEL_PROVIDER_ERROR, ex.getMessage());
-            throw new ServiceException(GlobalErrorCode.SERVICE_UNAVAILABLE).setMessage("模型调用失败");
+            AiChatCompletionResult completionResult = callModel(context);
+            handleGatewaySuccess(context, completionResult);
+            return AiChatAssembler.toSendResp(context, completionResult);
+        } catch (ModelCallException ex) {
+            handleGatewayFailure(context, ex.getErrorCode(), ex.getServiceException().getMessage());
+            throw ex.getServiceException();
         }
     }
 
     /**
-     * 写入会话消息后启动异步模型调用，并通过 SSE 向客户端推送增量内容。
+     * 写入会话消息后启动异步模型调用，并通过 SSE 推送增量回复。
      */
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -185,41 +195,43 @@ public class AiChatServiceImpl implements IAiChatService {
      * 执行真实的流式模型调用，并把生命周期事件写回消息表和 SSE。
      */
     void doStreamMessage(PreparedSendContext context, AiChatStreamWriter writer) {
+        String[] actualModelCode = {defaultModelCode(context.getConversation().getCurrentModelCode())};
+        StringBuilder contentBuilder = new StringBuilder();
+        StringBuilder reasoningBuilder = new StringBuilder();
+        TokenUsageAccumulator usageAccumulator = new TokenUsageAccumulator();
+        writer.sendStart(context.getAssistantMessage().getId(), context.getRequestId(), actualModelCode[0]);
         try {
-            aiModelGatewayService.chatStream(buildGatewayReq(context), new AiStreamListener() {
-                @Override
-                public void onStart(String modelCode) {
-                    writer.sendStart(context.getAssistantMessage().getId(), context.getRequestId(), modelCode);
-                }
+            Prompt prompt = buildPrompt(context, actualModelCode[0], true);
+            chatModel.stream(prompt)
+                    .doOnNext(response -> {
+                        AiChatCompletionResult chunk = toCompletionResult(response, actualModelCode[0]);
+                        actualModelCode[0] = chunk.getModelCode();
+                        if (CharSequenceUtil.isNotBlank(chunk.getContent())) {
+                            contentBuilder.append(chunk.getContent());
+                            writer.sendContentDelta(chunk.getContent());
+                        }
+                        if (CharSequenceUtil.isNotBlank(chunk.getReasoningContent())) {
+                            reasoningBuilder.append(chunk.getReasoningContent());
+                            writer.sendReasoningDelta(chunk.getReasoningContent());
+                        }
+                        usageAccumulator.update(chunk);
+                    })
+                    .blockLast();
 
-                @Override
-                public void onContentDelta(String delta) {
-                    writer.sendContentDelta(delta);
-                }
-
-                @Override
-                public void onReasoningDelta(String delta) {
-                    writer.sendReasoningDelta(delta);
-                }
-
-                @Override
-                public void onComplete(AiChatGatewayResp response) {
-                    handleGatewaySuccess(context, response);
-                    writer.sendEnd(response);
-                    writer.complete();
-                }
-
-                @Override
-                public void onError(String errorCode, String errorMessage, Throwable throwable) {
-                    handleGatewayFailure(context, errorCode, errorMessage);
-                    writer.sendError(errorCode, errorMessage);
-                    writer.completeWithError(throwable != null ? throwable : new IllegalStateException(errorMessage));
-                }
-            });
+            AiChatCompletionResult result = buildFinalCompletionResult(
+                    actualModelCode[0],
+                    contentBuilder.toString(),
+                    reasoningBuilder.toString(),
+                    usageAccumulator
+            );
+            handleGatewaySuccess(context, result);
+            writer.sendEnd(result);
+            writer.complete();
         } catch (Exception ex) {
-            handleGatewayFailure(context, AiChatConstants.MODEL_PROVIDER_ERROR, ex.getMessage());
-            writer.sendError(AiChatConstants.MODEL_PROVIDER_ERROR, normalizeErrorMessage(ex.getMessage()));
-            writer.completeWithError(ex);
+            ModelCallException mapped = mapModelException(ex);
+            handleGatewayFailure(context, mapped.getErrorCode(), mapped.getServiceException().getMessage());
+            writer.sendError(mapped.getErrorCode(), mapped.getServiceException().getMessage());
+            writer.completeWithError(mapped.getServiceException());
         }
     }
 
@@ -289,9 +301,9 @@ public class AiChatServiceImpl implements IAiChatService {
     }
 
     /**
-     * 读取摘要和上下文消息，组装成统一网关请求。
+     * 读取摘要和上下文消息，组装成最终的 Spring AI Prompt。
      */
-    private AiChatGatewayReq buildGatewayReq(PreparedSendContext context) {
+    Prompt buildPrompt(PreparedSendContext context, String modelCode, boolean stream) {
         AiConversation conversation = context.getConversation();
         AiConversationSummary summary = aiConversationSummaryService
                 .getLatestReadySummary(conversation.getId(), context.getUserId());
@@ -301,21 +313,38 @@ public class AiChatServiceImpl implements IAiChatService {
                 context.getUserMessage().getId(),
                 defaultMaxContextMessages(conversation.getMaxContextMessages())
         );
+        List<Message> messages = new ArrayList<>();
+        String systemPrompt = defaultSystemPrompt(conversation.getSystemPrompt());
+        if (CharSequenceUtil.isNotBlank(systemPrompt)) {
+            messages.add(new SystemMessage(systemPrompt));
+        }
+        messages.addAll(AiChatAssembler.buildPromptMessages(summary, history, context.getUserMessage()));
+        return new Prompt(messages, buildOptions(conversation, modelCode, stream));
+    }
 
-        AiChatGatewayReq req = new AiChatGatewayReq();
-        req.setModelCode(defaultModelCode(conversation.getCurrentModelCode()));
-        req.setSystemPrompt(defaultSystemPrompt(conversation.getSystemPrompt()));
-        req.setTemperature(conversation.getTemperature());
-        req.setMaxTokens(conversation.getMaxTokens());
-        req.setUserId(context.getUserId());
-        req.setMessages(AiChatAssembler.buildGatewayMessages(summary, history, context.getUserMessage()));
-        return req;
+    DashScopeChatOptions buildOptions(AiConversation conversation, String modelCode, boolean stream) {
+        DashScopeChatOptions.DashScopeChatOptionsBuilder builder = DashScopeChatOptions.builder()
+                .model(modelCode)
+                .stream(stream);
+        if (conversation.getTemperature() != null) {
+            builder.temperature(conversation.getTemperature().doubleValue());
+        }
+        if (conversation.getMaxTokens() != null) {
+            builder.maxToken(conversation.getMaxTokens());
+        }
+        if (stream) {
+            builder.incrementalOutput(Boolean.TRUE);
+        }
+        if (isThinkingModel(modelCode)) {
+            builder.enableThinking(Boolean.TRUE);
+        }
+        return builder.build();
     }
 
     /**
      * 模型回复成功后更新助手消息状态，并回写会话统计。
      */
-    private void handleGatewaySuccess(PreparedSendContext context, AiChatGatewayResp response) {
+    private void handleGatewaySuccess(PreparedSendContext context, AiChatCompletionResult response) {
         AiMessage assistantMessage = context.getAssistantMessage();
         assistantMessage.setContent(defaultText(response.getContent()));
         assistantMessage.setReasoningContent(response.getReasoningContent());
@@ -356,6 +385,177 @@ public class AiChatServiceImpl implements IAiChatService {
         conversation.setCurrentModelCode(update.getCurrentModelCode());
     }
 
+    AiChatCompletionResult callModel(PreparedSendContext context) {
+        String modelCode = defaultModelCode(context.getConversation().getCurrentModelCode());
+        Prompt prompt = buildPrompt(context, modelCode, false);
+        try {
+            ChatResponse response = chatModel.call(prompt);
+            return toCompletionResult(response, modelCode);
+        } catch (ModelCallException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw mapModelException(ex);
+        }
+    }
+
+    AiChatCompletionResult toCompletionResult(ChatResponse response, String fallbackModelCode) {
+        if (response == null || response.getResult() == null || response.getResult().getOutput() == null) {
+            throw new ModelCallException(
+                    AiChatConstants.MODEL_RESPONSE_INVALID,
+                    new ServiceException(GlobalErrorCode.SERVICE_UNAVAILABLE).setMessage("模型返回内容为空")
+            );
+        }
+
+        AiChatCompletionResult result = new AiChatCompletionResult();
+        result.setModelCode(extractModelCode(response, fallbackModelCode));
+        result.setContent(defaultText(response.getResult().getOutput().getText()));
+        result.setReasoningContent(extractReasoningContent(response));
+        fillUsage(response, result);
+        return result;
+    }
+
+    private String extractModelCode(ChatResponse response, String fallbackModelCode) {
+        ChatResponseMetadata metadata = response.getMetadata();
+        if (CharSequenceUtil.isNotBlank(metadata.getModel())) {
+            return metadata.getModel();
+        }
+        return fallbackModelCode;
+    }
+
+    private String extractReasoningContent(ChatResponse response) {
+        if (response == null || response.getResult() == null) {
+            return "";
+        }
+        ChatGenerationMetadata metadata = response.getResult().getMetadata();
+        String reasoning = extractMetadataValue(metadata, "reasoningContent", "reasoning_content");
+        if (CharSequenceUtil.isNotBlank(reasoning)) {
+            return reasoning;
+        }
+        Map<String, Object> outputMetadata = response.getResult().getOutput().getMetadata();
+        return extractMetadataValue(outputMetadata, "reasoningContent", "reasoning_content");
+    }
+
+    private String extractMetadataValue(ChatGenerationMetadata metadata, String... keys) {
+        if (metadata == null) {
+            return "";
+        }
+        for (String key : keys) {
+            Object value = metadata.get(key);
+            if (value != null && CharSequenceUtil.isNotBlank(String.valueOf(value))) {
+                return String.valueOf(value);
+            }
+        }
+        return "";
+    }
+
+    private String extractMetadataValue(Map<String, Object> metadata, String... keys) {
+        if (metadata == null || metadata.isEmpty()) {
+            return "";
+        }
+        for (String key : keys) {
+            Object value = metadata.get(key);
+            if (value != null && CharSequenceUtil.isNotBlank(String.valueOf(value))) {
+                return String.valueOf(value);
+            }
+        }
+        return "";
+    }
+
+    private void fillUsage(ChatResponse response, AiChatCompletionResult result) {
+        ChatResponseMetadata metadata = response.getMetadata();
+        if (metadata == null) {
+            return;
+        }
+        Usage usage = metadata.getUsage();
+        if (usage == null) {
+            return;
+        }
+        result.setTokenInput(usage.getPromptTokens());
+        result.setTokenOutput(usage.getCompletionTokens());
+        result.setTokenTotal(usage.getTotalTokens());
+    }
+
+    private AiChatCompletionResult buildFinalCompletionResult(String modelCode,
+                                                              String content,
+                                                              String reasoningContent,
+                                                              TokenUsageAccumulator usageAccumulator) {
+        AiChatCompletionResult result = new AiChatCompletionResult();
+        result.setModelCode(modelCode);
+        result.setContent(content);
+        result.setReasoningContent(reasoningContent);
+        result.setTokenInput(usageAccumulator.tokenInput);
+        result.setTokenOutput(usageAccumulator.tokenOutput);
+        result.setTokenTotal(usageAccumulator.tokenTotal);
+        return result;
+    }
+
+    ModelCallException mapModelException(Throwable throwable) {
+        Throwable root = rootCause(throwable);
+        String message = normalizeErrorMessage(root.getMessage());
+        String lowerMessage = message.toLowerCase(Locale.ROOT);
+
+        if (isUnauthorized(root, lowerMessage)) {
+            return new ModelCallException(
+                    AiChatConstants.MODEL_AUTH_ERROR,
+                    new ServiceException(GlobalErrorCode.FORBIDDEN).setMessage("模型鉴权失败，请检查 DashScope API Key 配置")
+            );
+        }
+        if (root instanceof SocketTimeoutException || root instanceof TimeoutException || lowerMessage.contains("timeout")) {
+            return new ModelCallException(
+                    AiChatConstants.MODEL_TIMEOUT,
+                    new ServiceException(GlobalErrorCode.GATEWAY_TIMEOUT).setMessage("模型响应超时，请稍后重试")
+            );
+        }
+        if (hasStatus(root, 429) || lowerMessage.contains("rate limit") || lowerMessage.contains("too many requests")) {
+            return new ModelCallException(
+                    AiChatConstants.MODEL_RATE_LIMIT,
+                    new ServiceException(GlobalErrorCode.TOO_MANY_REQUESTS).setMessage("模型请求过于频繁，请稍后重试")
+            );
+        }
+        if (root instanceof ConnectException || lowerMessage.contains("connection refused") || lowerMessage.contains("network")) {
+            return new ModelCallException(
+                    AiChatConstants.MODEL_NETWORK_ERROR,
+                    new ServiceException(GlobalErrorCode.SERVICE_UNAVAILABLE).setMessage("模型网络不可用，请检查 DashScope 地址配置")
+            );
+        }
+        return new ModelCallException(
+                AiChatConstants.MODEL_PROVIDER_ERROR,
+                new ServiceException(GlobalErrorCode.SERVICE_UNAVAILABLE).setMessage("模型调用失败，请检查 DashScope 服务状态")
+        );
+    }
+
+    private boolean isUnauthorized(Throwable throwable, String message) {
+        return hasStatus(throwable, 401)
+                || hasStatus(throwable, 403)
+                || message.contains("401")
+                || message.contains("403")
+                || message.contains("unauthorized")
+                || message.contains("forbidden");
+    }
+
+    private boolean hasStatus(Throwable throwable, int statusCode) {
+        if (throwable instanceof WebClientResponseException responseException) {
+            return responseException.getStatusCode().value() == statusCode;
+        }
+        if (throwable instanceof RestClientResponseException responseException) {
+            return responseException.getStatusCode().value() == statusCode;
+        }
+        return false;
+    }
+
+    private Throwable rootCause(Throwable throwable) {
+        Throwable current = throwable;
+        while (current.getCause() != null && current.getCause() != current) {
+            current = current.getCause();
+        }
+        return current;
+    }
+
+    private boolean isThinkingModel(String modelCode) {
+        return CharSequenceUtil.isNotBlank(modelCode)
+                && modelCode.trim().toLowerCase(Locale.ROOT).startsWith("qwq");
+    }
+
     private void validateMessageType(String messageType) {
         String actualMessageType = defaultMessageType(messageType);
         if (!AiChatConstants.MESSAGE_TYPE_TEXT.equals(actualMessageType)) {
@@ -364,7 +564,10 @@ public class AiChatServiceImpl implements IAiChatService {
     }
 
     private String defaultModelCode(String modelCode) {
-        return CharSequenceUtil.blankToDefault(modelCode, aiChatProperties.getDefaultModelCode());
+        String configuredModel = dashScopeChatProperties.getOptions() != null
+                ? dashScopeChatProperties.getOptions().getModel()
+                : null;
+        return CharSequenceUtil.blankToDefault(modelCode, configuredModel);
     }
 
     private String defaultSystemPrompt(String systemPrompt) {
@@ -393,5 +596,47 @@ public class AiChatServiceImpl implements IAiChatService {
 
     private String defaultText(String value) {
         return value != null ? value : "";
+    }
+
+    static final class ModelCallException extends RuntimeException {
+
+        private final String errorCode;
+
+        private final ServiceException serviceException;
+
+        ModelCallException(String errorCode, ServiceException serviceException) {
+            super(serviceException.getMessage(), serviceException);
+            this.errorCode = errorCode;
+            this.serviceException = serviceException;
+        }
+
+        String getErrorCode() {
+            return errorCode;
+        }
+
+        ServiceException getServiceException() {
+            return serviceException;
+        }
+    }
+
+    static final class TokenUsageAccumulator {
+
+        private Integer tokenInput;
+
+        private Integer tokenOutput;
+
+        private Integer tokenTotal;
+
+        void update(AiChatCompletionResult result) {
+            if (result.getTokenInput() != null) {
+                tokenInput = result.getTokenInput();
+            }
+            if (result.getTokenOutput() != null) {
+                tokenOutput = result.getTokenOutput();
+            }
+            if (result.getTokenTotal() != null) {
+                tokenTotal = result.getTokenTotal();
+            }
+        }
     }
 }

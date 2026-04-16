@@ -1,12 +1,12 @@
-package com.vita.aichat.gateway;
+package com.vita.aichat.chat.model.result;
 
 import lombok.Data;
 
 /**
- * AI Chat 网关响应。
+ * 承接一次模型补全后的统一结果。
  */
 @Data
-public class AiChatGatewayResp {
+public class AiChatCompletionResult {
 
     private String modelCode;
 

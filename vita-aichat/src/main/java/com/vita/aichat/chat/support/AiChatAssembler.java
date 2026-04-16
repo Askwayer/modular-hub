@@ -4,13 +4,16 @@ import com.vita.aichat.aiConversation.entity.AiConversation;
 import com.vita.aichat.aiConversationSummary.entity.AiConversationSummary;
 import com.vita.aichat.aiMessage.entity.AiMessage;
 import com.vita.aichat.chat.model.context.PreparedSendContext;
+import com.vita.aichat.chat.model.result.AiChatCompletionResult;
 import com.vita.aichat.chat.vo.AiChatConversationDetailVo;
 import com.vita.aichat.chat.vo.AiChatConversationPageVo;
 import com.vita.aichat.chat.vo.AiChatMessageVo;
 import com.vita.aichat.chat.vo.AiChatSendRespVo;
 import com.vita.aichat.enums.AiRoleTypeEnum;
-import com.vita.aichat.gateway.AiChatGatewayMessage;
-import com.vita.aichat.gateway.AiChatGatewayResp;
+import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.messages.Message;
+import org.springframework.ai.chat.messages.SystemMessage;
+import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
@@ -18,7 +21,7 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * 负责正式 Chat 链路里的对象转换和网关消息组装。
+ * 负责正式 Chat 链路里的对象转换和 Prompt 消息组装。
  */
 public final class AiChatAssembler {
 
@@ -85,14 +88,14 @@ public final class AiChatAssembler {
         return vo;
     }
 
-    public static AiChatSendRespVo toSendResp(PreparedSendContext context, AiChatGatewayResp response, String modelCode) {
+    public static AiChatSendRespVo toSendResp(PreparedSendContext context, AiChatCompletionResult response) {
         AiChatSendRespVo vo = new AiChatSendRespVo();
         vo.setConversationId(context.getConversation().getId());
         vo.setUserMessageId(context.getUserMessage().getId());
         vo.setAssistantMessageId(context.getAssistantMessage().getId());
         vo.setRequestId(context.getRequestId());
         vo.setContentStatus(context.getAssistantMessage().getContentStatus());
-        vo.setModelCode(modelCode);
+        vo.setModelCode(response.getModelCode());
         vo.setContent(response.getContent());
         vo.setReasoningContent(response.getReasoningContent());
         vo.setTokenInput(response.getTokenInput());
@@ -101,12 +104,12 @@ public final class AiChatAssembler {
         return vo;
     }
 
-    public static List<AiChatGatewayMessage> buildGatewayMessages(AiConversationSummary summary,
-                                                                  List<AiMessage> history,
-                                                                  AiMessage currentUserMessage) {
-        List<AiChatGatewayMessage> messages = new ArrayList<>();
+    public static List<Message> buildPromptMessages(AiConversationSummary summary,
+                                                    List<AiMessage> history,
+                                                    AiMessage currentUserMessage) {
+        List<Message> messages = new ArrayList<>();
         if (summary != null && StringUtils.hasText(summary.getSummaryText())) {
-            messages.add(new AiChatGatewayMessage(AiRoleTypeEnum.SYSTEM.name(), "历史对话摘要:\n" + summary.getSummaryText()));
+            messages.add(new SystemMessage("历史对话摘要:\n" + summary.getSummaryText()));
         }
         if (history != null && !history.isEmpty()) {
             List<AiMessage> orderedHistory = new ArrayList<>(history);
@@ -115,10 +118,20 @@ public final class AiChatAssembler {
                 if (!StringUtils.hasText(item.getContent())) {
                     continue;
                 }
-                messages.add(new AiChatGatewayMessage(item.getRoleType(), item.getContent()));
+                messages.add(toPromptMessage(item.getRoleType(), item.getContent()));
             }
         }
-        messages.add(new AiChatGatewayMessage(AiRoleTypeEnum.USER.name(), currentUserMessage.getContent()));
+        messages.add(new UserMessage(currentUserMessage.getContent()));
         return messages;
+    }
+
+    private static Message toPromptMessage(String roleType, String content) {
+        if (AiRoleTypeEnum.SYSTEM.name().equalsIgnoreCase(roleType) || AiRoleTypeEnum.SUMMARY.name().equalsIgnoreCase(roleType)) {
+            return new SystemMessage(content);
+        }
+        if (AiRoleTypeEnum.ASSISTANT.name().equalsIgnoreCase(roleType)) {
+            return new AssistantMessage(content);
+        }
+        return new UserMessage(content);
     }
 }

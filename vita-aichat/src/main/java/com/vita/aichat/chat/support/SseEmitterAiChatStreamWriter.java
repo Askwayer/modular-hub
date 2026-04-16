@@ -1,7 +1,7 @@
 package com.vita.aichat.chat.support;
 
 import com.vita.aichat.chat.AiChatConstants;
-import com.vita.aichat.gateway.AiChatGatewayResp;
+import com.vita.aichat.chat.model.result.AiChatCompletionResult;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
@@ -38,7 +38,7 @@ public class SseEmitterAiChatStreamWriter implements AiChatStreamWriter {
     }
 
     @Override
-    public void sendEnd(AiChatGatewayResp response) {
+    public void sendEnd(AiChatCompletionResult response) {
         send(AiChatConstants.EVENT_MESSAGE_END, response);
     }
 

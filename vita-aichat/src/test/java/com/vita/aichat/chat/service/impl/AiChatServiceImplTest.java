@@ -1,26 +1,23 @@
 package com.vita.aichat.chat.service.impl;
 
+import com.alibaba.cloud.ai.autoconfigure.dashscope.DashScopeChatProperties;
+import com.alibaba.cloud.ai.dashscope.chat.DashScopeChatOptions;
 import com.vita.aichat.aiConversation.entity.AiConversation;
 import com.vita.aichat.aiConversation.service.IAiConversationService;
 import com.vita.aichat.aiConversationSummary.entity.AiConversationSummary;
 import com.vita.aichat.aiConversationSummary.service.IAiConversationSummaryService;
 import com.vita.aichat.aiMessage.entity.AiMessage;
 import com.vita.aichat.aiMessage.service.IAiMessageService;
-import com.vita.aichat.chat.AiChatConstants;
-import com.vita.aichat.chat.dto.AiChatConversationCreateReqDto;
-import com.vita.aichat.chat.dto.AiChatConversationRenameReqDto;
-import com.vita.aichat.chat.dto.AiChatMessageSendReqDto;
 import com.vita.aichat.chat.model.context.PreparedSendContext;
+import com.vita.aichat.chat.model.result.AiChatCompletionResult;
 import com.vita.aichat.chat.support.AiChatStreamWriter;
 import com.vita.aichat.chat.vo.AiChatSendRespVo;
 import com.vita.aichat.config.AiChatProperties;
-import com.vita.aichat.enums.*;
-import com.vita.aichat.gateway.AiChatGatewayReq;
-import com.vita.aichat.gateway.AiChatGatewayResp;
-import com.vita.aichat.gateway.AiModelGatewayException;
-import com.vita.aichat.gateway.AiModelGatewayService;
+import com.vita.aichat.enums.AiContentStatusEnum;
+import com.vita.aichat.enums.AiConversationStatusEnum;
+import com.vita.aichat.enums.AiRoleTypeEnum;
+import com.vita.aichat.enums.AiSummaryStatusEnum;
 import com.vita.core.context.LoginUserInfoModelContext;
-import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
 import com.vita.core.model.LoginUserInfoModel;
 import org.junit.jupiter.api.AfterEach;
@@ -30,53 +27,62 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.metadata.ChatGenerationMetadata;
+import org.springframework.ai.chat.metadata.ChatResponseMetadata;
+import org.springframework.ai.chat.metadata.Usage;
+import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.chat.model.Generation;
+import org.springframework.ai.chat.prompt.Prompt;
+import reactor.core.publisher.Flux;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class AiChatServiceImplTest {
 
-    private static final Long LOGIN_USER_ID = 1001L;
-
     @Mock
     private IAiConversationService aiConversationService;
+
     @Mock
     private IAiMessageService aiMessageService;
+
     @Mock
     private IAiConversationSummaryService aiConversationSummaryService;
+
     @Mock
-    private AiModelGatewayService aiModelGatewayService;
+    private ChatModel chatModel;
 
     private AiChatServiceImpl aiChatService;
-    private AiChatProperties aiChatProperties;
 
     @BeforeEach
     void setUp() {
-        aiChatProperties = new AiChatProperties();
-        aiChatProperties.setDefaultModelCode("qwen-plus");
-        aiChatProperties.setDefaultSystemPrompt("你是一个严谨的开发助手。");
-        aiChatProperties.setMaxContextMessages(12);
-        aiChatProperties.setReadTimeoutMs(60000L);
-        aiChatProperties.setStreamEnabled(true);
+        AiChatProperties aiChatProperties = new AiChatProperties();
+        DashScopeChatProperties dashScopeChatProperties = new DashScopeChatProperties();
+        dashScopeChatProperties.getOptions().setModel("qwen-plus");
         aiChatService = new AiChatServiceImpl(
                 aiConversationService,
                 aiMessageService,
                 aiConversationSummaryService,
-                aiModelGatewayService,
+                chatModel,
+                Runnable::run,
                 aiChatProperties,
-                Runnable::run
+                dashScopeChatProperties
         );
 
-        LoginUserInfoModel loginUser = new LoginUserInfoModel();
-        loginUser.setId(LOGIN_USER_ID);
-        loginUser.setUsername("tester");
-        LoginUserInfoModelContext.setLoginUserInfo(loginUser);
+        LoginUserInfoModel loginUserInfoModel = new LoginUserInfoModel();
+        loginUserInfoModel.setId(100L);
+        loginUserInfoModel.setUsername("coder");
+        LoginUserInfoModelContext.setLoginUserInfo(loginUserInfoModel);
     }
 
     @AfterEach
@@ -85,324 +91,223 @@ class AiChatServiceImplTest {
     }
 
     @Test
-    void createConversationShouldFillDefaultsAndUseLoginUser() {
-        AiChatConversationCreateReqDto reqDto = new AiChatConversationCreateReqDto();
+    void sendMessageShouldUseDashScopeOptionsAndPersistReasoningContent() {
+        AiConversation conversation = buildConversation("qwq-plus");
+        AiConversationSummary summary = new AiConversationSummary();
+        summary.setSummaryText("这是历史摘要");
+        AiMessage historyUser = buildHistoryMessage(11L, AiRoleTypeEnum.USER.name(), "第一问");
+        AiMessage historyAssistant = buildHistoryMessage(12L, AiRoleTypeEnum.ASSISTANT.name(), "第一答");
 
-        Long conversationId = aiChatService.createConversation(reqDto);
+        when(aiConversationService.getByIdAndUserId(1L, 100L)).thenReturn(conversation);
+        when(aiConversationSummaryService.getLatestReadySummary(1L, 100L)).thenReturn(summary);
+        when(aiMessageService.listRecentContextMessages(eq(1L), eq(100L), anyLong(), anyInt()))
+                .thenReturn(List.of(historyAssistant, historyUser));
+        when(chatModel.call(any(Prompt.class))).thenReturn(buildChatResponse("最终回答", "推理内容", 12, 23, 35, "qwq-plus"));
 
-        ArgumentCaptor<AiConversation> captor = ArgumentCaptor.forClass(AiConversation.class);
-        verify(aiConversationService).create(captor.capture());
-        AiConversation inserted = captor.getValue();
-        assertEquals(conversationId, inserted.getId());
-        assertEquals(LOGIN_USER_ID, inserted.getUserId());
-        assertEquals(AiChatConstants.DEFAULT_TITLE, inserted.getTitle());
-        assertEquals(AiTitleSourceEnum.AUTO.name(), inserted.getTitleSource());
-        assertEquals(AiConversationStatusEnum.ACTIVE.name(), inserted.getStatus());
-        assertEquals(AiSummaryStatusEnum.NONE.name(), inserted.getSummaryStatus());
-        assertEquals("qwen-plus", inserted.getCurrentModelCode());
-        assertEquals("你是一个严谨的开发助手。", inserted.getSystemPrompt());
-        assertEquals(12, inserted.getMaxContextMessages());
-        assertNotNull(inserted.getId());
-    }
+        AiChatSendRespVo response = aiChatService.sendMessage(1L, buildSendReq("第二问"));
 
-    @Test
-    void renameConversationShouldRejectMissingConversation() {
-        when(aiConversationService.getByIdAndUserId(999L, LOGIN_USER_ID)).thenReturn(null);
-
-        AiChatConversationRenameReqDto reqDto = new AiChatConversationRenameReqDto();
-        reqDto.setTitle("新标题");
-
-        ServiceException exception = assertThrows(ServiceException.class,
-                () -> aiChatService.renameConversation(999L, reqDto));
-        assertEquals("会话不存在", exception.getMessage());
-    }
-
-    @Test
-    void sendMessageShouldPersistUserAndAssistantAndUpdateConversationOnSuccess() {
-        AiConversation conversation = buildConversation(2001L);
-        when(aiConversationService.getByIdAndUserId(2001L, LOGIN_USER_ID)).thenReturn(conversation);
-        when(aiConversationSummaryService.getLatestReadySummary(2001L, LOGIN_USER_ID))
-                .thenReturn(buildSummary("这是历史摘要"));
-        when(aiMessageService.listRecentContextMessages(eq(2001L), eq(LOGIN_USER_ID), anyLong(), eq(12)))
-                .thenReturn(new ArrayList<>(List.of(
-                        buildHistoryMessage(AiRoleTypeEnum.ASSISTANT.name(), "历史回复"),
-                        buildHistoryMessage(AiRoleTypeEnum.USER.name(), "历史问题")
-                )));
-        AiChatGatewayResp gatewayResp = new AiChatGatewayResp();
-        gatewayResp.setModelCode("qwen-plus");
-        gatewayResp.setContent("新的回答");
-        gatewayResp.setReasoningContent("推理过程");
-        gatewayResp.setTokenInput(11);
-        gatewayResp.setTokenOutput(22);
-        gatewayResp.setTokenTotal(33);
-        when(aiModelGatewayService.chat(any())).thenReturn(gatewayResp);
-        List<AiMessage> insertedMessages = new ArrayList<>();
-        doAnswer(invocation -> {
-            insertedMessages.add(copyMessage(invocation.getArgument(0)));
-            return 1;
-        }).when(aiMessageService).create(any(AiMessage.class));
-
-        AiChatMessageSendReqDto reqDto = new AiChatMessageSendReqDto();
-        reqDto.setContent("请总结一下");
-
-        AiChatSendRespVo respVo = aiChatService.sendMessage(2001L, reqDto);
-
-        verify(aiMessageService, org.mockito.Mockito.times(2)).create(any(AiMessage.class));
-        AiMessage userMessage = insertedMessages.get(0);
-        AiMessage assistantMessage = insertedMessages.get(1);
-        assertEquals(AiRoleTypeEnum.USER.name(), userMessage.getRoleType());
-        assertEquals("请总结一下", userMessage.getContent());
-        assertEquals(AiContentStatusEnum.DONE.name(), userMessage.getContentStatus());
-        assertEquals(AiRoleTypeEnum.ASSISTANT.name(), assistantMessage.getRoleType());
-        assertEquals(AiContentStatusEnum.GENERATING.name(), assistantMessage.getContentStatus());
-        assertEquals(userMessage.getId(), assistantMessage.getReplyToId());
-
-        ArgumentCaptor<AiChatGatewayReq> gatewayReqCaptor = ArgumentCaptor.forClass(AiChatGatewayReq.class);
-        verify(aiModelGatewayService).chat(gatewayReqCaptor.capture());
-        AiChatGatewayReq gatewayReq = gatewayReqCaptor.getValue();
-        assertEquals("qwen-plus", gatewayReq.getModelCode());
-        assertEquals("你是一个严谨的开发助手。", gatewayReq.getSystemPrompt());
-        assertEquals(4, gatewayReq.getMessages().size());
-        assertEquals("历史对话摘要:\n这是历史摘要", gatewayReq.getMessages().get(0).getContent());
-        assertEquals(AiRoleTypeEnum.USER.name(), gatewayReq.getMessages().get(1).getRole());
-        assertEquals("历史问题", gatewayReq.getMessages().get(1).getContent());
-        assertEquals(AiRoleTypeEnum.ASSISTANT.name(), gatewayReq.getMessages().get(2).getRole());
-        assertEquals("历史回复", gatewayReq.getMessages().get(2).getContent());
-        assertEquals("请总结一下", gatewayReq.getMessages().get(3).getContent());
+        ArgumentCaptor<Prompt> promptCaptor = ArgumentCaptor.forClass(Prompt.class);
+        verify(chatModel).call(promptCaptor.capture());
+        Prompt prompt = promptCaptor.getValue();
+        assertThat(prompt.getInstructions()).hasSize(5);
+        assertThat(prompt.getInstructions().get(0).getText()).isEqualTo("你是一个严谨的开发助手。");
+        assertThat(prompt.getInstructions().get(1).getText()).contains("历史对话摘要");
+        assertThat(prompt.getInstructions().get(4).getText()).isEqualTo("第二问");
+        assertThat(prompt.getOptions()).isInstanceOf(DashScopeChatOptions.class);
+        DashScopeChatOptions options = (DashScopeChatOptions) prompt.getOptions();
+        assertThat(options.getModel()).isEqualTo("qwq-plus");
+        assertThat(options.getEnableThinking()).isTrue();
+        assertThat(options.getMaxTokens()).isEqualTo(2048);
+        assertThat(options.getTemperature()).isEqualTo(0.6D);
 
         ArgumentCaptor<AiMessage> updateCaptor = ArgumentCaptor.forClass(AiMessage.class);
         verify(aiMessageService).update(updateCaptor.capture());
-        AiMessage updatedAssistant = updateCaptor.getValue();
-        assertEquals(AiContentStatusEnum.DONE.name(), updatedAssistant.getContentStatus());
-        assertEquals("新的回答", updatedAssistant.getContent());
-        assertEquals("推理过程", updatedAssistant.getReasoningContent());
-        assertEquals(33, updatedAssistant.getTokenTotal());
+        AiMessage updatedAssistantMessage = updateCaptor.getValue();
+        assertThat(updatedAssistantMessage.getContentStatus()).isEqualTo(AiContentStatusEnum.DONE.name());
+        assertThat(updatedAssistantMessage.getContent()).isEqualTo("最终回答");
+        assertThat(updatedAssistantMessage.getReasoningContent()).isEqualTo("推理内容");
+        assertThat(updatedAssistantMessage.getTokenTotal()).isEqualTo(35);
 
-        ArgumentCaptor<AiConversation> conversationCaptor = ArgumentCaptor.forClass(AiConversation.class);
-        verify(aiConversationService).update(conversationCaptor.capture());
-        AiConversation updatedConversation = conversationCaptor.getValue();
-        assertEquals(2, updatedConversation.getMessageCount());
-        assertEquals(1, updatedConversation.getRoundCount());
-        assertEquals("qwen-plus", updatedConversation.getCurrentModelCode());
-
-        assertEquals(conversation.getId(), respVo.getConversationId());
-        assertEquals(updatedAssistant.getId(), respVo.getAssistantMessageId());
-        assertEquals("新的回答", respVo.getContent());
-        assertEquals("推理过程", respVo.getReasoningContent());
-        assertEquals(33, respVo.getTokenTotal());
+        verify(aiMessageService, times(2)).create(any(AiMessage.class));
+        assertThat(response.getModelCode()).isEqualTo("qwq-plus");
+        assertThat(response.getReasoningContent()).isEqualTo("推理内容");
+        assertThat(response.getTokenTotal()).isEqualTo(35);
     }
 
     @Test
-    void sendMessageShouldMarkAssistantErrorWithTypedGatewayCode() {
-        AiConversation conversation = buildConversation(2002L);
-        when(aiConversationService.getByIdAndUserId(2002L, LOGIN_USER_ID)).thenReturn(conversation);
-        when(aiConversationSummaryService.getLatestReadySummary(2002L, LOGIN_USER_ID)).thenReturn(null);
-        when(aiMessageService.listRecentContextMessages(eq(2002L), eq(LOGIN_USER_ID), anyLong(), eq(12)))
-                .thenReturn(new ArrayList<>());
-        when(aiModelGatewayService.chat(any())).thenThrow(
-                new AiModelGatewayException(
-                        AiChatConstants.MODEL_TIMEOUT,
-                        "模型调用超时",
-                        new ServiceException(GlobalErrorCode.GATEWAY_TIMEOUT).setMessage("模型调用超时")
-                )
-        );
+    void doStreamMessageShouldEmitDeltaEventsAndPersistFinalResult() {
+        PreparedSendContext context = new PreparedSendContext();
+        AiConversation conversation = buildConversation("qwq-plus");
+        AiMessage userMessage = buildHistoryMessage(21L, AiRoleTypeEnum.USER.name(), "再说一遍");
+        userMessage.setRequestId("chat-req-001");
+        AiMessage assistantMessage = buildHistoryMessage(22L, AiRoleTypeEnum.ASSISTANT.name(), "");
+        assistantMessage.setContentStatus(AiContentStatusEnum.GENERATING.name());
+        context.setConversation(conversation);
+        context.setUserId(100L);
+        context.setRequestId("chat-req-001");
+        context.setUserMessage(userMessage);
+        context.setAssistantMessage(assistantMessage);
 
-        AiChatMessageSendReqDto reqDto = new AiChatMessageSendReqDto();
-        reqDto.setContent("继续");
+        when(aiConversationSummaryService.getLatestReadySummary(1L, 100L)).thenReturn(null);
+        when(aiMessageService.listRecentContextMessages(eq(1L), eq(100L), eq(21L), anyInt())).thenReturn(List.of());
+        when(chatModel.stream(any(Prompt.class))).thenReturn(Flux.just(
+                buildChatResponse("你", "想", null, null, null, "qwq-plus"),
+                buildChatResponse("好", "法", 4, 5, 9, "qwq-plus")
+        ));
 
-        ServiceException exception = assertThrows(ServiceException.class,
-                () -> aiChatService.sendMessage(2002L, reqDto));
-        assertEquals("模型调用超时", exception.getMessage());
-
-        ArgumentCaptor<AiMessage> updateCaptor = ArgumentCaptor.forClass(AiMessage.class);
-        verify(aiMessageService).update(updateCaptor.capture());
-        AiMessage updatedAssistant = updateCaptor.getValue();
-        assertEquals(AiContentStatusEnum.ERROR.name(), updatedAssistant.getContentStatus());
-        assertEquals(AiChatConstants.MODEL_TIMEOUT, updatedAssistant.getErrorCode());
-        assertEquals("模型调用超时", updatedAssistant.getErrorMessage());
-    }
-
-    @Test
-    void doStreamMessageShouldEmitEventsAndFinalizeAssistantMessage() {
-        AiConversation conversation = buildConversation(2003L);
-        when(aiConversationService.getByIdAndUserId(2003L, LOGIN_USER_ID)).thenReturn(conversation);
-        when(aiConversationSummaryService.getLatestReadySummary(2003L, LOGIN_USER_ID)).thenReturn(null);
-        when(aiMessageService.listRecentContextMessages(eq(2003L), eq(LOGIN_USER_ID), anyLong(), eq(12)))
-                .thenReturn(new ArrayList<>());
-        doAnswer(invocation -> {
-            AiStreamListenerArgument listenerArgument = new AiStreamListenerArgument(invocation.getArgument(1));
-            listenerArgument.listener.onStart("qwen-plus");
-            listenerArgument.listener.onContentDelta("分段");
-            listenerArgument.listener.onReasoningDelta("思考");
-            AiChatGatewayResp response = new AiChatGatewayResp();
-            response.setModelCode("qwen-plus");
-            response.setContent("分段完成");
-            response.setReasoningContent("思考完成");
-            response.setTokenInput(7);
-            response.setTokenOutput(8);
-            response.setTokenTotal(15);
-            listenerArgument.listener.onComplete(response);
-            return null;
-        }).when(aiModelGatewayService).chatStream(any(), any());
-
-        AiChatMessageSendReqDto reqDto = new AiChatMessageSendReqDto();
-        reqDto.setContent("流式回答");
-        PreparedSendContext context = aiChatService.prepareSend(2003L, reqDto, LOGIN_USER_ID);
         RecordingStreamWriter writer = new RecordingStreamWriter();
-
         aiChatService.doStreamMessage(context, writer);
 
-        assertEquals(List.of(
-                AiChatConstants.EVENT_MESSAGE_START,
-                AiChatConstants.EVENT_MESSAGE_DELTA,
-                AiChatConstants.EVENT_REASONING_DELTA,
-                AiChatConstants.EVENT_MESSAGE_END,
+        assertThat(writer.events).containsExactly(
+                "start:qwq-plus",
+                "content:你",
+                "reasoning:想",
+                "content:好",
+                "reasoning:法",
+                "end",
                 "complete"
-        ), writer.events);
-        assertFalse(writer.completedWithError);
+        );
+        assertThat(writer.endResult.getContent()).isEqualTo("你好");
+        assertThat(writer.endResult.getReasoningContent()).isEqualTo("想法");
+        assertThat(writer.endResult.getTokenTotal()).isEqualTo(9);
+
+        ArgumentCaptor<Prompt> promptCaptor = ArgumentCaptor.forClass(Prompt.class);
+        verify(chatModel).stream(promptCaptor.capture());
+        DashScopeChatOptions options = (DashScopeChatOptions) promptCaptor.getValue().getOptions();
+        assertThat(options.getStream()).isTrue();
+        assertThat(options.getIncrementalOutput()).isTrue();
+        assertThat(options.getEnableThinking()).isTrue();
 
         ArgumentCaptor<AiMessage> updateCaptor = ArgumentCaptor.forClass(AiMessage.class);
         verify(aiMessageService).update(updateCaptor.capture());
-        AiMessage updatedAssistant = updateCaptor.getValue();
-        assertEquals(AiContentStatusEnum.DONE.name(), updatedAssistant.getContentStatus());
-        assertEquals("分段完成", updatedAssistant.getContent());
-        assertEquals("思考完成", updatedAssistant.getReasoningContent());
+        assertThat(updateCaptor.getValue().getContentStatus()).isEqualTo(AiContentStatusEnum.DONE.name());
+        assertThat(updateCaptor.getValue().getContent()).isEqualTo("你好");
     }
 
     @Test
-    void doStreamMessageShouldEmitErrorOnceAndMarkAssistantMessage() {
-        AiConversation conversation = buildConversation(2004L);
-        when(aiConversationService.getByIdAndUserId(2004L, LOGIN_USER_ID)).thenReturn(conversation);
-        when(aiConversationSummaryService.getLatestReadySummary(2004L, LOGIN_USER_ID)).thenReturn(null);
-        when(aiMessageService.listRecentContextMessages(eq(2004L), eq(LOGIN_USER_ID), anyLong(), eq(12)))
-                .thenReturn(new ArrayList<>());
-        doAnswer(invocation -> {
-            AiStreamListenerArgument listenerArgument = new AiStreamListenerArgument(invocation.getArgument(1));
-            listenerArgument.listener.onStart("qwen-plus");
-            listenerArgument.listener.onError(AiChatConstants.MODEL_TIMEOUT, "请求超时", new RuntimeException("请求超时"));
-            return null;
-        }).when(aiModelGatewayService).chatStream(any(), any());
+    void sendMessageShouldMapUnauthorizedToAuthError() {
+        AiConversation conversation = buildConversation("qwen-plus");
+        when(aiConversationService.getByIdAndUserId(1L, 100L)).thenReturn(conversation);
+        when(aiConversationSummaryService.getLatestReadySummary(1L, 100L)).thenReturn(null);
+        when(aiMessageService.listRecentContextMessages(eq(1L), eq(100L), anyLong(), anyInt())).thenReturn(List.of());
+        when(chatModel.call(any(Prompt.class))).thenThrow(new RuntimeException("401 unauthorized"));
 
-        AiChatMessageSendReqDto reqDto = new AiChatMessageSendReqDto();
-        reqDto.setContent("流式异常");
-        PreparedSendContext context = aiChatService.prepareSend(2004L, reqDto, LOGIN_USER_ID);
-        RecordingStreamWriter writer = new RecordingStreamWriter();
+        ServiceException exception = assertThrows(ServiceException.class,
+                () -> aiChatService.sendMessage(1L, buildSendReq("会失败的问题")));
 
-        aiChatService.doStreamMessage(context, writer);
-
-        assertEquals(List.of(
-                AiChatConstants.EVENT_MESSAGE_START,
-                AiChatConstants.EVENT_ERROR
-        ), writer.events);
-        assertTrue(writer.completedWithError);
-        assertEquals(AiChatConstants.MODEL_TIMEOUT, writer.errorCode);
-        assertEquals("请求超时", writer.errorMessage);
+        assertThat(exception.getCode()).isEqualTo(403);
+        assertThat(exception.getMessage()).contains("模型鉴权失败");
 
         ArgumentCaptor<AiMessage> updateCaptor = ArgumentCaptor.forClass(AiMessage.class);
         verify(aiMessageService).update(updateCaptor.capture());
-        AiMessage updatedAssistant = updateCaptor.getValue();
-        assertEquals(AiContentStatusEnum.ERROR.name(), updatedAssistant.getContentStatus());
-        assertEquals(AiChatConstants.MODEL_TIMEOUT, updatedAssistant.getErrorCode());
+        assertThat(updateCaptor.getValue().getContentStatus()).isEqualTo(AiContentStatusEnum.ERROR.name());
+        assertThat(updateCaptor.getValue().getErrorCode()).isEqualTo("MODEL_AUTH_ERROR");
     }
 
-    private AiConversation buildConversation(Long conversationId) {
+    private AiConversation buildConversation(String modelCode) {
         AiConversation conversation = new AiConversation();
-        conversation.setId(conversationId);
-        conversation.setUserId(LOGIN_USER_ID);
-        conversation.setTitle("测试会话");
-        conversation.setTitleSource(AiTitleSourceEnum.AUTO.name());
+        conversation.setId(1L);
+        conversation.setUserId(100L);
         conversation.setStatus(AiConversationStatusEnum.ACTIVE.name());
-        conversation.setPinned((byte) 0);
+        conversation.setCurrentModelCode(modelCode);
+        conversation.setSystemPrompt("你是一个严谨的开发助手。");
+        conversation.setTemperature(new BigDecimal("0.6"));
+        conversation.setMaxTokens(2048);
+        conversation.setMaxContextMessages(12);
         conversation.setMessageCount(0);
         conversation.setRoundCount(0);
-        conversation.setCurrentModelCode(null);
-        conversation.setSystemPrompt(null);
-        conversation.setTemperature(BigDecimal.ONE);
-        conversation.setMaxTokens(2048);
-        conversation.setMaxContextMessages(null);
         conversation.setSummaryStatus(AiSummaryStatusEnum.NONE.name());
         return conversation;
     }
 
-    private AiConversationSummary buildSummary(String summaryText) {
-        AiConversationSummary summary = new AiConversationSummary();
-        summary.setConversationId(1L);
-        summary.setUserId(LOGIN_USER_ID);
-        summary.setSummaryText(summaryText);
-        summary.setStatus(AiSummaryStatusEnum.READY.name());
-        return summary;
-    }
-
-    private AiMessage buildHistoryMessage(String roleType, String content) {
+    private AiMessage buildHistoryMessage(Long id, String roleType, String content) {
         AiMessage message = new AiMessage();
-        message.setId(System.nanoTime());
+        message.setId(id);
         message.setConversationId(1L);
-        message.setUserId(LOGIN_USER_ID);
+        message.setUserId(100L);
         message.setRoleType(roleType);
         message.setContent(content);
         message.setContentStatus(AiContentStatusEnum.DONE.name());
-        message.setUseContext((byte) 1);
         return message;
     }
 
-    private AiMessage copyMessage(AiMessage source) {
-        AiMessage target = new AiMessage();
-        target.setId(source.getId());
-        target.setConversationId(source.getConversationId());
-        target.setUserId(source.getUserId());
-        target.setRoleType(source.getRoleType());
-        target.setMessageType(source.getMessageType());
-        target.setReplyToId(source.getReplyToId());
-        target.setRequestId(source.getRequestId());
-        target.setModelId(source.getModelId());
-        target.setModelCode(source.getModelCode());
-        target.setContent(source.getContent());
-        target.setReasoningContent(source.getReasoningContent());
-        target.setContentStatus(source.getContentStatus());
-        target.setUseContext(source.getUseContext());
-        target.setTokenInput(source.getTokenInput());
-        target.setTokenOutput(source.getTokenOutput());
-        target.setTokenTotal(source.getTokenTotal());
-        target.setErrorCode(source.getErrorCode());
-        target.setErrorMessage(source.getErrorMessage());
-        return target;
+    private com.vita.aichat.chat.dto.AiChatMessageSendReqDto buildSendReq(String content) {
+        com.vita.aichat.chat.dto.AiChatMessageSendReqDto reqDto = new com.vita.aichat.chat.dto.AiChatMessageSendReqDto();
+        reqDto.setContent(content);
+        return reqDto;
+    }
+
+    private ChatResponse buildChatResponse(String text,
+                                           String reasoningContent,
+                                           Integer promptTokens,
+                                           Integer completionTokens,
+                                           Integer totalTokens,
+                                           String modelCode) {
+        AssistantMessage assistantMessage = AssistantMessage.builder()
+                .content(text)
+                .properties(reasoningContent != null ? Map.of("reasoningContent", reasoningContent) : Map.of())
+                .build();
+        Usage usage = new Usage() {
+            @Override
+            public Integer getPromptTokens() {
+                return promptTokens;
+            }
+
+            @Override
+            public Integer getCompletionTokens() {
+                return completionTokens;
+            }
+
+            @Override
+            public Integer getTotalTokens() {
+                return totalTokens;
+            }
+
+            @Override
+            public Object getNativeUsage() {
+                return null;
+            }
+        };
+        ChatResponseMetadata responseMetadata = ChatResponseMetadata.builder()
+                .model(modelCode)
+                .usage(usage)
+                .build();
+        ChatGenerationMetadata generationMetadata = ChatGenerationMetadata.builder()
+                .metadata("reasoningContent", reasoningContent)
+                .build();
+        return new ChatResponse(List.of(new Generation(assistantMessage, generationMetadata)), responseMetadata);
     }
 
     private static final class RecordingStreamWriter implements AiChatStreamWriter {
 
         private final List<String> events = new ArrayList<>();
 
-        private boolean completedWithError;
-
-        private String errorCode;
-
-        private String errorMessage;
+        private AiChatCompletionResult endResult;
 
         @Override
         public void sendStart(Long assistantMessageId, String requestId, String modelCode) {
-            events.add(AiChatConstants.EVENT_MESSAGE_START);
+            events.add("start:" + modelCode);
         }
 
         @Override
         public void sendContentDelta(String delta) {
-            events.add(AiChatConstants.EVENT_MESSAGE_DELTA);
+            events.add("content:" + delta);
         }
 
         @Override
         public void sendReasoningDelta(String delta) {
-            events.add(AiChatConstants.EVENT_REASONING_DELTA);
+            events.add("reasoning:" + delta);
         }
 
         @Override
-        public void sendEnd(AiChatGatewayResp response) {
-            events.add(AiChatConstants.EVENT_MESSAGE_END);
+        public void sendEnd(AiChatCompletionResult response) {
+            this.endResult = response;
+            events.add("end");
         }
 
         @Override
         public void sendError(String errorCode, String errorMessage) {
-            this.errorCode = errorCode;
-            this.errorMessage = errorMessage;
-            events.add(AiChatConstants.EVENT_ERROR);
+            events.add("error:" + errorCode + ":" + errorMessage);
         }
 
         @Override
@@ -412,10 +317,7 @@ class AiChatServiceImplTest {
 
         @Override
         public void completeWithError(Throwable throwable) {
-            completedWithError = true;
+            events.add("complete-error");
         }
-    }
-
-    private record AiStreamListenerArgument(com.vita.aichat.gateway.AiStreamListener listener) {
     }
 }

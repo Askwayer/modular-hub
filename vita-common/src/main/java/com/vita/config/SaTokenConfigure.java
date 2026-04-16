@@ -11,8 +11,6 @@ import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
 import com.vita.interceptor.RequestTraceInterceptor;
 import jakarta.annotation.Resource;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
@@ -27,9 +25,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  * @Version: 1.0
  */
 @Configuration
-public class SaTokenConfigure implements WebMvcConfigurer {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(SaTokenConfigure.class);
+    public class SaTokenConfigure implements WebMvcConfigurer {
 
     @Resource
     private RequestTraceInterceptor requestTraceInterceptor;

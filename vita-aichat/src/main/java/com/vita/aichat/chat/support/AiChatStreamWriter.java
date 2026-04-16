@@ -1,6 +1,6 @@
 package com.vita.aichat.chat.support;
 
-import com.vita.aichat.gateway.AiChatGatewayResp;
+import com.vita.aichat.chat.model.result.AiChatCompletionResult;
 
 /**
  * 屏蔽底层 SSE 实现，统一输出正式 Chat 事件。
@@ -13,7 +13,7 @@ public interface AiChatStreamWriter {
 
     void sendReasoningDelta(String delta);
 
-    void sendEnd(AiChatGatewayResp response);
+    void sendEnd(AiChatCompletionResult response);
 
     void sendError(String errorCode, String errorMessage);
 
