@@ -45,13 +45,15 @@
 
 ### 4.1 保留现有日志结构
 
-继续使用当前三类日志文件，不推翻现有结构：
+非生产环境继续使用当前三类日志文件，不推翻现有结构：
 
 | 日志文件 | 用途 | 生产方式 |
 | --- | --- | --- |
 | `sys-info.log` | 普通运行日志 | `@Slf4j` / `Logger` |
 | `sys-error.log` | 异常和错误日志 | 全局异常处理、切面异常日志 |
 | `sys-access.log` | 控制器访问审计日志 | `@Log` + `LogAspect` |
+
+生产环境使用 `prod` profile 时，不再由 Logback 直接写上述文件，而是统一输出到控制台，再由 `nohup` 或 `supervisor` 将标准输出重定向到指定绝对路径。
 
 ### 4.2 复用现有业务模块
 
@@ -104,7 +106,7 @@
 8. 捕获异常并生成失败日志
 9. 计算耗时
 10. 构造 `sysOperLog`
-11. 输出 `sys-access.log`
+11. 在非生产环境输出 `sys-access.log`，在生产环境输出到控制台日志流
 12. 调用 `IsysOperLogService.save(sysOperLog)` 完成落库
 
 设计要求：
@@ -319,6 +321,7 @@ public void clearThreadLocal()
 3. 审计日志统一写入 `sys-access` logger
 4. MDC 键统一为 `requestId`，不要再使用 `LOG_ID`
 5. 补齐 `spring-boot-starter-aop` 依赖，确保切面能力完整生效
+6. 增加 `prod` profile 的 console-only 日志配置，避免 JAR 进程在当前工作目录或 `home` 下创建日志文件
 
 ## 12. 开发落地顺序
 
@@ -329,7 +332,8 @@ public void clearThreadLocal()
 5. 增加 `LogAspect @After` 清理切面私有 `ThreadLocal`
 6. 增加过滤器或拦截器，统一清理 `LoginUserInfoModelContext`、MDC 和请求级 ThreadLocal
 7. 对接现有 `IsysOperLogService` 完成审计日志落库
-8. 验证 `sys-info.log`、`sys-error.log`、`sys-access.log` 输出符合预期
+8. 验证非生产环境下 `sys-info.log`、`sys-error.log`、`sys-access.log` 输出符合预期
+9. 验证生产环境下仅输出控制台日志，并由 `nohup`/`supervisor` 重定向到指定绝对路径
 
 ## 13. 验收标准
 
@@ -338,4 +342,18 @@ public void clearThreadLocal()
 - `requestId` 在业务日志和审计日志中可串联
 - `sysOperLog` 直接复用现有实体和服务，不引入新表结构
 - 审计日志默认轻量化输出，不记录完整大对象和敏感信息
-- `sys-access.log` 与数据库审计记录内容口径一致，均为摘要信息
+- 非生产环境下 `sys-access.log` 与数据库审计记录内容口径一致，均为摘要信息
+- 生产环境下应用本身不在当前工作目录或 `home` 下生成日志文件，日志唯一落点由 `nohup` 或 `supervisor` 的绝对路径配置决定
+
+## 14. 生产部署日志约定
+
+- 生产部署必须显式启用 `prod` profile。
+- `nohup` 启动时必须显式重定向标准输出和错误输出，且目标路径使用绝对路径，例如：
+
+```bash
+nohup java -jar vita-admin.jar --spring.profiles.active=prod >> /data/logs/vita-admin/app.log 2>&1 < /dev/null &
+```
+
+- 不允许裸用 `nohup`，否则系统仍可能在当前目录或 `$HOME` 下生成 `nohup.out`。
+- `supervisor` 需显式配置绝对路径的 `stdout_logfile`，必要时配置 `stderr_logfile` 或 `redirect_stderr=true`。
+- 使用纯 `nohup` 时，日志轮转由外部工具负责，不再依赖 Logback 的文件滚动策略。
