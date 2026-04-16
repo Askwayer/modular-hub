@@ -91,11 +91,11 @@ public class AiStreamBatchAccumulator {
      * @return 批次快照
      */
     public AiChatStreamBatchSnapshot drain(long nowMillis) {
-        AiChatStreamBatchSnapshot snapshot = new AiChatStreamBatchSnapshot(
-                contentBuffer.toString(),
-                reasoningBuffer.toString(),
-                pendingChars()
-        );
+        AiChatStreamBatchSnapshot snapshot = AiChatStreamBatchSnapshot.builder()
+                .contentDelta(contentBuffer.toString())
+                .reasoningDelta(reasoningBuffer.toString())
+                .deltaChars(pendingChars())
+                .build();
         contentBuffer.setLength(0);
         reasoningBuffer.setLength(0);
         lastFlushAtMillis = nowMillis;

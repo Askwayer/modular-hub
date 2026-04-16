@@ -25,7 +25,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  * @Version: 1.0
  */
 @Configuration
-    public class SaTokenConfigure implements WebMvcConfigurer {
+public class SaTokenConfigure implements WebMvcConfigurer {
 
     @Resource
     private RequestTraceInterceptor requestTraceInterceptor;
@@ -86,7 +86,6 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
                 .addPathPatterns("/**")
                 .excludePathPatterns("/auth/login",
                         "/captcha/**",
-                        "/public/**",
-                        "/chat/**");
+                        "/public/**");
     }
 }

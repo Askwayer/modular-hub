@@ -27,31 +27,34 @@ public class AiChatResponseExtractor {
         if (response == null || response.getResult() == null || response.getResult().getOutput() == null) {
             return new AiChatResponseChunk();
         }
-        AiChatResponseChunk chunk = new AiChatResponseChunk();
         AssistantMessage assistantMessage = response.getResult().getOutput();
-        chunk.setContentDelta(assistantMessage.getText());
-        chunk.setProviderRequestId(response.getMetadata() != null ? response.getMetadata().getId() : null);
 
         Map<String, Object> metadata = assistantMessage.getMetadata();
+        String reasoningDelta = null;
         if (MapUtil.isNotEmpty(metadata)) {
             Object reasoningContent = metadata.get("reasoningContent");
             if (reasoningContent != null) {
-                chunk.setReasoningDelta(String.valueOf(reasoningContent));
+                reasoningDelta = String.valueOf(reasoningContent);
             }
         }
 
         ChatGenerationMetadata generationMetadata = response.getResult().getMetadata();
-        if (generationMetadata != null) {
-            chunk.setFinishReason(generationMetadata.getFinishReason());
-        }
+        String finishReason = generationMetadata != null ? generationMetadata.getFinishReason() : null;
 
         Usage usage = response.getMetadata() != null ? response.getMetadata().getUsage() : null;
-        if (usage != null) {
-            chunk.setTokenInput(usage.getPromptTokens());
-            chunk.setTokenOutput(usage.getCompletionTokens());
-            chunk.setTokenTotal(usage.getTotalTokens());
-        }
-        return chunk;
+        Integer tokenInput = usage != null ? usage.getPromptTokens() : null;
+        Integer tokenOutput = usage != null ? usage.getCompletionTokens() : null;
+        Integer tokenTotal = usage != null ? usage.getTotalTokens() : null;
+
+        return AiChatResponseChunk.builder()
+                .contentDelta(assistantMessage.getText())
+                .providerRequestId(response.getMetadata() != null ? response.getMetadata().getId() : null)
+                .reasoningDelta(reasoningDelta)
+                .finishReason(finishReason)
+                .tokenInput(tokenInput)
+                .tokenOutput(tokenOutput)
+                .tokenTotal(tokenTotal)
+                .build();
     }
 
     /**
@@ -62,14 +65,14 @@ public class AiChatResponseExtractor {
      */
     public AiChatCompletionResult extractCompletion(ChatResponse response) {
         AiChatResponseChunk chunk = extractChunk(response);
-        AiChatCompletionResult result = new AiChatCompletionResult();
-        result.setProviderRequestId(chunk.getProviderRequestId());
-        result.setContent(chunk.getContentDelta());
-        result.setReasoningContent(chunk.getReasoningDelta());
-        result.setFinishReason(chunk.getFinishReason());
-        result.setTokenInput(chunk.getTokenInput());
-        result.setTokenOutput(chunk.getTokenOutput());
-        result.setTokenTotal(chunk.getTokenTotal());
-        return result;
+        return AiChatCompletionResult.builder()
+                .providerRequestId(chunk.getProviderRequestId())
+                .content(chunk.getContentDelta())
+                .reasoningContent(chunk.getReasoningDelta())
+                .finishReason(chunk.getFinishReason())
+                .tokenInput(chunk.getTokenInput())
+                .tokenOutput(chunk.getTokenOutput())
+                .tokenTotal(chunk.getTokenTotal())
+                .build();
     }
 }

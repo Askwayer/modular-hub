@@ -11,13 +11,10 @@ import com.vita.aichat.aiConversationSummary.entity.AiConversationSummary;
 import com.vita.aichat.aiConversationSummary.service.IAiConversationSummaryService;
 import com.vita.aichat.aiMessage.entity.AiMessage;
 import com.vita.aichat.aiMessage.service.IAiMessageService;
-import com.vita.aichat.aiMessageStreamBatch.entity.AiMessageStreamBatch;
-import com.vita.aichat.aiMessageStreamBatch.service.IAiMessageStreamBatchService;
 import com.vita.aichat.chat.dto.*;
 import com.vita.aichat.chat.model.context.PreparedSendContext;
 import com.vita.aichat.chat.model.result.AiChatCompletionResult;
-import com.vita.aichat.chat.model.result.AiChatResponseChunk;
-import com.vita.aichat.chat.model.result.AiChatStreamBatchSnapshot;
+import com.vita.aichat.chat.model.result.StreamProcessResult;
 import com.vita.aichat.chat.property.AiChatProperty;
 import com.vita.aichat.chat.service.IAiChatService;
 import com.vita.aichat.chat.support.*;
@@ -28,6 +25,7 @@ import com.vita.core.context.LoginUserInfoModelContext;
 import com.vita.core.exception.ErrorCode;
 import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
+import com.vita.core.model.LoginUserInfoModel;
 import com.vita.core.page.PageResponse;
 import com.vita.utils.SnowUtils;
 import org.slf4j.Logger;
@@ -55,7 +53,6 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 
@@ -67,50 +64,52 @@ public class AiChatServiceImpl implements IAiChatService {
 
     private static final Logger LOG = LoggerFactory.getLogger(AiChatServiceImpl.class);
 
-    private static final long STREAM_BATCH_FLUSH_MILLIS = 1000L;
-
-    private static final int STREAM_BATCH_CHAR_THRESHOLD = 512;
-
     private final IAiConversationService aiConversationService;
     private final IAiMessageService aiMessageService;
     private final IAiConversationSummaryService aiConversationSummaryService;
     private final IAiChatRequestService aiChatRequestService;
-    private final IAiMessageStreamBatchService aiMessageStreamBatchService;
     private final ChatModel chatModel;
     private final AiChatProperty aiChatProperty;
     private final AiChatAssembler aiChatAssembler;
-    private final AiChatResponseExtractor aiChatResponseExtractor;
     private final AiChatRedisCoordinator aiChatRedisCoordinator;
     private final AiChatSseWriter aiChatSseWriter;
+    private final AiChatResponseExtractor aiChatResponseExtractor;
     private final Executor aiChatExecutor;
     private final TransactionTemplate transactionTemplate;
+    private final AiChatStreamProcessor aiChatStreamProcessor;
+    private final AiChatOutcomeApplier aiChatOutcomeApplier;
+    private final AiChatMessageBuilder aiChatMessageBuilder;
 
     public AiChatServiceImpl(IAiConversationService aiConversationService,
                              IAiMessageService aiMessageService,
                              IAiConversationSummaryService aiConversationSummaryService,
                              IAiChatRequestService aiChatRequestService,
-                             IAiMessageStreamBatchService aiMessageStreamBatchService,
                              ChatModel chatModel,
                              AiChatProperty aiChatProperty,
                              AiChatAssembler aiChatAssembler,
-                             AiChatResponseExtractor aiChatResponseExtractor,
                              AiChatRedisCoordinator aiChatRedisCoordinator,
                              AiChatSseWriter aiChatSseWriter,
+                             AiChatResponseExtractor aiChatResponseExtractor,
                              @Qualifier("aiChatExecutor") Executor aiChatExecutor,
-                             TransactionTemplate transactionTemplate) {
+                             TransactionTemplate transactionTemplate,
+                             AiChatStreamProcessor aiChatStreamProcessor,
+                             AiChatOutcomeApplier aiChatOutcomeApplier,
+                             AiChatMessageBuilder aiChatMessageBuilder) {
         this.aiConversationService = aiConversationService;
         this.aiMessageService = aiMessageService;
         this.aiConversationSummaryService = aiConversationSummaryService;
         this.aiChatRequestService = aiChatRequestService;
-        this.aiMessageStreamBatchService = aiMessageStreamBatchService;
         this.chatModel = chatModel;
         this.aiChatProperty = aiChatProperty;
         this.aiChatAssembler = aiChatAssembler;
-        this.aiChatResponseExtractor = aiChatResponseExtractor;
         this.aiChatRedisCoordinator = aiChatRedisCoordinator;
         this.aiChatSseWriter = aiChatSseWriter;
+        this.aiChatResponseExtractor = aiChatResponseExtractor;
         this.aiChatExecutor = aiChatExecutor;
         this.transactionTemplate = transactionTemplate;
+        this.aiChatStreamProcessor = aiChatStreamProcessor;
+        this.aiChatOutcomeApplier = aiChatOutcomeApplier;
+        this.aiChatMessageBuilder = aiChatMessageBuilder;
     }
 
     /**
@@ -194,13 +193,7 @@ public class AiChatServiceImpl implements IAiChatService {
     public void deleteConversation(Long conversationId) {
         Long userId = LoginUserInfoModelContext.getRequiredLoginUserId();
         AiConversation conversation = requireConversation(conversationId);
-        List<AiMessage> messages = aiMessageService.listByConversationIdAndUserId(conversation.getId(), userId);
-        List<Long> assistantMessageIds = messages.stream()
-                .map(AiMessage::getId)
-                .filter(Objects::nonNull)
-                .toList();
         transactionTemplate.executeWithoutResult(status -> {
-            aiMessageStreamBatchService.deleteByAssistantMessageIds(assistantMessageIds);
             aiChatRequestService.deleteByConversationIdAndUserId(conversation.getId(), userId);
             aiConversationSummaryService.deleteByConversationIdAndUserId(conversation.getId(), userId);
             aiMessageService.deleteByConversationIdAndUserId(conversation.getId(), userId);
@@ -241,14 +234,23 @@ public class AiChatServiceImpl implements IAiChatService {
             AiChatCompletionResult completionResult = aiChatResponseExtractor.extractCompletion(response);
             validateCompletion(completionResult);
             LocalDateTime completedAt = LocalDateTime.now();
-            completionResult.setFirstTokenAt(completionResult.getFirstTokenAt() != null ? completionResult.getFirstTokenAt() : completedAt);
-            completionResult.setCompletedAt(completedAt);
-            completionResult.setStreamBatchCount(0);
-            applySuccessOutcome(context, completionResult, AiChatRequestStatusEnum.SUCCESS.name());
+            completionResult = AiChatCompletionResult.builder()
+                    .providerRequestId(completionResult.getProviderRequestId())
+                    .content(completionResult.getContent())
+                    .reasoningContent(completionResult.getReasoningContent())
+                    .finishReason(completionResult.getFinishReason())
+                    .tokenInput(completionResult.getTokenInput())
+                    .tokenOutput(completionResult.getTokenOutput())
+                    .tokenTotal(completionResult.getTokenTotal())
+                    .firstTokenAt(completionResult.getFirstTokenAt() != null ? completionResult.getFirstTokenAt() : completedAt)
+                    .completedAt(completedAt)
+                    .streamBatchCount(0)
+                    .build();
+            aiChatOutcomeApplier.applySuccess(context, completionResult, AiChatRequestStatusEnum.SUCCESS.name());
             return aiChatAssembler.toSendVo(context.getUserMessage(), context.getAssistantMessage(), completionResult);
         } catch (Exception ex) {
             ServiceException serviceException = convertToServiceException(ex);
-            applyFailureOutcome(context, emptyCompletionResult(), serviceException, AiChatRequestStatusEnum.ERROR.name());
+            aiChatOutcomeApplier.applyFailure(context, emptyCompletionResult(), serviceException.getCode(), serviceException.getMessage(), AiChatRequestStatusEnum.ERROR.name());
             throw serviceException;
         } finally {
             aiChatRedisCoordinator.releaseConversationLock(conversationId);
@@ -281,10 +283,19 @@ public class AiChatServiceImpl implements IAiChatService {
         sendStreamSuccessQuietly(emitter, "message-start", context.getRequestId(), startEvent);
 
         try {
-            aiChatExecutor.execute(() -> processStream(context, emitter));
+            // 在提交异步任务时传递上下文信息，确保在异步线程中也能获取到登录用户信息等上下文数据
+            LoginUserInfoModel currentUserInfo = LoginUserInfoModelContext.getLoginUserInfo();
+            aiChatExecutor.execute(() -> {
+                try {
+                    LoginUserInfoModelContext.setLoginUserInfo(currentUserInfo);
+                    processStreamWithContext(context, emitter);
+                } finally {
+                    LoginUserInfoModelContext.removeLoginUserInfo();
+                }
+            });
         } catch (RejectedExecutionException ex) {
             ServiceException serviceException = new ServiceException(GlobalErrorCode.SERVICE_UNAVAILABLE);
-            applyFailureOutcome(context, emptyCompletionResult(), serviceException, AiChatRequestStatusEnum.ERROR.name());
+            aiChatOutcomeApplier.applyFailure(context, emptyCompletionResult(), serviceException.getCode(), serviceException.getMessage(), AiChatRequestStatusEnum.ERROR.name());
             sendStreamErrorQuietly(emitter, context.getRequestId(), serviceException.getCode(), serviceException.getMessage(), startEvent);
             emitter.complete();
             aiChatRedisCoordinator.releaseConversationLock(conversationId);
@@ -293,141 +304,49 @@ public class AiChatServiceImpl implements IAiChatService {
     }
 
     /**
-     * 处理流式响应。
+     * 处理流式响应（带上下文）。
      *
      * @param context 发送准备上下文
      * @param emitter SSE 发射器
      */
-    private void processStream(PreparedSendContext context, SseEmitter emitter) {
-        AiStreamBatchAccumulator batchAccumulator = new AiStreamBatchAccumulator(
-                STREAM_BATCH_FLUSH_MILLIS,
-                STREAM_BATCH_CHAR_THRESHOLD,
-                System.currentTimeMillis()
-        );
-        StringBuilder fullContent = new StringBuilder();
-        StringBuilder fullReasoning = new StringBuilder();
-        LocalDateTime firstTokenAt = null;
-        String providerRequestId = null;
-        String finishReason = null;
-        Integer tokenInput = null;
-        Integer tokenOutput = null;
-        Integer tokenTotal = null;
-        int providerSequence = 0;
-        int batchNo = 0;
-
+    private void processStreamWithContext(PreparedSendContext context, SseEmitter emitter) {
         markRequestStatus(context, AiChatRequestStatusEnum.STREAMING.name());
 
         try {
-            Iterable<ChatResponse> responses = chatModel.stream(context.getPrompt()).toIterable();
-            for (ChatResponse response : responses) {
-                providerSequence++;
-                AiChatResponseChunk chunk = aiChatResponseExtractor.extractChunk(response);
-                if (CharSequenceUtil.isNotBlank(chunk.getProviderRequestId())) {
-                    providerRequestId = chunk.getProviderRequestId();
-                }
-                if (chunk.getTokenInput() != null) {
-                    tokenInput = chunk.getTokenInput();
-                }
-                if (chunk.getTokenOutput() != null) {
-                    tokenOutput = chunk.getTokenOutput();
-                }
-                if (chunk.getTokenTotal() != null) {
-                    tokenTotal = chunk.getTokenTotal();
-                }
-                if (CharSequenceUtil.isNotBlank(chunk.getFinishReason())) {
-                    finishReason = chunk.getFinishReason();
-                }
-                if (firstTokenAt == null && hasDelta(chunk)) {
-                    firstTokenAt = LocalDateTime.now();
-                }
-                if (CharSequenceUtil.isNotBlank(chunk.getContentDelta())) {
-                    fullContent.append(chunk.getContentDelta());
-                }
-                if (CharSequenceUtil.isNotBlank(chunk.getReasoningDelta())) {
-                    fullReasoning.append(chunk.getReasoningDelta());
-                }
-                batchAccumulator.append(chunk.getContentDelta(), chunk.getReasoningDelta());
-                if (batchAccumulator.shouldFlush(System.currentTimeMillis())) {
-                    batchNo = flushBatch(
-                            context,
-                            emitter,
-                            batchAccumulator,
-                            batchNo,
-                            providerSequence,
-                            batchAccumulator.reachedCharThreshold() ? AiStreamFlushReasonEnum.CHAR_THRESHOLD : AiStreamFlushReasonEnum.TIME_WINDOW
-                    );
-                }
-            }
+            // 委托给流式处理器
+            StreamProcessResult streamResult = aiChatStreamProcessor.process(context, emitter);
 
-            if (!batchAccumulator.hasPending() && fullContent.length() == 0 && fullReasoning.length() == 0) {
-                throw new ServiceException(AiChatErrorCode.MODEL_RESPONSE_INVALID);
-            }
+            // 转换为完成结果
+            AiChatCompletionResult completionResult = AiChatCompletionResult.builder()
+                    .providerRequestId(streamResult.getProviderRequestId())
+                    .content(streamResult.getContent())
+                    .reasoningContent(streamResult.getReasoningContent())
+                    .finishReason(streamResult.getFinishReason())
+                    .tokenInput(streamResult.getTokenInput())
+                    .tokenOutput(streamResult.getTokenOutput())
+                    .tokenTotal(streamResult.getTokenTotal())
+                    .firstTokenAt(streamResult.getFirstTokenAt())
+                    .completedAt(streamResult.getCompletedAt())
+                    .streamBatchCount(streamResult.getStreamBatchCount())
+                    .build();
 
-            if (batchAccumulator.hasPending()) {
-                batchNo = flushBatch(context, emitter, batchAccumulator, batchNo, providerSequence, AiStreamFlushReasonEnum.FINAL);
-            }
+            // 应用成功结果
+            aiChatOutcomeApplier.applySuccess(context, completionResult, AiChatRequestStatusEnum.SUCCESS.name());
 
-            AiChatCompletionResult completionResult = new AiChatCompletionResult();
-            completionResult.setProviderRequestId(providerRequestId);
-            completionResult.setContent(fullContent.toString());
-            completionResult.setReasoningContent(fullReasoning.toString());
-            completionResult.setFinishReason(finishReason);
-            completionResult.setTokenInput(tokenInput);
-            completionResult.setTokenOutput(tokenOutput);
-            completionResult.setTokenTotal(tokenTotal);
-            completionResult.setFirstTokenAt(firstTokenAt != null ? firstTokenAt : LocalDateTime.now());
-            completionResult.setCompletedAt(LocalDateTime.now());
-            completionResult.setStreamBatchCount(batchNo);
-            applySuccessOutcome(context, completionResult, AiChatRequestStatusEnum.SUCCESS.name());
-
-            AiChatStreamEventVo endEvent = aiChatAssembler.toStreamEventVo(
-                    context.getConversationId(),
-                    context.getAssistantMessage().getId(),
-                    context.getRequestId(),
-                    batchNo
-            );
-            endEvent.setFinishReason(completionResult.getFinishReason());
-            endEvent.setContentStatus(AiContentStatusEnum.DONE.name());
-            endEvent.setFirstTokenAt(completionResult.getFirstTokenAt());
-            endEvent.setCompletedAt(completionResult.getCompletedAt());
-            endEvent.setTokenInput(completionResult.getTokenInput());
-            endEvent.setTokenOutput(completionResult.getTokenOutput());
-            endEvent.setTokenTotal(completionResult.getTokenTotal());
-            sendStreamSuccessQuietly(emitter, "message-end", context.getRequestId(), endEvent);
+            // 发送结束事件
+            aiChatStreamProcessor.sendEndEvent(context, emitter, streamResult);
             emitter.complete();
         } catch (Exception ex) {
             ServiceException serviceException = convertToServiceException(ex);
-            if (batchAccumulator.hasPending()) {
-                batchNo = flushBatch(context, emitter, batchAccumulator, batchNo, providerSequence, AiStreamFlushReasonEnum.ERROR);
-            }
-            AiChatCompletionResult completionResult = new AiChatCompletionResult();
-            completionResult.setProviderRequestId(providerRequestId);
-            completionResult.setContent(fullContent.toString());
-            completionResult.setReasoningContent(fullReasoning.toString());
-            completionResult.setFinishReason(finishReason);
-            completionResult.setTokenInput(tokenInput);
-            completionResult.setTokenOutput(tokenOutput);
-            completionResult.setTokenTotal(tokenTotal);
-            completionResult.setFirstTokenAt(firstTokenAt);
-            completionResult.setCompletedAt(LocalDateTime.now());
-            completionResult.setStreamBatchCount(batchNo);
-            applyFailureOutcome(context, completionResult, serviceException, AiChatRequestStatusEnum.ERROR.name());
 
-            AiChatStreamEventVo errorEvent = aiChatAssembler.toStreamEventVo(
-                    context.getConversationId(),
-                    context.getAssistantMessage().getId(),
-                    context.getRequestId(),
-                    batchNo
-            );
-            errorEvent.setContentStatus(AiContentStatusEnum.ERROR.name());
-            errorEvent.setFinishReason(finishReason);
-            sendStreamErrorQuietly(
-                    emitter,
-                    context.getRequestId(),
-                    serviceException.getCode(),
-                    serviceException.getMessage(),
-                    errorEvent
-            );
+            // 提取流式处理结果（如果有的话）
+            AiChatCompletionResult completionResult = extractCompletionFromException(ex);
+
+            // 应用失败结果
+            aiChatOutcomeApplier.applyFailure(context, completionResult, serviceException.getCode(), serviceException.getMessage(), AiChatRequestStatusEnum.ERROR.name());
+
+            // 发送错误事件
+            aiChatStreamProcessor.sendErrorEvent(context, emitter, serviceException.getCode(), serviceException.getMessage(), null);
             emitter.complete();
         } finally {
             aiChatRedisCoordinator.releaseConversationLock(context.getConversationId());
@@ -435,60 +354,13 @@ public class AiChatServiceImpl implements IAiChatService {
     }
 
     /**
-     * 刷新批次数据。
+     * 从异常中提取完成结果。
      *
-     * @param context          发送准备上下文
-     * @param emitter          SSE 发射器
-     * @param batchAccumulator 批次聚合器
-     * @param currentBatchNo   当前批次号
-     * @param providerSequence 模型提供方序列号
-     * @param flushReason      刷新原因
-     * @return 新批次号
+     * @param ex 异常
+     * @return 完成结果
      */
-    private int flushBatch(PreparedSendContext context,
-                           SseEmitter emitter,
-                           AiStreamBatchAccumulator batchAccumulator,
-                           int currentBatchNo,
-                           int providerSequence,
-                           AiStreamFlushReasonEnum flushReason) {
-        if (!batchAccumulator.hasPending()) {
-            return currentBatchNo;
-        }
-        int nextBatchNo = currentBatchNo + 1;
-        AiChatStreamBatchSnapshot snapshot = batchAccumulator.drain(System.currentTimeMillis());
-        AiMessageStreamBatch batch = new AiMessageStreamBatch();
-        batch.setId(SnowUtils.getSnowflakeNextId());
-        batch.setAssistantMessageId(context.getAssistantMessage().getId());
-        batch.setRequestId(context.getRequestId());
-        batch.setBatchNo(nextBatchNo);
-        batch.setContentDelta(snapshot.getContentDelta());
-        batch.setReasoningDelta(snapshot.getReasoningDelta());
-        batch.setFlushReason(flushReason.name());
-        batch.setDeltaChars(snapshot.getDeltaChars());
-        batch.setProviderSequence(providerSequence);
-        aiMessageStreamBatchService.create(batch);
-
-        AiChatStreamEventVo deltaEvent = aiChatAssembler.toStreamEventVo(
-                context.getConversationId(),
-                context.getAssistantMessage().getId(),
-                context.getRequestId(),
-                nextBatchNo
-        );
-        if (CharSequenceUtil.isNotBlank(snapshot.getContentDelta())) {
-            deltaEvent.setContent(snapshot.getContentDelta());
-            sendStreamSuccessQuietly(emitter, "message-delta", context.getRequestId(), deltaEvent);
-        }
-        if (CharSequenceUtil.isNotBlank(snapshot.getReasoningDelta())) {
-            deltaEvent = aiChatAssembler.toStreamEventVo(
-                    context.getConversationId(),
-                    context.getAssistantMessage().getId(),
-                    context.getRequestId(),
-                    nextBatchNo
-            );
-            deltaEvent.setReasoningContent(snapshot.getReasoningDelta());
-            sendStreamSuccessQuietly(emitter, "reasoning-delta", context.getRequestId(), deltaEvent);
-        }
-        return nextBatchNo;
+    private AiChatCompletionResult extractCompletionFromException(Exception ex) {
+        return emptyCompletionResult();
     }
 
     /**
@@ -545,13 +417,15 @@ public class AiChatServiceImpl implements IAiChatService {
                                                      AiMessageSendDto sendDto,
                                                      AiChatRequestModeEnum requestMode) {
         String modelCode = defaultModelCode(conversation.getCurrentModelCode());
-        AiMessage userMessage = buildUserMessage(conversation.getId(), userId, requestId, modelCode, sendDto);
+
+        // 使用消息构建器创建实体
+        AiMessage userMessage = aiChatMessageBuilder.buildUserMessage(conversation.getId(), userId, requestId, modelCode, sendDto);
         aiMessageService.create(userMessage);
 
-        AiMessage assistantMessage = buildAssistantPlaceholder(conversation.getId(), userId, requestId, modelCode, userMessage.getId());
+        AiMessage assistantMessage = aiChatMessageBuilder.buildAssistantPlaceholder(conversation.getId(), userId, requestId, modelCode, userMessage.getId());
         aiMessageService.create(assistantMessage);
 
-        AiChatRequest chatRequest = buildChatRequest(conversation.getId(), userId, requestId, requestMode, modelCode, userMessage.getId(), assistantMessage.getId());
+        AiChatRequest chatRequest = aiChatMessageBuilder.buildChatRequest(conversation.getId(), userId, requestId, requestMode, modelCode, userMessage.getId(), assistantMessage.getId());
         try {
             aiChatRequestService.create(chatRequest);
         } catch (DuplicateKeyException ex) {
@@ -660,115 +534,6 @@ public class AiChatServiceImpl implements IAiChatService {
     }
 
     /**
-     * 应用成功结果。
-     *
-     * @param context          发送准备上下文
-     * @param completionResult 模型完成结果
-     * @param requestStatus    请求状态
-     */
-    private void applySuccessOutcome(PreparedSendContext context,
-                                     AiChatCompletionResult completionResult,
-                                     String requestStatus) {
-        transactionTemplate.executeWithoutResult(status -> {
-            AiMessage assistantUpdate = new AiMessage();
-            assistantUpdate.setId(context.getAssistantMessage().getId());
-            assistantUpdate.setProviderRequestId(completionResult.getProviderRequestId());
-            assistantUpdate.setContent(completionResult.getContent());
-            assistantUpdate.setReasoningContent(completionResult.getReasoningContent());
-            assistantUpdate.setContentStatus(AiContentStatusEnum.DONE.name());
-            assistantUpdate.setFinishReason(completionResult.getFinishReason());
-            assistantUpdate.setTokenInput(completionResult.getTokenInput());
-            assistantUpdate.setTokenOutput(completionResult.getTokenOutput());
-            assistantUpdate.setTokenTotal(completionResult.getTokenTotal());
-            assistantUpdate.setFirstTokenAt(completionResult.getFirstTokenAt());
-            assistantUpdate.setCompletedAt(completionResult.getCompletedAt());
-            assistantUpdate.setStreamBatchCount(defaultBatchCount(completionResult.getStreamBatchCount()));
-            assistantUpdate.setErrorCode(null);
-            assistantUpdate.setErrorMessage(null);
-            aiMessageService.update(assistantUpdate);
-
-            AiChatRequest requestUpdate = new AiChatRequest();
-            requestUpdate.setId(context.getChatRequest().getId());
-            requestUpdate.setProviderRequestId(completionResult.getProviderRequestId());
-            requestUpdate.setStatus(requestStatus);
-            requestUpdate.setFinishReason(completionResult.getFinishReason());
-            requestUpdate.setTokenInput(completionResult.getTokenInput());
-            requestUpdate.setTokenOutput(completionResult.getTokenOutput());
-            requestUpdate.setTokenTotal(completionResult.getTokenTotal());
-            requestUpdate.setFirstTokenAt(completionResult.getFirstTokenAt());
-            requestUpdate.setCompletedAt(completionResult.getCompletedAt());
-            requestUpdate.setErrorCode(null);
-            requestUpdate.setErrorMessage(null);
-            aiChatRequestService.update(requestUpdate);
-
-            AiConversation conversationUpdate = new AiConversation();
-            conversationUpdate.setId(context.getConversationId());
-            conversationUpdate.setActiveRequestId(null);
-            conversationUpdate.setLastErrorCode(null);
-            conversationUpdate.setLastErrorMessage(null);
-            conversationUpdate.setLastMessageAt(completionResult.getCompletedAt());
-            aiConversationService.update(conversationUpdate);
-
-            context.getAssistantMessage().setContentStatus(AiContentStatusEnum.DONE.name());
-        });
-    }
-
-    /**
-     * 应用失败结果。
-     *
-     * @param context          发送准备上下文
-     * @param completionResult 模型完成结果
-     * @param serviceException 服务异常
-     * @param requestStatus    请求状态
-     */
-    private void applyFailureOutcome(PreparedSendContext context,
-                                     AiChatCompletionResult completionResult,
-                                     ServiceException serviceException,
-                                     String requestStatus) {
-        transactionTemplate.executeWithoutResult(status -> {
-            AiMessage assistantUpdate = new AiMessage();
-            assistantUpdate.setId(context.getAssistantMessage().getId());
-            assistantUpdate.setProviderRequestId(completionResult.getProviderRequestId());
-            assistantUpdate.setContent(completionResult.getContent());
-            assistantUpdate.setReasoningContent(completionResult.getReasoningContent());
-            assistantUpdate.setContentStatus(AiContentStatusEnum.ERROR.name());
-            assistantUpdate.setFinishReason(completionResult.getFinishReason());
-            assistantUpdate.setTokenInput(completionResult.getTokenInput());
-            assistantUpdate.setTokenOutput(completionResult.getTokenOutput());
-            assistantUpdate.setTokenTotal(completionResult.getTokenTotal());
-            assistantUpdate.setFirstTokenAt(completionResult.getFirstTokenAt());
-            assistantUpdate.setCompletedAt(completionResult.getCompletedAt() != null ? completionResult.getCompletedAt() : LocalDateTime.now());
-            assistantUpdate.setStreamBatchCount(defaultBatchCount(completionResult.getStreamBatchCount()));
-            assistantUpdate.setErrorCode(String.valueOf(serviceException.getCode()));
-            assistantUpdate.setErrorMessage(serviceException.getMessage());
-            aiMessageService.update(assistantUpdate);
-
-            AiChatRequest requestUpdate = new AiChatRequest();
-            requestUpdate.setId(context.getChatRequest().getId());
-            requestUpdate.setProviderRequestId(completionResult.getProviderRequestId());
-            requestUpdate.setStatus(requestStatus);
-            requestUpdate.setFinishReason(completionResult.getFinishReason());
-            requestUpdate.setTokenInput(completionResult.getTokenInput());
-            requestUpdate.setTokenOutput(completionResult.getTokenOutput());
-            requestUpdate.setTokenTotal(completionResult.getTokenTotal());
-            requestUpdate.setFirstTokenAt(completionResult.getFirstTokenAt());
-            requestUpdate.setCompletedAt(completionResult.getCompletedAt() != null ? completionResult.getCompletedAt() : LocalDateTime.now());
-            requestUpdate.setErrorCode(String.valueOf(serviceException.getCode()));
-            requestUpdate.setErrorMessage(serviceException.getMessage());
-            aiChatRequestService.update(requestUpdate);
-
-            AiConversation conversationUpdate = new AiConversation();
-            conversationUpdate.setId(context.getConversationId());
-            conversationUpdate.setActiveRequestId(null);
-            conversationUpdate.setLastErrorCode(String.valueOf(serviceException.getCode()));
-            conversationUpdate.setLastErrorMessage(serviceException.getMessage());
-            aiConversationService.update(conversationUpdate);
-
-            context.getAssistantMessage().setContentStatus(AiContentStatusEnum.ERROR.name());
-        });
-    }
-
-    /**
      * 更新会话预准备请求信息。
      *
      * @param conversation 会话实体
@@ -806,101 +571,6 @@ public class AiChatServiceImpl implements IAiChatService {
     }
 
     /**
-     * 构建用户消息实体。
-     *
-     * @param conversationId 会话ID
-     * @param userId         用户ID
-     * @param requestId      请求唯一标识
-     * @param modelCode      模型编码
-     * @param sendDto        消息发送请求对象
-     * @return 用户消息实体
-     */
-    private AiMessage buildUserMessage(Long conversationId,
-                                       Long userId,
-                                       String requestId,
-                                       String modelCode,
-                                       AiMessageSendDto sendDto) {
-        AiMessage userMessage = new AiMessage();
-        userMessage.setId(SnowUtils.getSnowflakeNextId());
-        userMessage.setConversationId(conversationId);
-        userMessage.setUserId(userId);
-        userMessage.setRoleType(AiRoleTypeEnum.USER.name());
-        userMessage.setMessageType(defaultMessageType(sendDto.getMessageType()));
-        userMessage.setRequestId(requestId);
-        userMessage.setModelCode(modelCode);
-        userMessage.setContent(sendDto.getContent().trim());
-        userMessage.setContentStatus(AiContentStatusEnum.DONE.name());
-        userMessage.setUseContext(sendDto.getUseContext() == null ? (byte) 1 : sendDto.getUseContext());
-        userMessage.setStreamBatchCount(0);
-        return userMessage;
-    }
-
-    /**
-     * 构建助手消息占位符。
-     *
-     * @param conversationId 会话ID
-     * @param userId         用户ID
-     * @param requestId      请求唯一标识
-     * @param modelCode      模型编码
-     * @param replyToId      回复消息ID
-     * @return 助手消息实体
-     */
-    private AiMessage buildAssistantPlaceholder(Long conversationId,
-                                                Long userId,
-                                                String requestId,
-                                                String modelCode,
-                                                Long replyToId) {
-        AiMessage assistantMessage = new AiMessage();
-        assistantMessage.setId(SnowUtils.getSnowflakeNextId());
-        assistantMessage.setConversationId(conversationId);
-        assistantMessage.setUserId(userId);
-        assistantMessage.setRoleType(AiRoleTypeEnum.ASSISTANT.name());
-        assistantMessage.setMessageType(AiMessageTypeEnum.TEXT.name());
-        assistantMessage.setReplyToId(replyToId);
-        assistantMessage.setRequestId(requestId);
-        assistantMessage.setModelCode(modelCode);
-        assistantMessage.setContent("");
-        assistantMessage.setReasoningContent("");
-        assistantMessage.setContentStatus(AiContentStatusEnum.GENERATING.name());
-        assistantMessage.setUseContext((byte) 1);
-        assistantMessage.setStreamBatchCount(0);
-        return assistantMessage;
-    }
-
-    /**
-     * 构建聊天请求实体。
-     *
-     * @param conversationId     会话ID
-     * @param userId             用户ID
-     * @param requestId          请求唯一标识
-     * @param requestMode        请求模式
-     * @param modelCode          模型编码
-     * @param userMessageId      用户消息ID
-     * @param assistantMessageId 助手消息ID
-     * @return 聊天请求实体
-     */
-    private AiChatRequest buildChatRequest(Long conversationId,
-                                           Long userId,
-                                           String requestId,
-                                           AiChatRequestModeEnum requestMode,
-                                           String modelCode,
-                                           Long userMessageId,
-                                           Long assistantMessageId) {
-        AiChatRequest chatRequest = new AiChatRequest();
-        chatRequest.setId(SnowUtils.getSnowflakeNextId());
-        chatRequest.setConversationId(conversationId);
-        chatRequest.setUserId(userId);
-        chatRequest.setRequestId(requestId);
-        chatRequest.setRequestMode(requestMode.name());
-        chatRequest.setStatus(AiChatRequestStatusEnum.PENDING.name());
-        chatRequest.setUserMessageId(userMessageId);
-        chatRequest.setAssistantMessageId(assistantMessageId);
-        chatRequest.setModelCode(modelCode);
-        chatRequest.setStartedAt(LocalDateTime.now());
-        return chatRequest;
-    }
-
-    /**
      * 校验消息发送请求参数。
      *
      * @param sendDto 消息发送请求对象
@@ -927,16 +597,6 @@ public class AiChatServiceImpl implements IAiChatService {
         }
     }
 
-    /**
-     * 判断是否有内容增量。
-     *
-     * @param chunk 响应片段
-     * @return 是否有增量
-     */
-    private boolean hasDelta(AiChatResponseChunk chunk) {
-        return chunk != null && (CharSequenceUtil.isNotBlank(chunk.getContentDelta())
-                || CharSequenceUtil.isNotBlank(chunk.getReasoningDelta()));
-    }
 
     /**
      * 获取默认会话标题。
@@ -1010,15 +670,6 @@ public class AiChatServiceImpl implements IAiChatService {
         return value == null ? 0 : value;
     }
 
-    /**
-     * 获取默认批次数量。
-     *
-     * @param value 批次数量
-     * @return 默认批次数量
-     */
-    private Integer defaultBatchCount(Integer value) {
-        return value == null ? 0 : value;
-    }
 
     /**
      * 判断是否为思考模型。
@@ -1051,10 +702,10 @@ public class AiChatServiceImpl implements IAiChatService {
      * @return 空完成结果
      */
     private AiChatCompletionResult emptyCompletionResult() {
-        AiChatCompletionResult completionResult = new AiChatCompletionResult();
-        completionResult.setCompletedAt(LocalDateTime.now());
-        completionResult.setStreamBatchCount(0);
-        return completionResult;
+        return AiChatCompletionResult.builder()
+                .completedAt(LocalDateTime.now())
+                .streamBatchCount(0)
+                .build();
     }
 
     /**
