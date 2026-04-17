@@ -31,6 +31,7 @@
 - 并发执行：`aiChatTaskExecutor` 独立线程池
 - 线程池 Bean：`aiChatTaskExecutor`（别名 `aiChatExecutor`）由 `AiChatConfiguration` 在 `vita-aichat` 模块内声明
 - 工具库：`Hutool`（`CharSequenceUtil`、`IdUtil`、`BeanUtil`）
+- 配置类：`AiChatProperty` 使用 `@ConfigurationProperties(prefix = "spring.ai")` 集中管理
 - vita-starters -> 被业务模块按需依赖，通过pom.xml引入，不被引入的情况下运行、debug和mvn 都忽略。
 - dashscope、fastapi和kimi等不需要单独拆包统一放到`vita-ai-core-spring-boot-starter`中避免模块过分冗余。
 
@@ -547,9 +548,7 @@ spring:
       max-pool-size: 16
       queue-capacity: 0
       keep-alive-seconds: 60
-    max:
-      context:
-        messages: 12
+    max-context-messages: 12
     stream:
       enabled: true
     dashscope:
@@ -562,7 +561,7 @@ spring:
 
 启动时会额外校验：
 
-说明：代码中 `AiChatProperty` 使用 `@Value("${spring.ai.xxx}")` 平铺方式读取，上述 YAML 为等效的嵌套写法，Spring Boot 解析结果一致。
+说明：代码中 `AiChatProperty` 使用 `@ConfigurationProperties(prefix = "spring.ai")` 集中管理，上述 YAML 为等效写法，Spring Boot 解析结果一致。
 
 - DashScope 相关配置是否完整
 - Redis / Redisson 是否可用
