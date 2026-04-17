@@ -29,8 +29,10 @@
 - 持久化：`MyBatis-Plus + MySQL`
 - 分布式协调：`RedisCache + Redisson`
 - 并发执行：`aiChatTaskExecutor` 独立线程池
-
-模型依赖：
+- 线程池 Bean：`aiChatTaskExecutor`（别名 `aiChatExecutor`）由 `AiChatConfiguration` 在 `vita-aichat` 模块内声明
+- 工具库：`Hutool`（`CharSequenceUtil`、`IdUtil`、`BeanUtil`）
+- vita-starters -> 被业务模块按需依赖，通过pom.xml引入，不被引入的情况下运行、debug和mvn 都忽略。
+- dashscope、fastapi和kimi等不需要单独拆包统一放到`vita-ai-core-spring-boot-starter`中避免模块过分冗余。
 
 ```xml
 <dependency>
@@ -52,10 +54,12 @@ flowchart LR
     Service --> Stream["AiChatStreamProcessor"]
     Service --> Writer["AiChatSseWriter"]
     Service --> Extractor["AiChatResponseExtractor"]
+    Service --> Assembler["AiChatAssembler"]
 
     Concurrency --> RedisCoord["AiChatRedisCoordinator"]
     RedisCoord --> Redis["Redis / Redisson"]
 
+    Preparer --> MsgBuilder["AiChatMessageBuilder"]
     Preparer --> Domain["ai_conversation / ai_message / ai_chat_request / ai_conversation_summary"]
     Stream --> Batch["ai_message_stream_batch"]
     Service --> Model["DashScope ChatModel"]
@@ -77,6 +81,8 @@ flowchart LR
 | `AiChatResponseExtractor` | 从 Spring AI `ChatResponse` 中抽取正文、推理内容、finish reason 和 usage |
 | `AiChatExceptionConverter` | 将网络异常、超时、限流等转换为统一业务异常 |
 | `AiChatSseWriter` | 统一封装 `CommonStreamResult` 的 SSE 成功/失败事件 |
+| `AiChatAssembler` | Entity 与 VO/DTO 转换，构建流式事件 VO |
+| `AiChatMessageBuilder` | 构建用户消息、助手占位消息、`AiChatRequest` 实体 |
 
 ### 2.4 当前公开接口
 
@@ -131,6 +137,9 @@ flowchart LR
 - `summary_version` / `summary_status`：摘要版本与状态
 - `active_request_id`：当前正在生成的请求 ID
 - `last_error_code` / `last_error_message`：最近一次失败信息
+- `tenant_id`：租户隔离
+- `pinned` / `last_message_at` / `message_count` / `round_count`：排序与统计
+- `current_model_id` / `title_source` / `ext_json`：模型引用、标题来源、扩展字段
 
 ### 3.4 `ai_message`
 
@@ -181,6 +190,22 @@ flowchart LR
 `ai_conversation_summary` 只承担历史压缩摘要职责，不承担实时消息存储。
 
 Prompt 构建时只会读取最新 `READY` 摘要，把它作为系统消息插入上下文。
+
+### 3.8 枚举类型
+
+当前代码定义了 9 个枚举类，统一位于 `com.vita.aichat.enums` 包下：
+
+| 枚举类 | 值 | 用途 |
+| --- | --- | --- |
+| `AiChatRequestModeEnum` | `SYNC`, `STREAM` | 请求模式 |
+| `AiChatRequestStatusEnum` | `PENDING`, `STREAMING`, `SUCCESS`, `ERROR`, `CANCELLED` | 请求生命周期状态 |
+| `AiConversationStatusEnum` | `ACTIVE`, `ARCHIVED`, `DELETED` | 会话状态 |
+| `AiMessageTypeEnum` | `TEXT`, `IMAGE`, `FILE`, `EVENT` | 消息类型 |
+| `AiRoleTypeEnum` | `USER`, `ASSISTANT`, `SYSTEM`, `SUMMARY` | 消息角色 |
+| `AiStreamFlushReasonEnum` | `TIME_WINDOW`, `CHAR_THRESHOLD`, `FINAL`, `ERROR` | 流式批次落库原因 |
+| `AiSummaryStatusEnum` | `NONE`, `READY`, `STALE`, `GENERATING` | 摘要状态 |
+| `AiTitleSourceEnum` | `AUTO`, `MANUAL` | 标题来源 |
+| `AiContentStatusEnum` | `WAITING`, `GENERATING`, `DONE`, `ERROR`, `CANCELLED` | 消息内容状态（含 SSE 事件中的等待提示） |
 
 ## 4. 并发治理与分布式协调
 
@@ -301,6 +326,7 @@ sequenceDiagram
 - 同步接口也参与全局并发治理
 - 活跃名额不足时会阻塞等待，而不是立即失败
 - 只有拿到活跃名额后，才会去抢会话锁
+- `prepareSendContext()` 内部委托给 `@Transactional doPrepareSendContext()`，在单个事务内完成 USER 消息、ASSISTANT 占位、`ai_chat_request` 写入和 `ai_conversation` 更新
 
 ### 5.4 流式发送消息
 
@@ -521,9 +547,7 @@ spring:
       max-pool-size: 16
       queue-capacity: 0
       keep-alive-seconds: 60
-    max:
-      context:
-        messages: 12
+    max-context-messages: 12
     stream:
       enabled: true
     dashscope:
@@ -535,6 +559,8 @@ spring:
 ```
 
 启动时会额外校验：
+
+说明：代码中 `AiChatProperty` 使用 `@Value("${spring.ai.xxx}")` 平铺方式读取，上述 YAML 为等效的嵌套写法，Spring Boot 解析结果一致。
 
 - DashScope 相关配置是否完整
 - Redis / Redisson 是否可用

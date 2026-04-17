@@ -30,6 +30,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -63,6 +64,7 @@ public class AiChatServiceImpl implements IAiChatService {
     private final AiChatOutcomeApplier aiChatOutcomeApplier;
     private final AiChatRequestPreparer aiChatRequestPreparer;
     private final AiChatExceptionConverter aiChatExceptionConverter;
+    private final AiChatServiceImpl self;
 
     public AiChatServiceImpl(IAiConversationService aiConversationService,
                              IAiMessageService aiMessageService,
@@ -78,7 +80,8 @@ public class AiChatServiceImpl implements IAiChatService {
                              AiChatStreamProcessor aiChatStreamProcessor,
                              AiChatOutcomeApplier aiChatOutcomeApplier,
                              AiChatRequestPreparer aiChatRequestPreparer,
-                             AiChatExceptionConverter aiChatExceptionConverter) {
+                             AiChatExceptionConverter aiChatExceptionConverter,
+                             @Lazy AiChatServiceImpl self) {
         this.aiConversationService = aiConversationService;
         this.aiMessageService = aiMessageService;
         this.aiConversationSummaryService = aiConversationSummaryService;
@@ -94,6 +97,7 @@ public class AiChatServiceImpl implements IAiChatService {
         this.aiChatOutcomeApplier = aiChatOutcomeApplier;
         this.aiChatRequestPreparer = aiChatRequestPreparer;
         this.aiChatExceptionConverter = aiChatExceptionConverter;
+        this.self = self;
     }
 
     /**
@@ -211,6 +215,7 @@ public class AiChatServiceImpl implements IAiChatService {
      * @return 发送结果
      */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public AiChatSendVo sendMessage(Long conversationId, AiMessageSendDto sendDto) {
         ReservedSendContext reservedContext = aiChatRequestPreparer.reserveSendContext(conversationId, sendDto);
         AiChatCapacityPermit capacityPermit = null;
@@ -384,7 +389,7 @@ public class AiChatServiceImpl implements IAiChatService {
             aiChatExecutor.execute(() -> {
                 try {
                     LoginUserInfoModelContext.setLoginUserInfo(currentUserInfo);
-                    processStreamWithReservation(streamState, capacityPermit);
+                    self.processStreamWithReservation(streamState, capacityPermit);
                 } finally {
                     LoginUserInfoModelContext.removeLoginUserInfo();
                 }
@@ -407,7 +412,8 @@ public class AiChatServiceImpl implements IAiChatService {
     /**
      * 处理流式响应（带预留上下文）。
      */
-    private void processStreamWithReservation(StreamRequestState streamState,
+    @Transactional(rollbackFor = Exception.class)
+    public void processStreamWithReservation(StreamRequestState streamState,
                                               AiChatCapacityPermit capacityPermit) {
         ReservedSendContext reservedContext = streamState.getReservedContext();
         boolean conversationLockAcquired = false;

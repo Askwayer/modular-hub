@@ -33,6 +33,12 @@
 - AI Chat 当前已存在生成式 CRUD 骨架，正式任务接口和模型接入方案应先更新 `docs/aichat/ai-chat-design.md`，再落实现。
 - 设计说明或跨模块方案落到 `docs/system/` 或 `docs/aichat/`，不要只留在提交描述里。
 
+## AI 代码生成 Rules
+- 后续 AI 生成代码默认遵守 `aiCoding/rules/be-vita-ai-codegen-rules.md`。
+- 主链路规则保持：`CommonResult` / `PageRequest` / `PageResponse`、`BaseMapperX + LambdaQueryWrapperX`、管理端 `/system/*` 权限码、禁止 `join SQL`、事务入口不做同类 `public @Transactional` 互调。
+- Property 类统一放在领域级 `property` 包，命名使用单数 `XxxProperty`，不要生成 `*Properties`。
+- 涉及 AI Chat、starter、generator 模板时，也按上述文档中的专项规则执行。
+
 ## 测试规范
 - 测试代码放在 `src/test/java` 下，并与生产代码保持相同包路径结构。
 - 推荐命名：`*Test` 表示单元测试，`*IT` 表示集成测试。

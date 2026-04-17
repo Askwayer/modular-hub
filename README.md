@@ -42,7 +42,7 @@ be-vita
 ```text
 vita-admin  -> vita-service -> vita-common
 vita-aichat -> vita-common
-vita-starters -> 被业务模块按需依赖
+vita-starters -> 被业务模块按需依赖，通过pom.xml引入，不被引入的情况下运行、debug和mvn 都忽略。
 ```
 
 约束：
@@ -95,10 +95,12 @@ vita-starters -> 被业务模块按需依赖
 - Redis 7.x
 
 常用命令：
-
+> 注意：请在项目根目录下执行以下命令，确保当前路径为 `be-vita` 仓库根目录。
+> `~/Documents/stage/maven/apache-maven-3.9.11`
+> 通过执行 `jdk17` 切换到 JDK 17 环境¬
 - 编译全仓：`mvn clean compile`
 - 全仓测试：`mvn test`
-- 管理端启动：`mvn -pl vita-admin -am spring-boot:run`
+- 管理端启动：`mvn 17-pl vita-admin -am spring-boot:run`
 - AI Chat 启动：`mvn -pl vita-aichat -am spring-boot:run`
 - 公共模块测试：`mvn -pl vita-common -am test`
 - 代码生成：`mvn -pl vita-generator -DskipTests exec:java -Dexec.mainClass=com.vita.config.CodeGenerator`
