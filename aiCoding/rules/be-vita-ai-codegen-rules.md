@@ -26,9 +26,12 @@
 - `vita-admin -> vita-service -> vita-common`
 - `vita-aichat -> vita-common`
 
-`vita-starters` 为通用 starter 能力模块，`vita-generator` 为代码生成器与模板模块。
+`vita-starters` 为通用 Starter 能力模块，主要用于封装公共自动装配能力、基础组件配置以及可复用的扩展能力。
 
-AI 生成代码时必须遵守以下依赖边界：
+`vita-generator` 为代码生成器与模板模块，主要用于维护代码生成逻辑、模板文件以及相关生成配置。
+
+以上两个模块均通过 `pom.xml` 按需引入。若未被业务模块依赖，则在项目运行、Debug 调试以及 Maven 构建过程中不会参与执行，也不会影响主业务模块的启动和构建。
+- AI 生成代码时必须遵守以下依赖边界：
 
 - `vita-admin` 只依赖 `vita-service` 和 `vita-common`
 - `vita-service` 不依赖 `vita-admin`

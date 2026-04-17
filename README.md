@@ -42,7 +42,7 @@ be-vita
 ```text
 vita-admin  -> vita-service -> vita-common
 vita-aichat -> vita-common
-vita-starters -> 被业务模块按需依赖
+vita-starters -> 被业务模块按需依赖，通过pom.xml引入，不被引入的情况下运行、debug和mvn 都忽略。
 ```
 
 约束：
