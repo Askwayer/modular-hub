@@ -65,5 +65,22 @@ public interface GlobalErrorCode {
     ErrorCode MODEL_RATE_LIMIT = new ErrorCode(2103, "模型请求过于频繁");
     ErrorCode MODEL_PROVIDER_ERROR = new ErrorCode(2104, "模型服务异常");
     ErrorCode MODEL_NETWORK_ERROR = new ErrorCode(2105, "模型网络异常");
-    ErrorCode MODEL_RESPONSE_INVALID = new ErrorCode(2106, "模型返回内容无效");
+    ErrorCode MODEL_UNSUPPORTED = new ErrorCode(2106, "不支持的模型类型");
+    ErrorCode MODEL_RESPONSE_INVALID = new ErrorCode(2107, "模型响应数据异常");
+
+    // ========== 文件上传 业务错误段 2201-2299 ==========
+
+    ErrorCode FILE_UPLOAD_EXPIRED = new ErrorCode(2201, "上传ID已失效");
+    ErrorCode FILE_FORMAT_NOT_SUPPORTED = new ErrorCode(2202, "文件格式不支持");
+    ErrorCode FILE_UPLOAD_FAILED = new ErrorCode(2203, "上传失败，请联系管理员");
+    ErrorCode FILE_PART_SUFFIX_REQUIRED = new ErrorCode(2204, "分片上传时文件类型不能为空");
+    ErrorCode FILE_PART_MIN_SIZE = new ErrorCode(2205, "分片文件大小必须大于最小限制");
+    ErrorCode FILE_PART_NOT_FOUND = new ErrorCode(2206, "分片不存在");
+    ErrorCode FILE_KEY_NOT_FOUND = new ErrorCode(2207, "文件不存在");
+    ErrorCode FILE_MERGE_FAILED = new ErrorCode(2208, "文件合并失败");
+    ErrorCode FILE_SIZE_EXCEEDS_LIMIT = new ErrorCode(2209, "文件大小超出限制");
+    ErrorCode FILE_SIGN_SECRET_NOT_CONFIGURED = new ErrorCode(2210, "签名密钥未配置");
+    ErrorCode FILE_PREFIX_DIR_TOO_LONG = new ErrorCode(2211, "前缀目录名称过长");
+    ErrorCode FILE_PREFIX_DIR_NOT_SUPPORT_MULTI_LEVEL = new ErrorCode(2212, "前缀目录不支持多级");
+    ErrorCode FILE_SIGNATURE_INVALID = new ErrorCode(2213, "签名校验失败");
 }
