@@ -28,7 +28,6 @@ import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -202,7 +201,6 @@ public class AiChatRequestPreparer {
      * @param requestMode  请求模式
      * @return 发送准备上下文
      */
-    @Transactional(rollbackFor = Exception.class)
     public PreparedSendContext doPrepareSendContext(AiConversation conversation,
                                                     Long userId,
                                                     String requestId,
@@ -413,7 +411,7 @@ public class AiChatRequestPreparer {
      */
     public String generateModelCode(String modelCode) {
         return CharSequenceUtil.isBlank(modelCode)
-                ? aiChatProperty.getDashscopeChatModel()
+                ? aiChatProperty.getDashscope().getChat().getModel()
                 : modelCode.trim();
     }
 

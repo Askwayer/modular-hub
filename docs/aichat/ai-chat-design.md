@@ -31,7 +31,7 @@
 - 并发执行：`aiChatTaskExecutor` 独立线程池
 - 线程池 Bean：`aiChatTaskExecutor`（别名 `aiChatExecutor`）由 `AiChatConfiguration` 在 `vita-aichat` 模块内声明
 - 工具库：`Hutool`（`CharSequenceUtil`、`IdUtil`、`BeanUtil`）
-- 配置类：`AiChatProperty` 使用 `@ConfigurationProperties(prefix = "spring.ai")` 集中管理
+- 配置类：`AiChatProperty` 使用 `@Value` 管理
 - vita-starters -> 被业务模块按需依赖，通过pom.xml引入，不被引入的情况下运行、debug和mvn 都忽略。
 - dashscope、fastapi和kimi等不需要单独拆包统一放到`vita-ai-core-spring-boot-starter`中避免模块过分冗余。
 

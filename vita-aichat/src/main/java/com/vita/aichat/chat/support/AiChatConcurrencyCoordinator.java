@@ -39,7 +39,7 @@ public class AiChatConcurrencyCoordinator {
         }
 
         try {
-            activePermitId = aiChatRedisCoordinator.acquireActivePermit(aiChatProperty.getConcurrencyWaitTimeoutSeconds());
+            activePermitId = aiChatRedisCoordinator.acquireActivePermit(aiChatProperty.getConcurrency().getWaitTimeoutSeconds());
             if (activePermitId == null) {
                 throw new ServiceException(GlobalErrorCode.CHAT_CAPACITY_WAIT_TIMEOUT);
             }
@@ -75,7 +75,7 @@ public class AiChatConcurrencyCoordinator {
      * 异步等待活跃并发名额。
      */
     public RFuture<String> acquireActivePermitAsync() {
-        return aiChatRedisCoordinator.acquireActivePermitAsync(aiChatProperty.getConcurrencyWaitTimeoutSeconds());
+        return aiChatRedisCoordinator.acquireActivePermitAsync(aiChatProperty.getConcurrency().getWaitTimeoutSeconds());
     }
 
     /**

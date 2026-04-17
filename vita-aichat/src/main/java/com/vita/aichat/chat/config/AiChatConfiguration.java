@@ -42,10 +42,10 @@ public class AiChatConfiguration {
     @Bean(name = {"aiChatTaskExecutor", "aiChatExecutor"})
     public ThreadPoolTaskExecutor aiChatExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(aiChatProperty.getExecutorCorePoolSize());
-        executor.setMaxPoolSize(aiChatProperty.getExecutorMaxPoolSize());
-        executor.setQueueCapacity(aiChatProperty.getExecutorQueueCapacity());
-        executor.setKeepAliveSeconds(aiChatProperty.getExecutorKeepAliveSeconds());
+        executor.setCorePoolSize(aiChatProperty.getExecutor().getCorePoolSize());
+        executor.setMaxPoolSize(aiChatProperty.getExecutor().getMaxPoolSize());
+        executor.setQueueCapacity(aiChatProperty.getExecutor().getQueueCapacity());
+        executor.setKeepAliveSeconds(aiChatProperty.getExecutor().getKeepAliveSeconds());
         executor.setThreadNamePrefix("ai-chat-");
         executor.setWaitForTasksToCompleteOnShutdown(true);
         executor.setAwaitTerminationSeconds(30);
@@ -64,44 +64,44 @@ public class AiChatConfiguration {
             if (!"dashscope".equalsIgnoreCase(aiChatProperty.getModelChat())) {
                 throw new ServiceException(GlobalErrorCode.MODEL_PROVIDER_ERROR.getCode(), "spring.ai.model.chat 仅支持 dashscope");
             }
-            if (CharSequenceUtil.isBlank(aiChatProperty.getDashscopeApiKey())) {
+            if (CharSequenceUtil.isBlank(aiChatProperty.getDashscope().getApiKey())) {
                 throw new ServiceException(GlobalErrorCode.MODEL_AUTH_ERROR.getCode(), "spring.ai.dashscope.api-key 未配置");
             }
-            if (CharSequenceUtil.isBlank(aiChatProperty.getDashscopeBaseUrl())) {
+            if (CharSequenceUtil.isBlank(aiChatProperty.getDashscope().getBaseUrl())) {
                 throw new ServiceException(GlobalErrorCode.MODEL_PROVIDER_ERROR.getCode(), "spring.ai.dashscope.base-url 未配置");
             }
-            if (CharSequenceUtil.isBlank(aiChatProperty.getDashscopeChatModel())) {
+            if (CharSequenceUtil.isBlank(aiChatProperty.getDashscope().getChat().getModel())) {
                 throw new ServiceException(GlobalErrorCode.MODEL_PROVIDER_ERROR.getCode(), "spring.ai.dashscope.chat.options.model 未配置");
             }
             if (redisCacheProvider.getIfAvailable() == null || redissonClientProvider.getIfAvailable() == null) {
                 throw new ServiceException(GlobalErrorCode.SERVICE_UNAVAILABLE.getCode(), "AI Chat 依赖 Redis 与 Redisson，请检查相关配置");
             }
-            if (aiChatProperty.getConversationLockLeaseSeconds() == null || aiChatProperty.getConversationLockLeaseSeconds() <= 0) {
+            if (aiChatProperty.getLock().getConversation().getLeaseSeconds() == null || aiChatProperty.getLock().getConversation().getLeaseSeconds() <= 0) {
                 throw new ServiceException(GlobalErrorCode.BAD_REQUEST.getCode(), "spring.ai.lock.conversation.lease-seconds 必须大于 0");
             }
-            if (aiChatProperty.getConcurrencyMaxActive() == null || aiChatProperty.getConcurrencyMaxActive() <= 0) {
+            if (aiChatProperty.getConcurrency().getMaxActive() == null || aiChatProperty.getConcurrency().getMaxActive() <= 0) {
                 throw new ServiceException(GlobalErrorCode.BAD_REQUEST.getCode(), "spring.ai.concurrency.max-active 必须大于 0");
             }
-            if (aiChatProperty.getConcurrencyMaxWaiting() == null || aiChatProperty.getConcurrencyMaxWaiting() < 0) {
+            if (aiChatProperty.getConcurrency().getMaxWaiting() == null || aiChatProperty.getConcurrency().getMaxWaiting() < 0) {
                 throw new ServiceException(GlobalErrorCode.BAD_REQUEST.getCode(), "spring.ai.concurrency.max-waiting 不能小于 0");
             }
-            if (aiChatProperty.getConcurrencyWaitTimeoutSeconds() == null || aiChatProperty.getConcurrencyWaitTimeoutSeconds() <= 0) {
+            if (aiChatProperty.getConcurrency().getWaitTimeoutSeconds() == null || aiChatProperty.getConcurrency().getWaitTimeoutSeconds() <= 0) {
                 throw new ServiceException(GlobalErrorCode.BAD_REQUEST.getCode(), "spring.ai.concurrency.wait-timeout-seconds 必须大于 0");
             }
-            if (aiChatProperty.getActivePermitLeaseSeconds() == null || aiChatProperty.getActivePermitLeaseSeconds() <= 0) {
+            if (aiChatProperty.getConcurrency().getActivePermitLeaseSeconds() == null || aiChatProperty.getConcurrency().getActivePermitLeaseSeconds() <= 0) {
                 throw new ServiceException(GlobalErrorCode.BAD_REQUEST.getCode(), "spring.ai.concurrency.active-permit-lease-seconds 必须大于 0");
             }
-            if (aiChatProperty.getExecutorCorePoolSize() == null || aiChatProperty.getExecutorCorePoolSize() <= 0) {
+            if (aiChatProperty.getExecutor().getCorePoolSize() == null || aiChatProperty.getExecutor().getCorePoolSize() <= 0) {
                 throw new ServiceException(GlobalErrorCode.BAD_REQUEST.getCode(), "spring.ai.executor.core-pool-size 必须大于 0");
             }
-            if (aiChatProperty.getExecutorMaxPoolSize() == null
-                    || aiChatProperty.getExecutorMaxPoolSize() < aiChatProperty.getConcurrencyMaxActive()) {
+            if (aiChatProperty.getExecutor().getMaxPoolSize() == null
+                    || aiChatProperty.getExecutor().getMaxPoolSize() < aiChatProperty.getConcurrency().getMaxActive()) {
                 throw new ServiceException(GlobalErrorCode.BAD_REQUEST.getCode(), "spring.ai.executor.max-pool-size 必须大于等于 spring.ai.concurrency.max-active");
             }
-            if (aiChatProperty.getExecutorMaxPoolSize() < aiChatProperty.getExecutorCorePoolSize()) {
+            if (aiChatProperty.getExecutor().getMaxPoolSize() < aiChatProperty.getExecutor().getCorePoolSize()) {
                 throw new ServiceException(GlobalErrorCode.BAD_REQUEST.getCode(), "spring.ai.executor.max-pool-size 不能小于 spring.ai.executor.core-pool-size");
             }
-            if (aiChatProperty.getExecutorQueueCapacity() == null || aiChatProperty.getExecutorQueueCapacity() < 0) {
+            if (aiChatProperty.getExecutor().getQueueCapacity() == null || aiChatProperty.getExecutor().getQueueCapacity() < 0) {
                 throw new ServiceException(GlobalErrorCode.BAD_REQUEST.getCode(), "spring.ai.executor.queue-capacity 不能小于 0");
             }
             aiChatConcurrencyCoordinator.initializePermits();

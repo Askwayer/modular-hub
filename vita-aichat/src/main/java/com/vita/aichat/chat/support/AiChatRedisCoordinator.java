@@ -62,7 +62,7 @@ public class AiChatRedisCoordinator {
         try {
             return getConversationLock(conversationId).tryLock(
                     0L,
-                    aiChatProperty.getConversationLockLeaseSeconds(),
+                    aiChatProperty.getLock().getConversation().getLeaseSeconds(),
                     TimeUnit.SECONDS
             );
         } catch (InterruptedException ex) {
@@ -86,7 +86,7 @@ public class AiChatRedisCoordinator {
      */
     public String tryAcquireActivePermit() {
         try {
-            return getActiveSemaphore().tryAcquire(0L, aiChatProperty.getActivePermitLeaseSeconds(), TimeUnit.SECONDS);
+            return getActiveSemaphore().tryAcquire(0L, aiChatProperty.getConcurrency().getActivePermitLeaseSeconds(), TimeUnit.SECONDS);
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
             throw new ServiceException(GlobalErrorCode.SERVICE_UNAVAILABLE.getCode(), "获取活跃生成名额时被中断");
@@ -100,7 +100,7 @@ public class AiChatRedisCoordinator {
         try {
             return getActiveSemaphore().tryAcquire(
                     waitTimeoutSeconds,
-                    aiChatProperty.getActivePermitLeaseSeconds(),
+                    aiChatProperty.getConcurrency().getActivePermitLeaseSeconds(),
                     TimeUnit.SECONDS
             );
         } catch (InterruptedException ex) {
@@ -115,7 +115,7 @@ public class AiChatRedisCoordinator {
     public RFuture<String> acquireActivePermitAsync(Long waitTimeoutSeconds) {
         return getActiveSemaphore().tryAcquireAsync(
                 waitTimeoutSeconds,
-                aiChatProperty.getActivePermitLeaseSeconds(),
+                aiChatProperty.getConcurrency().getActivePermitLeaseSeconds(),
                 TimeUnit.SECONDS
         );
     }
@@ -154,8 +154,8 @@ public class AiChatRedisCoordinator {
      * 按当前配置初始化并发名额。
      */
     public void initializeConcurrencyPermits() {
-        initializeSemaphore(getActiveSemaphore(), ACTIVE_SEMAPHORE_CONFIG_KEY, aiChatProperty.getConcurrencyMaxActive());
-        initializeSemaphore(getWaitingSemaphore(), WAITING_SEMAPHORE_CONFIG_KEY, aiChatProperty.getConcurrencyMaxWaiting());
+        initializeSemaphore(getActiveSemaphore(), ACTIVE_SEMAPHORE_CONFIG_KEY, aiChatProperty.getConcurrency().getMaxActive());
+        initializeSemaphore(getWaitingSemaphore(), WAITING_SEMAPHORE_CONFIG_KEY, aiChatProperty.getConcurrency().getMaxWaiting());
     }
 
     /**
@@ -173,7 +173,7 @@ public class AiChatRedisCoordinator {
     }
 
     private long waitingPermitLeaseSeconds() {
-        return aiChatProperty.getConcurrencyWaitTimeoutSeconds() + WAITING_PERMIT_LEASE_BUFFER_SECONDS;
+        return aiChatProperty.getConcurrency().getWaitTimeoutSeconds() + WAITING_PERMIT_LEASE_BUFFER_SECONDS;
     }
 
     private void initializeSemaphore(RPermitExpirableSemaphore semaphore, String configKey, Integer configuredPermits) {
