@@ -19,12 +19,13 @@
     </properties>
 
     <dependencies>
+        <!-- 公共基础模块 -->
         <dependency>
             <groupId>com.vita</groupId>
             <artifactId>vita-common</artifactId>
         </dependency>
 
-        <!-- 验证码 -->
+        <!-- Kaptcha 图形验证码生成库 -->
         <dependency>
             <groupId>com.github.penggle</groupId>
             <artifactId>kaptcha</artifactId>
@@ -37,6 +38,7 @@
             </exclusions>
         </dependency>
 
+        <!-- Spring Boot 测试框架 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>

@@ -18,24 +18,25 @@
     </properties>
 
     <dependencies>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter</artifactId>
-        </dependency>
-
-        <!-- vita-common -->
+        <!-- 公共基础模块（包含 spring-boot-starter 等核心依赖） -->
         <dependency>
             <groupId>com.vita</groupId>
             <artifactId>vita-common</artifactId>
         </dependency>
 
-        <!-- vita-captcha-spring-boot-starter -->
+        <!-- 验证码 Starter（通过 profile 激活） -->
         <dependency>
             <groupId>com.vita</groupId>
             <artifactId>vita-captcha-spring-boot-starter</artifactId>
-            <version>${vita.starters.version}</version>
         </dependency>
 
+        <!-- 文件上传/存储 Starter -->
+        <dependency>
+            <groupId>com.vita</groupId>
+            <artifactId>vita-file-spring-boot-starter</artifactId>
+        </dependency>
+
+        <!-- Spring Boot 测试框架 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>

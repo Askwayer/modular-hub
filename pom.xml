@@ -47,7 +47,7 @@
 
     <dependencyManagement>
         <dependencies>
-            <!-- SpringBoot的依赖配置-->
+            <!-- Spring Boot BOM，统一管理所有 Spring Boot 依赖版本 -->
             <dependency>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-dependencies</artifactId>
@@ -56,7 +56,7 @@
                 <scope>import</scope>
             </dependency>
 
-            <!-- Spring AI BOM -->
+            <!-- Spring AI BOM，统一管理 Spring AI 依赖版本 -->
             <dependency>
                 <groupId>org.springframework.ai</groupId>
                 <artifactId>spring-ai-bom</artifactId>
@@ -65,7 +65,7 @@
                 <scope>import</scope>
             </dependency>
 
-            <!-- Spring AI Alibaba BOM -->
+            <!-- Spring AI Alibaba BOM，统一管理阿里 AI 依赖版本 -->
             <dependency>
                 <groupId>com.alibaba.cloud.ai</groupId>
                 <artifactId>spring-ai-alibaba-bom</artifactId>
@@ -73,6 +73,7 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
+            <!-- Spring AI Alibaba Extensions BOM -->
             <dependency>
                 <groupId>com.alibaba.cloud.ai</groupId>
                 <artifactId>spring-ai-alibaba-extensions-bom</artifactId>
@@ -81,123 +82,131 @@
                 <scope>import</scope>
             </dependency>
 
-            <!-- lombok -->
+            <!-- Lombok，简化 Java Bean 代码 -->
             <dependency>
                 <groupId>org.projectlombok</groupId>
                 <artifactId>lombok</artifactId>
                 <version>${lombok.version}</version>
             </dependency>
 
-            <!-- dynamic -->
+            <!-- 动态数据源，支持运行时切换主从/多数据源 -->
             <dependency>
                 <groupId>com.baomidou</groupId>
                 <artifactId>dynamic-datasource-spring-boot3-starter</artifactId>
                 <version>${dynamic.version}</version>
             </dependency>
 
-            <!-- HikariCP -->
+            <!-- 数据库连接池，Spring Boot 默认使用 -->
             <dependency>
                 <groupId>com.zaxxer</groupId>
                 <artifactId>HikariCP</artifactId>
                 <version>${HikariCP.version}</version>
             </dependency>
 
-            <!-- mysql -->
+            <!-- MySQL JDBC 驱动 -->
             <dependency>
                 <groupId>com.mysql</groupId>
                 <artifactId>mysql-connector-j</artifactId>
                 <version>${mysql.version}</version>
             </dependency>
 
-            <!-- redisson配置 -->
+            <!-- Redis 客户端，支持分布式锁、缓存等 -->
             <dependency>
                 <groupId>org.redisson</groupId>
                 <artifactId>redisson-spring-boot-starter</artifactId>
                 <version>${redisson.version}</version>
             </dependency>
 
-            <!-- mybatis-plus -->
+            <!-- MyBatis-Plus ORM 框架 -->
             <dependency>
                 <groupId>com.baomidou</groupId>
                 <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
                 <version>${mybatis-plus.version}</version>
             </dependency>
+            <!-- MyBatis-Plus SQL 解析插件 -->
             <dependency>
                 <groupId>com.baomidou</groupId>
                 <artifactId>mybatis-plus-jsqlparser</artifactId>
                 <version>${mybatis-plus.version}</version>
             </dependency>
+            <!-- MyBatis-Plus 代码生成器，仅 vita-generator 使用 -->
             <dependency>
                 <groupId>com.baomidou</groupId>
                 <artifactId>mybatis-plus-generator</artifactId>
                 <version>${mybatis-plus.version}</version>
             </dependency>
 
-            <!-- fastjson2 -->
+            <!-- JSON 序列化/反序列化工具 -->
             <dependency>
                 <groupId>com.alibaba.fastjson2</groupId>
                 <artifactId>fastjson2</artifactId>
                 <version>${fastjson2.version}</version>
             </dependency>
 
-            <!-- hutool -->
+            <!-- Java 工具类集合 -->
             <dependency>
                 <groupId>cn.hutool</groupId>
                 <artifactId>hutool-all</artifactId>
                 <version>${hutool-all.version}</version>
             </dependency>
 
-            <!-- guava -->
+            <!-- Google 工具类集合，主要用于缓存、集合等 -->
             <dependency>
                 <groupId>com.google.guava</groupId>
                 <artifactId>guava</artifactId>
                 <version>${guava.version}</version>
             </dependency>
 
-            <!-- bouncycastle -->
+            <!-- 加密算法库，支持国密等算法 -->
             <dependency>
                 <groupId>org.bouncycastle</groupId>
                 <artifactId>bcprov-jdk18on</artifactId>
                 <version>${bcprov.version}</version>
             </dependency>
 
-            <!-- Sa-Token 权限认证，在线文档：https://sa-token.cc -->
+            <!-- Sa-Token 权限认证框架 -->
             <dependency>
                 <groupId>cn.dev33</groupId>
                 <artifactId>sa-token-spring-boot3-starter</artifactId>
                 <version>${sa-token.version}</version>
             </dependency>
-            <!-- Sa-Token 整合 RedisTemplate -->
+            <!-- Sa-Token 整合 Redis，使用 RedisTemplate 存储会话 -->
             <dependency>
                 <groupId>cn.dev33</groupId>
                 <artifactId>sa-token-redis-template</artifactId>
                 <version>${sa-token.version}</version>
             </dependency>
-            <!-- Sa-Token 整合 JWT -->
+            <!-- Sa-Token 整合 JWT，用于无状态 Token 认证 -->
             <dependency>
                 <groupId>cn.dev33</groupId>
                 <artifactId>sa-token-jwt</artifactId>
                 <version>${sa-token.version}</version>
             </dependency>
 
-            <!-- vita-common -->
+            <!-- 公共基础模块 -->
             <dependency>
                 <groupId>com.vita</groupId>
                 <artifactId>vita-common</artifactId>
                 <version>${vita.version}</version>
             </dependency>
 
-            <!-- vita-service -->
+            <!-- 业务服务层模块 -->
             <dependency>
                 <groupId>com.vita</groupId>
                 <artifactId>vita-service</artifactId>
                 <version>${vita.version}</version>
             </dependency>
 
-            <!-- vita-starters -->
+            <!-- 验证码 Starter -->
             <dependency>
                 <groupId>com.vita</groupId>
                 <artifactId>vita-captcha-spring-boot-starter</artifactId>
+                <version>${vita.starters.version}</version>
+            </dependency>
+            <!-- 文件上传/存储 Starter -->
+            <dependency>
+                <groupId>com.vita</groupId>
+                <artifactId>vita-file-spring-boot-starter</artifactId>
                 <version>${vita.starters.version}</version>
             </dependency>
         </dependencies>

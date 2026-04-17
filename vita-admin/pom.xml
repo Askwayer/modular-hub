@@ -15,27 +15,25 @@
     <description>Admin Spring Boot Application</description>
 
     <dependencies>
+        <!-- Web 支持，HTTP 服务、Tomcat 内嵌服务器 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
 
+        <!-- 公共基础模块（通过 vita-service 传递引入） -->
         <dependency>
             <groupId>com.vita</groupId>
             <artifactId>vita-common</artifactId>
         </dependency>
 
+        <!-- 业务服务层（包含认证、RBAC、系统管理等） -->
         <dependency>
             <groupId>com.vita</groupId>
             <artifactId>vita-service</artifactId>
         </dependency>
 
-        <dependency>
-            <groupId>com.vita</groupId>
-            <artifactId>vita-captcha-spring-boot-starter</artifactId>
-            <version>${vita.starters.version}</version>
-        </dependency>
-
+        <!-- Spring Boot 测试框架 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>

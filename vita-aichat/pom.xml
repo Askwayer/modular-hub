@@ -19,17 +19,19 @@
 
     <dependencies>
 
+        <!-- Spring AI Alibaba DashScope 模型接入（通义千问等） -->
         <dependency>
             <groupId>com.alibaba.cloud.ai</groupId>
             <artifactId>spring-ai-alibaba-starter-dashscope</artifactId>
         </dependency>
 
-        <!-- vita-common -->
+        <!-- 公共基础模块 -->
         <dependency>
             <groupId>com.vita</groupId>
             <artifactId>vita-common</artifactId>
         </dependency>
 
+        <!-- Spring Boot 测试框架 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
