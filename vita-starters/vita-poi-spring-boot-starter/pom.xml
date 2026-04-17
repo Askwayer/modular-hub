@@ -17,7 +17,7 @@
     </properties>
 
     <dependencies>
-        <!-- vita-common -->
+        <!-- 公共基础模块 -->
         <dependency>
             <groupId>com.vita</groupId>
             <artifactId>vita-common</artifactId>
