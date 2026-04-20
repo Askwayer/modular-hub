@@ -209,6 +209,19 @@
                 <artifactId>vita-file-spring-boot-starter</artifactId>
                 <version>${vita.starters.version}</version>
             </dependency>
+
+            <!-- AI Core Starter -->
+            <dependency>
+                <groupId>com.vita</groupId>
+                <artifactId>vita-ai-core-spring-boot-starter</artifactId>
+                <version>${vita.starters.version}</version>
+            </dependency>
+            <!-- DashScope AI Provider Starter -->
+            <dependency>
+                <groupId>com.vita</groupId>
+                <artifactId>vita-ai-provider-spring-boot-starter</artifactId>
+                <version>${vita.starters.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 

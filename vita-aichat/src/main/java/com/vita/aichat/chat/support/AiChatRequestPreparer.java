@@ -2,7 +2,7 @@ package com.vita.aichat.chat.support;
 
 import cn.hutool.core.text.CharSequenceUtil;
 import cn.hutool.core.util.IdUtil;
-import com.vita.aichat.aiChatRequest.entity.AiChatRequest;
+import com.vita.ai.core.model.AiChatMessage;
 import com.vita.aichat.aiChatRequest.service.IAiChatRequestService;
 import com.vita.aichat.aiConversation.entity.AiConversation;
 import com.vita.aichat.aiConversation.service.IAiConversationService;
@@ -21,11 +21,6 @@ import com.vita.aichat.enums.AiRoleTypeEnum;
 import com.vita.core.context.LoginUserInfoModelContext;
 import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
-import org.springframework.ai.chat.messages.AssistantMessage;
-import org.springframework.ai.chat.messages.Message;
-import org.springframework.ai.chat.messages.SystemMessage;
-import org.springframework.ai.chat.messages.UserMessage;
-import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Component;
 
@@ -218,7 +213,7 @@ public class AiChatRequestPreparer {
         aiMessageService.create(assistantMessage);
 
         // 构建并持久化聊天请求
-        AiChatRequest chatRequest = aiChatMessageBuilder.buildChatRequest(
+        com.vita.aichat.aiChatRequest.entity.AiChatRequest chatRequest = aiChatMessageBuilder.buildChatRequest(
                 conversation.getId(), userId, requestId, requestMode, modelCode,
                 userMessage.getId(), assistantMessage.getId());
         try {
@@ -227,8 +222,9 @@ public class AiChatRequestPreparer {
             throw new ServiceException(GlobalErrorCode.CHAT_REQUEST_DUPLICATE);
         }
 
-        // 构建 Prompt
-        Prompt prompt = buildPrompt(conversation, userId, userMessage, modelCode,
+        // 构建统一 AI 请求 DTO
+        com.vita.ai.core.model.AiChatRequest aiChatRequest = buildAiChatRequest(
+                conversation, userId, userMessage, modelCode, sendDto,
                 requestMode == AiChatRequestModeEnum.STREAM);
 
         // 更新会话状态
@@ -244,38 +240,29 @@ public class AiChatRequestPreparer {
         context.setUserMessage(userMessage);
         context.setAssistantMessage(assistantMessage);
         context.setChatRequest(chatRequest);
-        context.setPrompt(prompt);
+        context.setAiChatRequest(aiChatRequest);
         return context;
     }
 
     /**
-     * 构建 AI 提示词。
-     *
-     * @param conversation 会话实体
-     * @param userId       用户ID
-     * @param userMessage  用户消息实体
-     * @param modelCode    模型编码
-     * @param stream       是否流式
-     * @return 提示词对象
+     * 构建统一 AI 请求 DTO。
      */
-    private Prompt buildPrompt(AiConversation conversation,
-                               Long userId,
-                               AiMessage userMessage,
-                               String modelCode,
-                               boolean stream) {
-        List<Message> messages = new ArrayList<>();
-
-        // 添加系统提示词
-        String systemPrompt = generateSystemPrompt(conversation.getSystemPrompt());
-        if (CharSequenceUtil.isNotBlank(systemPrompt)) {
-            messages.add(new SystemMessage(systemPrompt));
-        }
+    private com.vita.ai.core.model.AiChatRequest buildAiChatRequest(AiConversation conversation,
+                                                                      Long userId,
+                                                                      AiMessage userMessage,
+                                                                      String modelCode,
+                                                                      AiMessageSendDto sendDto,
+                                                                      boolean stream) {
+        List<AiChatMessage> messages = new ArrayList<>();
 
         // 添加会话历史摘要
         AiConversationSummary summary = aiConversationSummaryService.getLatestReadySummary(
                 conversation.getId(), userId);
         if (summary != null && CharSequenceUtil.isNotBlank(summary.getSummaryText())) {
-            messages.add(new SystemMessage("以下是当前会话的历史摘要：\n" + summary.getSummaryText()));
+            messages.add(AiChatMessage.builder()
+                    .role("system")
+                    .content("以下是当前会话的历史摘要：\n" + summary.getSummaryText())
+                    .build());
         }
 
         // 添加历史消息
@@ -287,60 +274,45 @@ public class AiChatRequestPreparer {
         );
         Collections.reverse(historyMessages);
         for (AiMessage historyMessage : historyMessages) {
-            Message promptMessage = convertToPromptMessage(historyMessage);
-            if (promptMessage != null) {
-                messages.add(promptMessage);
+            AiChatMessage chatMessage = convertToAiChatMessage(historyMessage);
+            if (chatMessage != null) {
+                messages.add(chatMessage);
             }
         }
 
-        // 添加当前用户消息
-        messages.add(new UserMessage(userMessage.getContent()));
-
-        return new Prompt(messages, buildChatOptions(conversation, modelCode, stream));
+        String systemPrompt = generateSystemPrompt(conversation.getSystemPrompt());
+        return com.vita.ai.core.model.AiChatRequest.builder()
+                .requestId(userMessage.getRequestId())
+                .module("aichat")
+                .conversationId(conversation.getId())
+                .userId(userId)
+                .provider(null)
+                .model(modelCode)
+                .systemPrompt(CharSequenceUtil.isNotBlank(systemPrompt) ? systemPrompt : null)
+                .userPrompt(userMessage.getContent())
+                .messages(messages)
+                .temperature(conversation.getTemperature())
+                .maxTokens(conversation.getMaxTokens())
+                .stream(stream)
+                .build();
     }
 
     /**
-     * 将消息实体转换为提示词消息。
-     *
-     * @param aiMessage 消息实体
-     * @return 提示词消息
+     * 将消息实体转换为统一 AiChatMessage。
      */
-    private Message convertToPromptMessage(AiMessage aiMessage) {
+    private AiChatMessage convertToAiChatMessage(AiMessage aiMessage) {
         if (aiMessage == null || CharSequenceUtil.isBlank(aiMessage.getContent())) {
             return null;
         }
-        return switch (AiRoleTypeEnum.valueOf(aiMessage.getRoleType())) {
-            case USER -> new UserMessage(aiMessage.getContent());
-            case ASSISTANT -> new AssistantMessage(aiMessage.getContent());
-            case SYSTEM -> new SystemMessage(aiMessage.getContent());
-            case SUMMARY -> new SystemMessage("历史摘要：\n" + aiMessage.getContent());
+        String role = switch (AiRoleTypeEnum.valueOf(aiMessage.getRoleType())) {
+            case USER -> "user";
+            case ASSISTANT -> "assistant";
+            case SYSTEM, SUMMARY -> "system";
         };
-    }
-
-    /**
-     * 构建模型调用选项。
-     *
-     * @param conversation 会话实体
-     * @param modelCode    模型编码
-     * @param stream       是否流式
-     * @return 模型选项
-     */
-    private com.alibaba.cloud.ai.dashscope.chat.DashScopeChatOptions buildChatOptions(
-            AiConversation conversation, String modelCode, boolean stream) {
-        var builder = com.alibaba.cloud.ai.dashscope.chat.DashScopeChatOptions.builder()
-                .model(modelCode)
-                .stream(stream)
-                .incrementalOutput(stream)
-                .enableSearch(Boolean.TRUE)
-                .enableThinking(isThinkingModel(modelCode));
-
-        if (conversation.getMaxTokens() != null) {
-            builder.maxToken(conversation.getMaxTokens());
-        }
-        if (conversation.getTemperature() != null) {
-            builder.temperature(conversation.getTemperature().doubleValue());
-        }
-        return builder.build();
+        String content = AiRoleTypeEnum.valueOf(aiMessage.getRoleType()) == AiRoleTypeEnum.SUMMARY
+                ? "历史摘要：\n" + aiMessage.getContent()
+                : aiMessage.getContent();
+        return AiChatMessage.builder().role(role).content(content).build();
     }
 
     /**
@@ -411,7 +383,7 @@ public class AiChatRequestPreparer {
      */
     public String generateModelCode(String modelCode) {
         return CharSequenceUtil.isBlank(modelCode)
-                ? aiChatProperty.getDashscope().getChat().getModel()
+                ? "qwen-plus"
                 : modelCode.trim();
     }
 

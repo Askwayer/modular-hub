@@ -45,7 +45,6 @@ public class AiChatProperty {
     private Lock lock = new Lock();
     private Concurrency concurrency = new Concurrency();
     private Executor executor = new Executor();
-    private Dashscope dashscope = new Dashscope();
 
     @Data
     public static class Lock {
@@ -71,17 +70,5 @@ public class AiChatProperty {
         private Integer maxPoolSize = 16;
         private Integer queueCapacity = 0;
         private Integer keepAliveSeconds = 60;
-    }
-
-    @Data
-    public static class Dashscope {
-        private String apiKey;
-        private String baseUrl = "https://dashscope.aliyuncs.com";
-        private ChatOptions chat = new ChatOptions();
-
-        @Data
-        public static class ChatOptions {
-            private String model = "qwen-plus";
-        }
     }
 }

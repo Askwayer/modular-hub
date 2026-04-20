@@ -19,10 +19,16 @@
 
     <dependencies>
 
-        <!-- Spring AI Alibaba DashScope 模型接入（通义千问等） -->
+        <!-- AI Core Starter — 统一协议、策略、路由 -->
         <dependency>
-            <groupId>com.alibaba.cloud.ai</groupId>
-            <artifactId>spring-ai-alibaba-starter-dashscope</artifactId>
+            <groupId>com.vita</groupId>
+            <artifactId>vita-ai-core-spring-boot-starter</artifactId>
+        </dependency>
+
+        <!-- DashScope Provider Starter — 通义千问模型接入 -->
+        <dependency>
+            <groupId>com.vita</groupId>
+            <artifactId>vita-ai-provider-spring-boot-starter</artifactId>
         </dependency>
 
         <!-- 公共基础模块 -->

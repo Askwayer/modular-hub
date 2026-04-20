@@ -1,6 +1,9 @@
 package com.vita.aichat.chat.service.impl;
 
 import cn.hutool.core.text.CharSequenceUtil;
+import com.vita.ai.core.client.AiChatClient;
+import com.vita.ai.core.model.AiChatResponse;
+import com.vita.ai.core.model.AiStreamChunk;
 import com.vita.aichat.aiChatRequest.entity.AiChatRequest;
 import com.vita.aichat.aiChatRequest.service.IAiChatRequestService;
 import com.vita.aichat.aiConversation.entity.AiConversation;
@@ -27,13 +30,12 @@ import com.vita.core.page.PageResponse;
 import com.vita.utils.SnowUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.chat.model.ChatModel;
-import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import reactor.core.publisher.Flux;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
@@ -53,12 +55,11 @@ public class AiChatServiceImpl implements IAiChatService {
     private final IAiMessageService aiMessageService;
     private final IAiConversationSummaryService aiConversationSummaryService;
     private final IAiChatRequestService aiChatRequestService;
-    private final ChatModel chatModel;
+    private final AiChatClient aiChatClient;
     private final AiChatProperty aiChatProperty;
     private final AiChatAssembler aiChatAssembler;
     private final AiChatConcurrencyCoordinator aiChatConcurrencyCoordinator;
     private final AiChatSseWriter aiChatSseWriter;
-    private final AiChatResponseExtractor aiChatResponseExtractor;
     private final Executor aiChatExecutor;
     private final AiChatStreamProcessor aiChatStreamProcessor;
     private final AiChatOutcomeApplier aiChatOutcomeApplier;
@@ -70,12 +71,11 @@ public class AiChatServiceImpl implements IAiChatService {
                              IAiMessageService aiMessageService,
                              IAiConversationSummaryService aiConversationSummaryService,
                              IAiChatRequestService aiChatRequestService,
-                             ChatModel chatModel,
+                             AiChatClient aiChatClient,
                              AiChatProperty aiChatProperty,
                              AiChatAssembler aiChatAssembler,
                              AiChatConcurrencyCoordinator aiChatConcurrencyCoordinator,
                              AiChatSseWriter aiChatSseWriter,
-                             AiChatResponseExtractor aiChatResponseExtractor,
                              @Qualifier("aiChatTaskExecutor") Executor aiChatExecutor,
                              AiChatStreamProcessor aiChatStreamProcessor,
                              AiChatOutcomeApplier aiChatOutcomeApplier,
@@ -86,12 +86,11 @@ public class AiChatServiceImpl implements IAiChatService {
         this.aiMessageService = aiMessageService;
         this.aiConversationSummaryService = aiConversationSummaryService;
         this.aiChatRequestService = aiChatRequestService;
-        this.chatModel = chatModel;
+        this.aiChatClient = aiChatClient;
         this.aiChatProperty = aiChatProperty;
         this.aiChatAssembler = aiChatAssembler;
         this.aiChatConcurrencyCoordinator = aiChatConcurrencyCoordinator;
         this.aiChatSseWriter = aiChatSseWriter;
-        this.aiChatResponseExtractor = aiChatResponseExtractor;
         this.aiChatExecutor = aiChatExecutor;
         this.aiChatStreamProcessor = aiChatStreamProcessor;
         this.aiChatOutcomeApplier = aiChatOutcomeApplier;
@@ -100,12 +99,6 @@ public class AiChatServiceImpl implements IAiChatService {
         this.self = self;
     }
 
-    /**
-     * 创建会话。
-     *
-     * @param createDto 创建请求对象
-     * @return 会话ID
-     */
     @Override
     public Long createConversation(AiConversationCreateDto createDto) {
         Long userId = LoginUserInfoModelContext.getRequiredLoginUserId();
@@ -129,12 +122,6 @@ public class AiChatServiceImpl implements IAiChatService {
         return conversation.getId();
     }
 
-    /**
-     * 分页查询会话列表。
-     *
-     * @param queryDto 分页查询条件
-     * @return 会话分页数据
-     */
     @Override
     public PageResponse<AiConversationPageVo> pageConversations(AiConversationPageQueryDto queryDto) {
         Long userId = LoginUserInfoModelContext.getRequiredLoginUserId();
@@ -145,23 +132,11 @@ public class AiChatServiceImpl implements IAiChatService {
         return response;
     }
 
-    /**
-     * 查询会话详情。
-     *
-     * @param conversationId 会话ID
-     * @return 会话详情对象
-     */
     @Override
     public AiConversationDetailVo getConversation(Long conversationId) {
         return aiChatAssembler.toConversationDetailVo(aiChatRequestPreparer.requireConversation(conversationId));
     }
 
-    /**
-     * 重命名会话标题。
-     *
-     * @param conversationId 会话ID
-     * @param updateDto      标题更新请求对象
-     */
     @Override
     public void renameConversation(Long conversationId, AiConversationTitleUpdateDto updateDto) {
         AiConversation conversation = aiChatRequestPreparer.requireConversation(conversationId);
@@ -172,11 +147,6 @@ public class AiChatServiceImpl implements IAiChatService {
         aiConversationService.update(update);
     }
 
-    /**
-     * 删除会话及其关联数据。
-     *
-     * @param conversationId 会话ID
-     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void deleteConversation(Long conversationId) {
@@ -189,13 +159,6 @@ public class AiChatServiceImpl implements IAiChatService {
         aiConversationService.deleteByIdAndUserId(conversation.getId(), userId);
     }
 
-    /**
-     * 分页查询消息列表。
-     *
-     * @param conversationId 会话ID
-     * @param queryDto       分页查询条件
-     * @return 消息分页数据
-     */
     @Override
     public PageResponse<AiMessagePageVo> pageMessages(Long conversationId, AiMessagePageQueryDto queryDto) {
         Long userId = LoginUserInfoModelContext.getRequiredLoginUserId();
@@ -207,13 +170,6 @@ public class AiChatServiceImpl implements IAiChatService {
         return response;
     }
 
-    /**
-     * 发送消息（同步模式）。
-     *
-     * @param conversationId 会话ID
-     * @param sendDto        消息发送请求对象
-     * @return 发送结果
-     */
     @Override
     @Transactional(rollbackFor = Exception.class)
     public AiChatSendVo sendMessage(Long conversationId, AiMessageSendDto sendDto) {
@@ -228,8 +184,8 @@ public class AiChatServiceImpl implements IAiChatService {
             }
             conversationLockAcquired = true;
             context = prepareSendContext(reservedContext, AiChatRequestModeEnum.SYNC, capacityPermit);
-            ChatResponse response = chatModel.call(context.getPrompt());
-            AiChatCompletionResult completionResult = aiChatResponseExtractor.extractCompletion(response);
+            AiChatResponse response = aiChatClient.chat(context.getAiChatRequest());
+            AiChatCompletionResult completionResult = toCompletionResult(response);
             validateCompletion(completionResult);
             LocalDateTime completedAt = LocalDateTime.now();
             completionResult = AiChatCompletionResult.builder()
@@ -266,13 +222,6 @@ public class AiChatServiceImpl implements IAiChatService {
         }
     }
 
-    /**
-     * 发送消息（流式模式）。
-     *
-     * @param conversationId 会话ID
-     * @param sendDto        消息发送请求对象
-     * @return SSE流式响应
-     */
     @Override
     public SseEmitter sendMessageStream(Long conversationId, AiMessageSendDto sendDto) {
         if (!Boolean.TRUE.equals(aiChatProperty.getStreamEnabled())) {
@@ -311,9 +260,6 @@ public class AiChatServiceImpl implements IAiChatService {
         return emitter;
     }
 
-    /**
-     * 处理异步获得活跃名额后的流式执行。
-     */
     private void handleAsyncCapacityReady(StreamRequestState streamState,
                                           LoginUserInfoModel currentUserInfo,
                                           String activePermitId,
@@ -376,9 +322,6 @@ public class AiChatServiceImpl implements IAiChatService {
         }
     }
 
-    /**
-     * 提交流式执行任务。
-     */
     private void submitStreamTask(StreamRequestState streamState,
                                   LoginUserInfoModel currentUserInfo,
                                   AiChatCapacityPermit capacityPermit) {
@@ -409,9 +352,6 @@ public class AiChatServiceImpl implements IAiChatService {
         }
     }
 
-    /**
-     * 处理流式响应（带预留上下文）。
-     */
     @Transactional(rollbackFor = Exception.class)
     public void processStreamWithReservation(StreamRequestState streamState,
                                               AiChatCapacityPermit capacityPermit) {
@@ -449,7 +389,8 @@ public class AiChatServiceImpl implements IAiChatService {
             sendStartEvent(context, streamState.getEmitter());
             markRequestStatus(context, AiChatRequestStatusEnum.STREAMING.name());
 
-            StreamProcessResult streamResult = aiChatStreamProcessor.process(context, streamState.getEmitter());
+            Flux<AiStreamChunk> streamFlux = aiChatClient.streamChat(context.getAiChatRequest());
+            StreamProcessResult streamResult = aiChatStreamProcessor.process(context, streamState.getEmitter(), streamFlux);
 
             AiChatCompletionResult completionResult = AiChatCompletionResult.builder()
                     .providerRequestId(streamResult.getProviderRequestId())
@@ -496,19 +437,10 @@ public class AiChatServiceImpl implements IAiChatService {
         }
     }
 
-    /**
-     * 从异常中提取完成结果。
-     *
-     * @param ex 异常
-     * @return 完成结果
-     */
     private AiChatCompletionResult extractCompletionFromException(Exception ex) {
         return emptyCompletionResult();
     }
 
-    /**
-     * 准备发送消息上下文。
-     */
     private PreparedSendContext prepareSendContext(ReservedSendContext reservedContext,
                                                    AiChatRequestModeEnum requestMode,
                                                    AiChatCapacityPermit capacityPermit) {
@@ -518,12 +450,6 @@ public class AiChatServiceImpl implements IAiChatService {
         return context;
     }
 
-    /**
-     * 标记请求状态。
-     *
-     * @param context 发送准备上下文
-     * @param status  请求状态
-     */
     private void markRequestStatus(PreparedSendContext context, String status) {
         AiChatRequest update = new AiChatRequest();
         update.setId(context.getChatRequest().getId());
@@ -531,11 +457,21 @@ public class AiChatServiceImpl implements IAiChatService {
         aiChatRequestService.update(update);
     }
 
-    /**
-     * 校验模型完成结果。
-     *
-     * @param completionResult 模型完成结果
-     */
+    private AiChatCompletionResult toCompletionResult(AiChatResponse response) {
+        return AiChatCompletionResult.builder()
+                .providerRequestId(response.getProviderRequestId())
+                .content(response.getContent())
+                .reasoningContent(response.getReasoningContent())
+                .finishReason(response.getFinishReason())
+                .tokenInput(response.getTokenInput())
+                .tokenOutput(response.getTokenOutput())
+                .tokenTotal(response.getTokenTotal())
+                .firstTokenAt(LocalDateTime.now())
+                .completedAt(LocalDateTime.now())
+                .streamBatchCount(0)
+                .build();
+    }
+
     private void validateCompletion(AiChatCompletionResult completionResult) {
         if (completionResult == null) {
             throw new ServiceException(GlobalErrorCode.MODEL_RESPONSE_INVALID);
@@ -546,11 +482,6 @@ public class AiChatServiceImpl implements IAiChatService {
         }
     }
 
-    /**
-     * 构建空完成结果。
-     *
-     * @return 空完成结果
-     */
     private AiChatCompletionResult emptyCompletionResult() {
         return AiChatCompletionResult.builder()
                 .completedAt(LocalDateTime.now())
@@ -558,18 +489,12 @@ public class AiChatServiceImpl implements IAiChatService {
                 .build();
     }
 
-    /**
-     * 注册 SSE 生命周期回调，用于等待阶段提前清理。
-     */
     private void registerStreamEmitterCallbacks(StreamRequestState streamState) {
         streamState.getEmitter().onCompletion(() -> onStreamEmitterClosed(streamState));
         streamState.getEmitter().onTimeout(() -> onStreamEmitterClosed(streamState));
         streamState.getEmitter().onError(ex -> onStreamEmitterClosed(streamState));
     }
 
-    /**
-     * 处理 SSE 提前关闭。
-     */
     private void onStreamEmitterClosed(StreamRequestState streamState) {
         streamState.getClientClosed().set(true);
         if (!streamState.getWorkerSubmitted().get()) {
@@ -587,9 +512,6 @@ public class AiChatServiceImpl implements IAiChatService {
         }
     }
 
-    /**
-     * 发送 waiting 事件。
-     */
     private void sendWaitingEvent(StreamRequestState streamState) {
         AiChatStreamEventVo waitingEvent = aiChatAssembler.toStreamEventVo(
                 streamState.getReservedContext().getConversationId(),
@@ -602,9 +524,6 @@ public class AiChatServiceImpl implements IAiChatService {
         sendStreamSuccessQuietly(streamState.getEmitter(), "waiting", streamState.getReservedContext().getRequestId(), waitingEvent);
     }
 
-    /**
-     * 发送 message-start 事件。
-     */
     private void sendStartEvent(PreparedSendContext context, SseEmitter emitter) {
         AiChatStreamEventVo startEvent = aiChatAssembler.toStreamEventVo(
                 context.getConversationId(),
@@ -616,9 +535,6 @@ public class AiChatServiceImpl implements IAiChatService {
         sendStreamSuccessQuietly(emitter, "message-start", context.getRequestId(), startEvent);
     }
 
-    /**
-     * 构造未进入正式生成前的错误事件内容。
-     */
     private AiChatStreamEventVo buildStreamErrorEvent(ReservedSendContext reservedContext) {
         AiChatStreamEventVo errorEvent = aiChatAssembler.toStreamEventVo(
                 reservedContext.getConversationId(),
@@ -630,9 +546,6 @@ public class AiChatServiceImpl implements IAiChatService {
         return errorEvent;
     }
 
-    /**
-     * 将 Throwable 归一为 Exception。
-     */
     private Exception toException(Throwable throwable) {
         if (throwable instanceof Exception exception) {
             return exception;
@@ -640,14 +553,6 @@ public class AiChatServiceImpl implements IAiChatService {
         return new RuntimeException(throwable);
     }
 
-    /**
-     * 静默发送成功事件。
-     *
-     * @param emitter   SSE 发射器
-     * @param event     事件名称
-     * @param requestId 请求唯一标识
-     * @param content   事件内容
-     */
     private void sendStreamSuccessQuietly(SseEmitter emitter, String event, String requestId, Object content) {
         try {
             aiChatSseWriter.sendSuccess(emitter, event, requestId, content);
@@ -656,15 +561,6 @@ public class AiChatServiceImpl implements IAiChatService {
         }
     }
 
-    /**
-     * 静默发送错误事件。
-     *
-     * @param emitter   SSE 发射器
-     * @param requestId 请求唯一标识
-     * @param code      错误码
-     * @param message   错误信息
-     * @param content   附加内容
-     */
     private void sendStreamErrorQuietly(SseEmitter emitter,
                                         String requestId,
                                         Integer code,
@@ -677,9 +573,6 @@ public class AiChatServiceImpl implements IAiChatService {
         }
     }
 
-    /**
-     * 流式请求运行时状态。
-     */
     private static final class StreamRequestState {
 
         private final ReservedSendContext reservedContext;

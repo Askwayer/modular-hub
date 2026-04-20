@@ -4,7 +4,6 @@ import com.vita.aichat.aiChatRequest.entity.AiChatRequest;
 import com.vita.aichat.aiConversation.entity.AiConversation;
 import com.vita.aichat.aiMessage.entity.AiMessage;
 import lombok.Data;
-import org.springframework.ai.chat.prompt.Prompt;
 
 /**
  * 统一发送消息前的准备上下文。
@@ -33,11 +32,11 @@ public class PreparedSendContext {
     /* 助手消息实体 */
     private AiMessage assistantMessage;
 
-    /* 聊天请求实体 */
+    /* 聊天请求实体（数据库） */
     private AiChatRequest chatRequest;
 
-    /* AI提示词 */
-    private Prompt prompt;
+    /* 统一 AI 请求 DTO（协议） */
+    private com.vita.ai.core.model.AiChatRequest aiChatRequest;
 
     /* 活跃并发名额ID */
     private String activePermitId;

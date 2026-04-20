@@ -46,6 +46,18 @@
                 <artifactId>vita-poi-spring-boot-starter</artifactId>
                 <version>${vita.starters.version}</version>
             </dependency>
+            <!-- AI Core Starter -->
+            <dependency>
+                <groupId>com.vita</groupId>
+                <artifactId>vita-ai-core-spring-boot-starter</artifactId>
+                <version>${vita.starters.version}</version>
+            </dependency>
+            <!-- DashScope AI Provider Starter -->
+            <dependency>
+                <groupId>com.vita</groupId>
+                <artifactId>vita-ai-provider-spring-boot-starter</artifactId>
+                <version>${vita.starters.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -75,12 +87,28 @@
             </modules>
         </profile>
         <profile>
+            <id>starter-ai-core</id>
+            <modules>
+                <module>vita-ai-core-spring-boot-starter</module>
+                <module>vita-ai-provider-spring-boot-starter</module>
+            </modules>
+        </profile>
+        <profile>
+            <id>starter-ai</id>
+            <modules>
+                <module>vita-ai-core-spring-boot-starter</module>
+                <module>vita-ai-provider-spring-boot-starter</module>
+            </modules>
+        </profile>
+        <profile>
             <id>starter-all</id>
             <modules>
                 <module>vita-captcha-spring-boot-starter</module>
                 <module>vita-file-spring-boot-starter</module>
                 <module>vita-i18n-spring-boot-starter</module>
                 <module>vita-poi-spring-boot-starter</module>
+                <module>vita-ai-core-spring-boot-starter</module>
+                <module>vita-ai-provider-spring-boot-starter</module>
             </modules>
         </profile>
     </profiles>

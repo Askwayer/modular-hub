@@ -1,6 +1,5 @@
 package com.vita.aichat.chat.config;
 
-import cn.hutool.core.text.CharSequenceUtil;
 import com.vita.aichat.chat.property.AiChatProperty;
 import com.vita.aichat.chat.support.AiChatConcurrencyCoordinator;
 import com.vita.core.RedisCache;
@@ -61,18 +60,6 @@ public class AiChatConfiguration {
     @Bean
     public InitializingBean aiChatStartupValidator() {
         return () -> {
-            if (!"dashscope".equalsIgnoreCase(aiChatProperty.getModelChat())) {
-                throw new ServiceException(GlobalErrorCode.MODEL_PROVIDER_ERROR.getCode(), "spring.ai.model.chat 仅支持 dashscope");
-            }
-            if (CharSequenceUtil.isBlank(aiChatProperty.getDashscope().getApiKey())) {
-                throw new ServiceException(GlobalErrorCode.MODEL_AUTH_ERROR.getCode(), "spring.ai.dashscope.api-key 未配置");
-            }
-            if (CharSequenceUtil.isBlank(aiChatProperty.getDashscope().getBaseUrl())) {
-                throw new ServiceException(GlobalErrorCode.MODEL_PROVIDER_ERROR.getCode(), "spring.ai.dashscope.base-url 未配置");
-            }
-            if (CharSequenceUtil.isBlank(aiChatProperty.getDashscope().getChat().getModel())) {
-                throw new ServiceException(GlobalErrorCode.MODEL_PROVIDER_ERROR.getCode(), "spring.ai.dashscope.chat.options.model 未配置");
-            }
             if (redisCacheProvider.getIfAvailable() == null || redissonClientProvider.getIfAvailable() == null) {
                 throw new ServiceException(GlobalErrorCode.SERVICE_UNAVAILABLE.getCode(), "AI Chat 依赖 Redis 与 Redisson，请检查相关配置");
             }
