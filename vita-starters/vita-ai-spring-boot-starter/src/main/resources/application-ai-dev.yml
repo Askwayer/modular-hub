@@ -1,3 +1,19 @@
+vita:
+  ai:
+    modules:
+      aichat:
+        enabled: true
+        #        default-provider: kimi
+        #        default-model: kimi-k2.5
+        default-provider: qwen
+        default-model: qwen-plus
+        allowed-providers:
+          - qwen
+          - kimi
+    aichat:
+      default-system-prompt: 你是一个严谨的开发助手。
+      stream-enabled: true
+
 spring:
   ai:
     providers:

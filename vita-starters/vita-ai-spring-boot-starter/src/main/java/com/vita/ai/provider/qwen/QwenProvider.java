@@ -13,6 +13,8 @@ import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.chat.metadata.ChatGenerationMetadata;
+import org.springframework.ai.chat.metadata.Usage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.Prompt;
@@ -108,10 +110,10 @@ public class QwenProvider implements AiProvider {
         String content = output.getText();
         String reasoningContent = extractReasoningContent(output);
 
-        org.springframework.ai.chat.metadata.ChatGenerationMetadata generationMetadata = response.getResult().getMetadata();
+        ChatGenerationMetadata generationMetadata = response.getResult().getMetadata();
         String finishReason = generationMetadata != null ? generationMetadata.getFinishReason() : null;
 
-        org.springframework.ai.chat.metadata.Usage usage = response.getMetadata() != null ? response.getMetadata().getUsage() : null;
+        Usage usage = response.getMetadata() != null ? response.getMetadata().getUsage() : null;
 
         return AiChatResponse.builder()
                 .requestId(requestId)
@@ -139,11 +141,11 @@ public class QwenProvider implements AiProvider {
         String delta = output.getText();
         String reasoningDelta = extractReasoningContent(output);
 
-        org.springframework.ai.chat.metadata.ChatGenerationMetadata generationMetadata = response.getResult().getMetadata();
+        ChatGenerationMetadata generationMetadata = response.getResult().getMetadata();
         String finishReason = generationMetadata != null ? generationMetadata.getFinishReason() : null;
         boolean finished = CharSequenceUtil.isNotBlank(finishReason) && !"null".equals(finishReason);
 
-        org.springframework.ai.chat.metadata.Usage usage = response.getMetadata() != null ? response.getMetadata().getUsage() : null;
+        Usage usage = response.getMetadata() != null ? response.getMetadata().getUsage() : null;
 
         return AiStreamChunk.builder()
                 .requestId(requestId)

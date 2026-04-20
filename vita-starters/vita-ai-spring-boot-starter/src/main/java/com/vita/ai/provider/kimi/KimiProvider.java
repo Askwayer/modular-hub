@@ -103,6 +103,14 @@ public class KimiProvider implements AiProvider {
                 .build();
     }
 
+    /**
+     * 将 Spring AI 的 ChatResponse 转换为流式响应块 AiStreamChunk
+     *
+     * @param requestId 请求唯一标识
+     * @param model     模型名称
+     * @param response  Spring AI 返回的聊天响应对象
+     * @return AiStreamChunk 转换后的流式响应块
+     */
     private AiStreamChunk toAiStreamChunk(String requestId, String model, ChatResponse response) {
         if (response == null || response.getResult() == null || response.getResult().getOutput() == null) {
             return AiStreamChunk.builder().requestId(requestId).finished(false).build();
