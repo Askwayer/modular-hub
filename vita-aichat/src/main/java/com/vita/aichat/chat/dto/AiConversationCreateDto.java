@@ -17,6 +17,9 @@ public class AiConversationCreateDto {
     @Size(max = 4000, message = "系统提示词长度不能超过4000")
     private String systemPrompt;
 
+    @Size(max = 64, message = "模型提供者长度不能超过64")
+    private String providerCode;
+
     @Size(max = 64, message = "模型编码长度不能超过64")
     private String modelCode;
 

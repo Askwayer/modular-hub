@@ -4,6 +4,8 @@ import com.vita.aichat.aiConversationSummary.entity.AiConversationSummary;
 import com.vita.core.mapper.BaseMapperX;
 import com.vita.mybatis.LambdaQueryWrapperX;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Update;
 
 /**
  * @BelongsProject: vita
@@ -24,4 +26,25 @@ public interface AiConversationSummaryMapper extends BaseMapperX<AiConversationS
                 .orderByDesc(AiConversationSummary::getVersionNo)
                 .last("LIMIT 1"));
     }
+
+    default AiConversationSummary selectLatestSummary(Long conversationId, Long userId) {
+        return selectOne(new LambdaQueryWrapperX<AiConversationSummary>()
+                .eq(AiConversationSummary::getConversationId, conversationId)
+                .eq(AiConversationSummary::getUserId, userId)
+                .orderByDesc(AiConversationSummary::getVersionNo)
+                .last("LIMIT 1"));
+    }
+
+    @Update("""
+            UPDATE ai_conversation_summary
+               SET status = #{targetStatus}
+             WHERE conversation_id = #{conversationId}
+               AND user_id = #{userId}
+               AND status = #{currentStatus}
+               AND is_deleted = 0
+            """)
+    int updateStatusByConversationIdAndUserId(@Param("conversationId") Long conversationId,
+                                              @Param("userId") Long userId,
+                                              @Param("currentStatus") String currentStatus,
+                                              @Param("targetStatus") String targetStatus);
 }

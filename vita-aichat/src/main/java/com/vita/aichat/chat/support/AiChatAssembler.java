@@ -59,6 +59,7 @@ public class AiChatAssembler {
         vo.setRequestId(assistantMessage.getRequestId());
         vo.setUserMessageId(userMessage.getId());
         vo.setAssistantMessageId(assistantMessage.getId());
+        vo.setProviderCode(assistantMessage.getProviderCode());
         vo.setModelCode(assistantMessage.getModelCode());
         vo.setContent(completionResult.getContent());
         vo.setReasoningContent(completionResult.getReasoningContent());

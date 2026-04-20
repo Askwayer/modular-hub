@@ -50,6 +50,16 @@ public class AiMessageServiceImpl implements IAiMessageService {
     }
 
     @Override
+    public List<AiMessage> listPendingSummaryMessages(Long conversationId, Long userId, Long afterMessageId) {
+        return aiMessageMapper.selectPendingSummaryMessages(conversationId, userId, afterMessageId);
+    }
+
+    @Override
+    public AiMessage getByIdAndUserId(Long messageId, Long userId) {
+        return aiMessageMapper.selectByIdAndUserId(messageId, userId);
+    }
+
+    @Override
     public List<AiMessage> listByConversationIdAndUserId(Long conversationId, Long userId) {
         return aiMessageMapper.selectListByConversationIdAndUserId(conversationId, userId);
     }

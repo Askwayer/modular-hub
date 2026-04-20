@@ -49,6 +49,13 @@ public class LambdaQueryWrapperX<T> extends LambdaQueryWrapper<T> {
         return this;
     }
 
+    /**
+     * 条件不等于查询，仅当参数值非空时才拼接查询条件
+     *
+     * @param column 字段列引用，使用 Lambda 表达式避免硬编码字段名
+     * @param val    不等于的目标值，为空时不拼接该条件
+     * @return LambdaQueryWrapperX 当前实例，支持链式调用
+     */
     public LambdaQueryWrapperX<T> neIfPresent(SFunction<T, ?> column, Object val) {
         if (ObjectUtil.isNotEmpty(val)) {
             return (LambdaQueryWrapperX<T>) super.ne(column, val);

@@ -39,6 +39,18 @@ public class AiConversationSummary extends BaseEntity {
     private Integer versionNo;
 
     /**
+     * 生成摘要时使用的模型提供者
+     */
+    @TableField("provider_code")
+    private String providerCode;
+
+    /**
+     * 生成摘要时使用的模型编码
+     */
+    @TableField("model_code")
+    private String modelCode;
+
+    /**
      * 压缩起始消息ID
      */
     @TableField("source_message_start_id")

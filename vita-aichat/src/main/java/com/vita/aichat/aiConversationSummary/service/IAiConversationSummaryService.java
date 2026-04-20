@@ -9,5 +9,13 @@ public interface IAiConversationSummaryService {
 
     AiConversationSummary getLatestReadySummary(Long conversationId, Long userId);
 
+    AiConversationSummary getLatestSummary(Long conversationId, Long userId);
+
+    void create(AiConversationSummary summary);
+
+    void update(AiConversationSummary summary);
+
+    void markReadySummariesStale(Long conversationId, Long userId);
+
     void deleteByConversationIdAndUserId(Long conversationId, Long userId);
 }

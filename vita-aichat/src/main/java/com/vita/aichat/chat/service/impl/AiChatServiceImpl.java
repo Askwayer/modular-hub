@@ -15,6 +15,7 @@ import com.vita.aichat.chat.dto.*;
 import com.vita.aichat.chat.model.context.AiChatCapacityPermit;
 import com.vita.aichat.chat.model.context.PreparedSendContext;
 import com.vita.aichat.chat.model.context.ReservedSendContext;
+import com.vita.aichat.chat.model.request.StreamRequestState;
 import com.vita.aichat.chat.model.result.AiChatCompletionResult;
 import com.vita.aichat.chat.model.result.StreamProcessResult;
 import com.vita.aichat.chat.property.AiChatProperty;
@@ -41,7 +42,6 @@ import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * AI Chat 聚合服务实现。
@@ -65,6 +65,7 @@ public class AiChatServiceImpl implements IAiChatService {
     private final AiChatOutcomeApplier aiChatOutcomeApplier;
     private final AiChatRequestPreparer aiChatRequestPreparer;
     private final AiChatExceptionConverter aiChatExceptionConverter;
+    private final AiChatSummaryDispatcher aiChatSummaryDispatcher;
     private final AiChatServiceImpl self;
 
     public AiChatServiceImpl(IAiConversationService aiConversationService,
@@ -81,6 +82,7 @@ public class AiChatServiceImpl implements IAiChatService {
                              AiChatOutcomeApplier aiChatOutcomeApplier,
                              AiChatRequestPreparer aiChatRequestPreparer,
                              AiChatExceptionConverter aiChatExceptionConverter,
+                             AiChatSummaryDispatcher aiChatSummaryDispatcher,
                              @Lazy AiChatServiceImpl self) {
         this.aiConversationService = aiConversationService;
         this.aiMessageService = aiMessageService;
@@ -96,6 +98,7 @@ public class AiChatServiceImpl implements IAiChatService {
         this.aiChatOutcomeApplier = aiChatOutcomeApplier;
         this.aiChatRequestPreparer = aiChatRequestPreparer;
         this.aiChatExceptionConverter = aiChatExceptionConverter;
+        this.aiChatSummaryDispatcher = aiChatSummaryDispatcher;
         this.self = self;
     }
 
@@ -113,6 +116,7 @@ public class AiChatServiceImpl implements IAiChatService {
         conversation.setRoundCount(0);
         conversation.setSummaryVersion(0);
         conversation.setSummaryStatus(AiSummaryStatusEnum.NONE.name());
+        conversation.setCurrentProviderCode(aiChatRequestPreparer.generateProviderCode(createDto.getProviderCode()));
         conversation.setCurrentModelCode(aiChatRequestPreparer.generateModelCode(createDto.getModelCode()));
         conversation.setSystemPrompt(aiChatRequestPreparer.generateSystemPrompt(createDto.getSystemPrompt()));
         conversation.setTemperature(createDto.getTemperature());
@@ -201,6 +205,7 @@ public class AiChatServiceImpl implements IAiChatService {
                     .streamBatchCount(0)
                     .build();
             aiChatOutcomeApplier.applySuccess(context, completionResult, AiChatRequestStatusEnum.SUCCESS.name());
+            aiChatSummaryDispatcher.publishRoundSummary(context);
             return aiChatAssembler.toSendVo(context.getUserMessage(), context.getAssistantMessage(), completionResult);
         } catch (Exception ex) {
             if (context == null) {
@@ -354,7 +359,7 @@ public class AiChatServiceImpl implements IAiChatService {
 
     @Transactional(rollbackFor = Exception.class)
     public void processStreamWithReservation(StreamRequestState streamState,
-                                              AiChatCapacityPermit capacityPermit) {
+                                             AiChatCapacityPermit capacityPermit) {
         ReservedSendContext reservedContext = streamState.getReservedContext();
         boolean conversationLockAcquired = false;
         PreparedSendContext context = null;
@@ -406,6 +411,7 @@ public class AiChatServiceImpl implements IAiChatService {
                     .build();
 
             aiChatOutcomeApplier.applySuccess(context, completionResult, AiChatRequestStatusEnum.SUCCESS.name());
+            aiChatSummaryDispatcher.publishRoundSummary(context);
             aiChatStreamProcessor.sendEndEvent(context, streamState.getEmitter(), streamResult);
             streamState.getEmitter().complete();
         } catch (Exception ex) {
@@ -425,7 +431,7 @@ public class AiChatServiceImpl implements IAiChatService {
                 return;
             }
             ServiceException serviceException = aiChatExceptionConverter.convertToServiceException(ex);
-            AiChatCompletionResult completionResult = extractCompletionFromException(ex);
+            AiChatCompletionResult completionResult = extractCompletionFromException();
             aiChatOutcomeApplier.applyFailure(context, completionResult, serviceException.getCode(), serviceException.getMessage(), AiChatRequestStatusEnum.ERROR.name());
             aiChatStreamProcessor.sendErrorEvent(context, streamState.getEmitter(), serviceException.getCode(), serviceException.getMessage(), null);
             streamState.getEmitter().complete();
@@ -437,7 +443,7 @@ public class AiChatServiceImpl implements IAiChatService {
         }
     }
 
-    private AiChatCompletionResult extractCompletionFromException(Exception ex) {
+    private AiChatCompletionResult extractCompletionFromException() {
         return emptyCompletionResult();
     }
 
@@ -489,6 +495,11 @@ public class AiChatServiceImpl implements IAiChatService {
                 .build();
     }
 
+    /**
+     * 注册 SSE 发射器的生命周期回调，在流式响应完成、超时或异常时统一触发客户端断开清理逻辑
+     *
+     * @param streamState 流式请求上下文状态对象
+     */
     private void registerStreamEmitterCallbacks(StreamRequestState streamState) {
         streamState.getEmitter().onCompletion(() -> onStreamEmitterClosed(streamState));
         streamState.getEmitter().onTimeout(() -> onStreamEmitterClosed(streamState));
@@ -573,55 +584,4 @@ public class AiChatServiceImpl implements IAiChatService {
         }
     }
 
-    private static final class StreamRequestState {
-
-        private final ReservedSendContext reservedContext;
-        private final SseEmitter emitter;
-        private final AtomicBoolean clientClosed = new AtomicBoolean(false);
-        private final AtomicBoolean workerSubmitted = new AtomicBoolean(false);
-        private final AtomicBoolean requestPrepared = new AtomicBoolean(false);
-        private volatile String waitingPermitId;
-        private volatile String activePermitId;
-
-        private StreamRequestState(ReservedSendContext reservedContext, SseEmitter emitter) {
-            this.reservedContext = reservedContext;
-            this.emitter = emitter;
-        }
-
-        public ReservedSendContext getReservedContext() {
-            return reservedContext;
-        }
-
-        public SseEmitter getEmitter() {
-            return emitter;
-        }
-
-        public AtomicBoolean getClientClosed() {
-            return clientClosed;
-        }
-
-        public AtomicBoolean getWorkerSubmitted() {
-            return workerSubmitted;
-        }
-
-        public AtomicBoolean getRequestPrepared() {
-            return requestPrepared;
-        }
-
-        public String getWaitingPermitId() {
-            return waitingPermitId;
-        }
-
-        public void setWaitingPermitId(String waitingPermitId) {
-            this.waitingPermitId = waitingPermitId;
-        }
-
-        public String getActivePermitId() {
-            return activePermitId;
-        }
-
-        public void setActivePermitId(String activePermitId) {
-            this.activePermitId = activePermitId;
-        }
-    }
 }

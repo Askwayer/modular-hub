@@ -24,6 +24,26 @@ public class AiConversationSummaryServiceImpl implements IAiConversationSummaryS
     }
 
     @Override
+    public AiConversationSummary getLatestSummary(Long conversationId, Long userId) {
+        return aiConversationSummaryMapper.selectLatestSummary(conversationId, userId);
+    }
+
+    @Override
+    public void create(AiConversationSummary summary) {
+        aiConversationSummaryMapper.insert(summary);
+    }
+
+    @Override
+    public void update(AiConversationSummary summary) {
+        aiConversationSummaryMapper.updateById(summary);
+    }
+
+    @Override
+    public void markReadySummariesStale(Long conversationId, Long userId) {
+        aiConversationSummaryMapper.updateStatusByConversationIdAndUserId(conversationId, userId, "READY", "STALE");
+    }
+
+    @Override
     public void deleteByConversationIdAndUserId(Long conversationId, Long userId) {
         aiConversationSummaryMapper.delete(new LambdaQueryWrapperX<AiConversationSummary>()
                 .eq(AiConversationSummary::getConversationId, conversationId)

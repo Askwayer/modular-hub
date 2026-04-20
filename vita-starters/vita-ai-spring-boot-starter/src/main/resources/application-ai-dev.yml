@@ -1,0 +1,13 @@
+spring:
+  ai:
+    providers:
+      qwen:
+        enabled: true
+        base-url: https://dashscope.aliyuncs.com
+        api-key: local-qwen-key
+        default-model: qwen-plus
+      kimi:
+        enabled: false
+        base-url: https://api.moonshot.cn/v1
+        api-key: local-kimi-key
+        default-model: kimi-k2.5

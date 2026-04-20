@@ -21,5 +21,9 @@ public interface IAiMessageService {
 
     List<AiMessage> listRecentContextMessages(Long conversationId, Long userId, Long excludeMessageId, Integer limit);
 
+    List<AiMessage> listPendingSummaryMessages(Long conversationId, Long userId, Long afterMessageId);
+
+    AiMessage getByIdAndUserId(Long messageId, Long userId);
+
     List<AiMessage> listByConversationIdAndUserId(Long conversationId, Long userId);
 }

@@ -18,6 +18,7 @@ public class AiConversationPageVo {
     private LocalDateTime lastMessageAt;
     private Integer messageCount;
     private Integer roundCount;
+    private String currentProviderCode;
     private String currentModelCode;
     private String summaryStatus;
     private String activeRequestId;

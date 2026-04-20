@@ -46,16 +46,10 @@
                 <artifactId>vita-poi-spring-boot-starter</artifactId>
                 <version>${vita.starters.version}</version>
             </dependency>
-            <!-- AI Core Starter -->
+            <!-- Unified AI Starter -->
             <dependency>
                 <groupId>com.vita</groupId>
-                <artifactId>vita-ai-core-spring-boot-starter</artifactId>
-                <version>${vita.starters.version}</version>
-            </dependency>
-            <!-- DashScope AI Provider Starter -->
-            <dependency>
-                <groupId>com.vita</groupId>
-                <artifactId>vita-ai-provider-spring-boot-starter</artifactId>
+                <artifactId>vita-ai-spring-boot-starter</artifactId>
                 <version>${vita.starters.version}</version>
             </dependency>
         </dependencies>
@@ -87,17 +81,9 @@
             </modules>
         </profile>
         <profile>
-            <id>starter-ai-core</id>
-            <modules>
-                <module>vita-ai-core-spring-boot-starter</module>
-                <module>vita-ai-provider-spring-boot-starter</module>
-            </modules>
-        </profile>
-        <profile>
             <id>starter-ai</id>
             <modules>
-                <module>vita-ai-core-spring-boot-starter</module>
-                <module>vita-ai-provider-spring-boot-starter</module>
+                <module>vita-ai-spring-boot-starter</module>
             </modules>
         </profile>
         <profile>
@@ -107,8 +93,7 @@
                 <module>vita-file-spring-boot-starter</module>
                 <module>vita-i18n-spring-boot-starter</module>
                 <module>vita-poi-spring-boot-starter</module>
-                <module>vita-ai-core-spring-boot-starter</module>
-                <module>vita-ai-provider-spring-boot-starter</module>
+                <module>vita-ai-spring-boot-starter</module>
             </modules>
         </profile>
     </profiles>

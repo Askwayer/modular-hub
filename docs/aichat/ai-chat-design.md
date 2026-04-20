@@ -442,7 +442,7 @@ sequenceDiagram
 
 - 只读取 `use_context=1` 的消息
 - 排除当前这条用户消息
-- 上下文条数取 `conversation.max_context_messages`，为空或非法时回退到 `spring.ai.max.context.messages`
+- 上下文条数取 `conversation.max_context_messages`，为空或非法时回退到 `vita.aichat.max-context-messages`
 
 ### 6.3 DashScope 参数构建
 
@@ -529,11 +529,20 @@ sequenceDiagram
 当前实现依赖的核心配置如下：
 
 ```yaml
-spring:
+vita:
   ai:
-    model:
-      chat: dashscope
+    modules:
+      aichat:
+        enabled: true
+        default-provider: qwen
+        default-model: qwen-plus
+        allowed-providers:
+          - qwen
+          - kimi
+  aichat:
     default-system-prompt: 你是一个严谨的开发助手。
+    max-context-messages: 12
+    stream-enabled: true
     lock:
       conversation:
         lease-seconds: 600
@@ -547,22 +556,27 @@ spring:
       max-pool-size: 16
       queue-capacity: 0
       keep-alive-seconds: 60
-    max-context-messages: 12
-    stream:
-      enabled: true
-    dashscope:
-      api-key: local-dashscope-key
-      base-url: https://dashscope.aliyuncs.com
-      chat:
-        options:
-          model: qwen-plus
+
+spring:
+  ai:
+    providers:
+      qwen:
+        enabled: true
+        base-url: https://dashscope.aliyuncs.com
+        api-key: local-qwen-key
+        default-model: qwen-plus
+      kimi:
+        enabled: false
+        base-url: https://api.moonshot.cn/v1
+        api-key: local-kimi-key
+        default-model: kimi-k2.5
 ```
 
 启动时会额外校验：
 
-说明：代码中 `AiChatProperty` 使用 `@Value("${spring.ai.xxx}")` 平铺方式读取，上述 YAML 为等效的嵌套写法，Spring Boot 解析结果一致。
+说明：当前业务配置统一通过 `AiChatProperty` 和 `AiCoreProperty` 的 `@ConfigurationProperties` 绑定，不再使用旧的 `spring.ai.*` 业务键。
 
-- DashScope 相关配置是否完整
+- 已启用 provider 的 `base-url/api-key/default-model` 是否完整
 - Redis / Redisson 是否可用
 - `max-active > 0`
 - `max-waiting >= 0`
@@ -574,7 +588,7 @@ spring:
 当前 `vita-aichat` 的结论可以概括为：
 
 - 对外继续保持 Spring MVC + SSE
-- 对内统一通过 Spring AI 调用 DashScope
+- 对内统一通过 Spring AI 调用 Qwen / Kimi Provider 适配层
 - 存储上采用“最终消息主表 + 请求生命周期表 + 流式批次表”
 - 并发上采用“全局活跃名额 + 等待队列 + 会话级分布式锁”
 - 线程模型上采用 `aichat` 独立线程池，避免复用全局业务线程池

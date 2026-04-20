@@ -1,0 +1,15 @@
+spring:
+  ai:
+    providers:
+      qwen:
+        enabled: true
+        # qwen 官方服务地址
+        base-url: https://dashscope.aliyuncs.com
+        api-key: sk-b6c39218df584953804cde7b8e74858d
+        default-model: qwen-plus
+      kimi:
+        enabled: true
+        # Kimi 模型的 API Key
+        base-url: https://api.moonshot.cn
+        api-key: sk-kimi-LVA1xdUkVKbLmQRTjgBnZYnBqDEUPVc04dKfoKRoFFuCah72B8OF2T3Yt2tV2m8N
+        default-model: kimi-k2.5

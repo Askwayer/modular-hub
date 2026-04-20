@@ -16,6 +16,7 @@ public class AiMessagePageVo {
     private Long replyToId;
     private String requestId;
     private String providerRequestId;
+    private String providerCode;
     private String modelCode;
     private String content;
     private String reasoningContent;

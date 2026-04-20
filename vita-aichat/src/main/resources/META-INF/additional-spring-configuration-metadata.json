@@ -1,94 +1,144 @@
 {
   "properties": [
     {
-      "name": "spring.ai.model.chat",
+      "name": "vita.ai.modules.aichat.default-provider",
       "type": "java.lang.String",
-      "description": "当前 AI Chat 使用的 Chat provider，当前仅支持 dashscope。"
+      "description": "AI Chat 模块默认 provider 编码，当前正式支持 qwen 和 kimi。"
     },
     {
-      "name": "spring.ai.default-system-prompt",
+      "name": "vita.ai.modules.aichat.default-model",
+      "type": "java.lang.String",
+      "description": "AI Chat 模块默认模型编码。"
+    },
+    {
+      "name": "vita.ai.modules.aichat.allowed-providers",
+      "type": "java.util.List<java.lang.String>",
+      "description": "AI Chat 模块允许使用的 provider 编码列表。"
+    },
+    {
+      "name": "vita.aichat.default-system-prompt",
       "type": "java.lang.String",
       "description": "AI Chat 默认系统提示词。"
     },
     {
-      "name": "spring.ai.lock.conversation.lease-seconds",
-      "type": "java.lang.Long",
-      "description": "AI Chat 会话锁固定租期，单位秒。"
-    },
-    {
-      "name": "spring.ai.concurrency.max-active",
-      "type": "java.lang.Integer",
-      "description": "AI Chat 全局活跃生成并发上限。"
-    },
-    {
-      "name": "spring.ai.concurrency.max-waiting",
-      "type": "java.lang.Integer",
-      "description": "AI Chat 等待队列的最大席位数。"
-    },
-    {
-      "name": "spring.ai.concurrency.wait-timeout-seconds",
-      "type": "java.lang.Long",
-      "description": "等待活跃生成名额的超时时间，单位秒。"
-    },
-    {
-      "name": "spring.ai.concurrency.active-permit-lease-seconds",
-      "type": "java.lang.Long",
-      "description": "AI Chat 活跃生成名额租期，单位秒。"
-    },
-    {
-      "name": "spring.ai.executor.core-pool-size",
-      "type": "java.lang.Integer",
-      "description": "AI Chat 独立线程池核心线程数。"
-    },
-    {
-      "name": "spring.ai.executor.max-pool-size",
-      "type": "java.lang.Integer",
-      "description": "AI Chat 独立线程池最大线程数。"
-    },
-    {
-      "name": "spring.ai.executor.queue-capacity",
-      "type": "java.lang.Integer",
-      "description": "AI Chat 独立线程池队列容量。建议与分布式等待队列配合使用时设为 0。"
-    },
-    {
-      "name": "spring.ai.executor.keep-alive-seconds",
-      "type": "java.lang.Integer",
-      "description": "AI Chat 独立线程池空闲线程存活时间，单位秒。"
-    },
-    {
-      "name": "spring.ai.max.context.messages",
+      "name": "vita.aichat.max-context-messages",
       "type": "java.lang.Integer",
       "description": "上下文窗口中最多携带的历史消息条数。"
     },
     {
-      "name": "spring.ai.stream.enabled",
+      "name": "vita.aichat.stream-enabled",
       "type": "java.lang.Boolean",
       "description": "是否启用 SSE 流式回复。"
     },
     {
-      "name": "spring.ai.connect.timeout",
+      "name": "vita.aichat.lock.conversation.lease-seconds",
       "type": "java.lang.Long",
-      "description": "调用模型时的连接超时，单位毫秒。"
+      "description": "AI Chat 会话锁固定租期，单位秒。"
     },
     {
-      "name": "spring.ai.read.timeout",
+      "name": "vita.aichat.concurrency.max-active",
+      "type": "java.lang.Integer",
+      "description": "AI Chat 全局活跃生成并发上限。"
+    },
+    {
+      "name": "vita.aichat.concurrency.max-waiting",
+      "type": "java.lang.Integer",
+      "description": "AI Chat 等待队列的最大席位数。"
+    },
+    {
+      "name": "vita.aichat.concurrency.wait-timeout-seconds",
       "type": "java.lang.Long",
-      "description": "调用模型时的读取超时，单位毫秒。"
+      "description": "等待活跃生成名额的超时时间，单位秒。"
     },
     {
-      "name": "spring.ai.dashscope.api-key",
-      "type": "java.lang.String",
-      "description": "DashScope API Key。"
+      "name": "vita.aichat.concurrency.active-permit-lease-seconds",
+      "type": "java.lang.Long",
+      "description": "AI Chat 活跃生成名额租期，单位秒。"
     },
     {
-      "name": "spring.ai.dashscope.base-url",
-      "type": "java.lang.String",
-      "description": "DashScope 官方服务基础地址。"
+      "name": "vita.aichat.executor.core-pool-size",
+      "type": "java.lang.Integer",
+      "description": "AI Chat 独立线程池核心线程数。"
     },
     {
-      "name": "spring.ai.dashscope.chat.options.model",
+      "name": "vita.aichat.executor.max-pool-size",
+      "type": "java.lang.Integer",
+      "description": "AI Chat 独立线程池最大线程数。"
+    },
+    {
+      "name": "vita.aichat.executor.queue-capacity",
+      "type": "java.lang.Integer",
+      "description": "AI Chat 独立线程池队列容量。建议与分布式等待队列配合使用时设为 0。"
+    },
+    {
+      "name": "vita.aichat.executor.keep-alive-seconds",
+      "type": "java.lang.Integer",
+      "description": "AI Chat 独立线程池空闲线程存活时间，单位秒。"
+    },
+    {
+      "name": "vita.aichat.summary.enabled",
+      "type": "java.lang.Boolean",
+      "description": "是否启用轮次摘要与摘要压缩。"
+    },
+    {
+      "name": "vita.aichat.summary.async",
+      "type": "java.lang.Boolean",
+      "description": "是否异步执行摘要任务。"
+    },
+    {
+      "name": "vita.aichat.summary.round-summary-provider",
       "type": "java.lang.String",
-      "description": "DashScope 默认聊天模型编码。"
+      "description": "轮次摘要使用的 provider 编码。"
+    },
+    {
+      "name": "vita.aichat.summary.round-summary-model-code",
+      "type": "java.lang.String",
+      "description": "轮次摘要使用的模型编码。"
+    },
+    {
+      "name": "vita.aichat.summary.compress-enabled",
+      "type": "java.lang.Boolean",
+      "description": "是否启用摘要压缩。"
+    },
+    {
+      "name": "vita.aichat.summary.compress-threshold-count",
+      "type": "java.lang.Integer",
+      "description": "触发摘要压缩的消息条数阈值。"
+    },
+    {
+      "name": "vita.aichat.summary.compress-threshold-tokens",
+      "type": "java.lang.Integer",
+      "description": "触发摘要压缩的上下文 token 阈值。"
+    },
+    {
+      "name": "vita.aichat.summary.compress-model-provider",
+      "type": "java.lang.String",
+      "description": "摘要压缩使用的 provider 编码。"
+    },
+    {
+      "name": "vita.aichat.summary.compress-model-code",
+      "type": "java.lang.String",
+      "description": "摘要压缩使用的模型编码。"
+    },
+    {
+      "name": "vita.aichat.summary.executor.core-pool-size",
+      "type": "java.lang.Integer",
+      "description": "摘要任务线程池核心线程数。"
+    },
+    {
+      "name": "vita.aichat.summary.executor.max-pool-size",
+      "type": "java.lang.Integer",
+      "description": "摘要任务线程池最大线程数。"
+    },
+    {
+      "name": "vita.aichat.summary.executor.queue-capacity",
+      "type": "java.lang.Integer",
+      "description": "摘要任务线程池队列容量。"
+    },
+    {
+      "name": "vita.aichat.summary.executor.keep-alive-seconds",
+      "type": "java.lang.Integer",
+      "description": "摘要任务线程池空闲线程存活时间，单位秒。"
     }
   ]
 }

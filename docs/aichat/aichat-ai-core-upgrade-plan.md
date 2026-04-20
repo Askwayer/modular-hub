@@ -1,273 +1,595 @@
-# AIChat 模块升级方案：ai-core starter 策略化改造
+# AIChat 模块升级方案：多模型接入、异步流式与记忆压缩
 
 ## 1. 升级背景
 
-当前 `vita-aichat` 已经承载了 AI Chat 的完整业务流程，包括：
+当前 `vita-aichat` 已完成正式 Chat 业务链路，已经具备：
 
 ```text
-1. 会话校验
-2. 用户消息落库
-3. 助手占位消息创建
-4. 请求幂等控制
-5. Redis 并发治理
-6. SSE 流式返回
-7. 流式批次落库
-8. 最终消息状态回写
-9. 异常处理
+1. 会话、消息、请求生命周期、流式批次落库
+2. Spring MVC + SseEmitter 流式接口
+3. Redis 并发治理、会话锁、等待队列
+4. 统一 AiChatClient / AiProvider / AiModuleStrategy 抽象
+5. DashScope 正式业务调用链路
 ```
 
-现阶段 `DashScope` 已经是正式业务链路，后续还需要逐步接入 `Kimi`，并预留 `FastAPI AI 服务` 的 demo 接入能力。
-
-如果继续在 `vita-aichat` 业务代码中直接区分不同模型供应商，会出现两个问题：
+但现有 AI 接入层还存在几个明显问题：
 
 ```text
-1. aichat 业务模块与具体 Provider SDK 强耦合
-2. 新增一个 Provider 就需要修改主业务流程
+1. 业务侧依赖分成了 vita-ai-core-spring-boot-starter 和 vita-ai-provider-spring-boot-starter 两层，使用入口偏碎
+2. provider starter 已同时引入 DashScope 和 OpenAI 依赖，但自动装配仍按通用 ChatModel 注入，无法安全支撑多 Provider 同时加载
+3. 当前配置和文档仍默认“单一 dashscope 模型”，不能清晰表达同一业务在 Qwen/Kimi 间切换
+4. ai_conversation_summary 目前只有读取能力，尚未形成“每轮摘要 + 多轮压缩”的正式记忆闭环
 ```
 
-因此，本次升级不再采用“Scene Slot / Capability Slot / Provider Slot”这类插槽细分方案，而是统一调整为：
+因此，本次升级目标不是继续拆更多 starter，而是反向收敛：
 
-> `vita-ai-core-spring-boot-starter` 通过策略模式处理不同业务模块，通过 Provider 路由分发到具体模型实现。
-
-升级后的调用主链路固定为：
-
-```text
-vita-aichat
-   ↓
-AiChatClient
-   ↓
-AiModuleStrategy
-   ↓
-AiProviderRouter
-   ↓
-AiProvider
-   ├── DashScope Provider
-   ├── Kimi Provider
-   └── FastAPI Demo Provider
-```
+> 对业务侧合并为单一 `vita-ai-spring-boot-starter`，内部统一承载多模型接入、Provider 路由、异步流式、轮次摘要和上下文压缩能力。
 
 ---
 
 ## 2. 升级目标
 
-本次升级目标如下：
+本次升级后的总体目标如下：
 
 ```text
-1. vita-aichat 只负责业务编排，不直接依赖具体模型 SDK
-2. vita-ai-core-spring-boot-starter 提供统一协议、策略入口、Provider 路由和自动装配
-3. 不再细分 Scene Slot / Capability Slot，而是按业务模块使用策略模式扩展
-4. 所有策略和 Provider 都不耦合数据库，不依赖 Mapper、Entity、Repository、配置表
-5. 运行时配置统一通过 application.yml 管理
-6. DashScope 作为正式业务 Provider 基线保留现有语义
-7. Kimi 作为正式业务 Provider 接入
-8. FastAPI AI 服务只作为 demo Provider
-9. 保持同步 chat 和流式 stream-chat 的统一抽象
-10. 兼容 Spring Boot 3 starter 自动装配
+1. 单个业务同时加载 Qwen(DashScope) 和 Kimi(OpenAI-Compatible)
+2. 后续可继续扩展其他大模型，不需要改 aichat 主业务链路
+3. 对外只保留一个 AI starter，不再把业务接入拆成 core/provider 两个 Maven 入口
+4. 流式接口继续保留 Spring MVC + SseEmitter，并明确异步返回能力
+5. 每轮对话结束后异步生成一条轮次摘要消息
+6. 多条摘要消息达到阈值后，再异步压缩成会话级摘要
+7. 压缩阈值、摘要模型、上下文压缩策略可配置
+8. 摘要与压缩失败不影响主对话成功返回
 ```
 
 ---
 
 ## 3. 推荐最终模块结构
 
-推荐按 `vita-starters` 聚合结构组织 AI 能力相关模块：
+推荐将当前两层 starter 收敛为单一业务入口：
 
 ```text
 be-vita
 ├── vita-aichat
-│   └── AI Chat 业务编排、会话、消息、SSE、落库
+│   └── AI Chat 业务编排、会话、消息、SSE、落库、摘要任务触发
 │
 ├── vita-starters
-│   ├── vita-ai-core-spring-boot-starter
-│   │   ├── 统一请求/响应协议
-│   │   ├── AiChatClient
-│   │   ├── AiModuleStrategy
-│   │   ├── AiModuleStrategyRegistry
-│   │   ├── AiProviderRouter
-│   │   ├── AiProvider
-│   │   ├── 异常体系
-│   │   └── 自动装配
-│   │
-│   ├── vita-ai-provider-dashscope-spring-boot-starter
-│   │   └── DashScope 正式业务 Provider
-│   │
-│   ├── vita-ai-provider-kimi-spring-boot-starter
-│   │   └── Kimi 正式业务 Provider
-│   │
-│   └── vita-ai-provider-fastapi-demo-spring-boot-starter
-│       └── FastAPI demo Provider
+│   └── vita-ai-spring-boot-starter
+│       ├── client
+│       │   └── AiChatClient
+│       ├── router
+│       │   └── AiProviderRouter
+│       ├── strategy
+│       │   ├── AiModuleStrategy
+│       │   └── AichatModuleStrategy
+│       ├── provider
+│       │   ├── dashscope
+│       │   ├── kimi
+│       │   └── fastapi
+│       ├── model
+│       │   ├── AiChatRequest
+│       │   ├── AiChatResponse
+│       │   ├── AiStreamChunk
+│       │   └── AiChatMessage
+│       ├── property
+│       ├── config
+│       └── exception
 │
 └── vita-common
     └── 公共异常、上下文、基础工具
 ```
 
-这里需要强调两点：
+这里的设计原则固定为：
 
 ```text
-1. Provider 模块是 vita-starters 下的并列 sibling 模块
-2. Provider 模块依赖 ai-core，但不嵌套在 ai-core 模块内部
+1. 对业务使用方只暴露一个 starter：vita-ai-spring-boot-starter
+2. 内部保留 provider 包分层，避免代码混成一层
+3. 不再额外拆多个 AI starter Maven 模块
+4. DashScope、Kimi、FastAPI 通过内部 Provider 适配器并存
 ```
 
 ---
 
-## 4. 核心分层职责
+## 4. 现状问题与改造结论
 
-### 4.1 vita-aichat：业务编排层
+### 4.1 现状问题
 
-`vita-aichat` 只负责 AI Chat 业务本身：
+当前代码层面的真实问题如下：
 
 ```text
-1. 登录用户校验
-2. 会话状态校验
-3. requestId 幂等校验
-4. Redis 锁与并发治理
-5. 用户消息落库
-6. 助手占位消息创建
-7. 上下文消息组装
-8. 调用 AiChatClient
-9. 同步结果回写
-10. 流式批次落库
-11. SSE 推送
-12. 异常处理与状态回写
+1. vita-ai-provider-spring-boot-starter 已同时依赖：
+   - spring-ai-alibaba-starter-dashscope
+   - spring-ai-starter-model-openai
+
+2. DashScopeProviderAutoConfiguration 仍然按 ChatModel 注入：
+   public DashScopeProvider dashScopeProvider(ChatModel chatModel)
+
+3. 一旦 DashScope 和 Kimi 同时启用，ChatModel Bean 可能出现多实现歧义
+
+4. aichat 当前 DTO、会话表、请求表主要只有 model_code，没有稳定的 provider_code 路由来源
+
+5. ai_conversation_summary 目前只有读取和删除，没有正式的生成、失效、再次压缩闭环
 ```
 
-不再承担：
+### 4.2 升级结论
+
+因此本次代码升级文档固定以下结论：
 
 ```text
-1. 不直接调用 DashScope SDK
-2. 不直接调用 Kimi HTTP API
-3. 不直接持有 Spring AI Prompt、ChatModel 等 Provider 细节
-4. 不直接解析不同 Provider 的原始响应结构
-5. 不在业务层写 if/else 判断不同模型供应商
-```
-
-### 4.2 vita-ai-core-spring-boot-starter：策略中心
-
-`vita-ai-core-spring-boot-starter` 是 AI 调用抽象的统一入口，职责固定为：
-
-```text
-1. 定义统一请求与响应模型
-2. 提供 AiChatClient
-3. 定义 AiModuleStrategy
-4. 提供 AiModuleStrategyRegistry
-5. 提供 AiProviderRouter
-6. 定义 AiProvider 标准接口
-7. 统一异常体系
-8. 提供 Spring Boot 3 自动装配
-```
-
-这里的设计重点不是“插槽”，而是“策略”：
-
-```text
-1. 不同业务模块由不同 AiModuleStrategy 处理
-2. 当前唯一完整落地模块是 aichat
-3. 后续新增业务模块时，只新增新的模块策略，不继续拆 scene/capability 子层
-```
-
-### 4.3 Provider 模块：模型适配层
-
-每个 Provider starter 只负责一种具体模型实现：
-
-```text
-vita-ai-provider-dashscope-spring-boot-starter
-  负责 DashScope 正式业务接入
-
-vita-ai-provider-kimi-spring-boot-starter
-  负责 Kimi 正式业务接入
-
-vita-ai-provider-fastapi-demo-spring-boot-starter
-  负责 FastAPI demo 接入
-```
-
-Provider 模块的边界固定为：
-
-```text
-1. 接收统一 AiChatRequest
-2. 转换为各自 Provider 的请求结构
-3. 发起同步或流式调用
-4. 转换为统一 AiChatResponse / AiStreamChunk
-5. 抛出 ai-core 统一异常
-```
-
-Provider 不负责：
-
-```text
-1. 不做会话落库
-2. 不做业务鉴权
-3. 不做 Redis 并发控制
-4. 不依赖数据库配置表
+1. 合并为单一 AI starter 是合理的，不属于过度合并
+2. 多模型同时加载必须改成 Provider 专属装配，不能继续注入泛型 ChatModel
+3. 路由必须显式区分 providerCode 和 modelCode
+4. 记忆能力必须拆成“轮次摘要”和“摘要压缩”两层
+5. 摘要与压缩都采用异步后台执行
 ```
 
 ---
 
-## 5. 最终业务调用路径
+## 5. 核心分层职责
 
-### 5.1 同步对话调用路径
+### 5.1 vita-aichat：业务编排层
+
+`vita-aichat` 继续只负责业务侧职责：
 
 ```text
-前端
- ↓
-AiChatController.send()
- ↓
-AiChatServiceImpl.send()
- ↓
-prepareSendContext()
- ↓
-buildAiChatRequest()
- ↓
-AiChatClient.chat()
- ↓
-AiModuleStrategyRegistry.get("aichat")
- ↓
-AichatModuleStrategy.prepare()
- ↓
-AiProviderRouter.route()
- ↓
-具体 AiProvider.chat()
- ↓
-AiChatResponse
- ↓
-回写 assistantMessage
- ↓
-返回前端
+1. 用户与会话校验
+2. requestId 幂等控制
+3. 会话锁、等待队列、并发治理
+4. 用户消息和助手消息落库
+5. 流式批次落库
+6. SSE 事件输出
+7. 主对话完成后的摘要任务触发
+8. 失败状态回写
 ```
 
-### 5.2 流式对话调用路径
+不再直接承担：
 
 ```text
-前端 SSE 请求
- ↓
-AiChatController.streamSend()
- ↓
-AiChatServiceImpl.streamSend()
- ↓
-prepareSendContext()
- ↓
-buildAiChatRequest()
- ↓
-AiChatClient.streamChat()
- ↓
-AiModuleStrategyRegistry.get("aichat")
- ↓
-AichatModuleStrategy.prepare()
- ↓
-AiProviderRouter.route()
- ↓
-具体 AiProvider.streamChat()
- ↓
-Flux<AiStreamChunk>
- ↓
-边推送 SSE，边聚合批次
- ↓
-流结束后回写 assistantMessage
- ↓
-释放请求锁与并发资源
+1. 不直接使用 DashScopeChatOptions
+2. 不直接调用 OpenAI/Kimi SDK
+3. 不直接解析各 Provider 原始响应
+4. 不在业务层手写不同 Provider 的 if/else
+```
+
+### 5.2 vita-ai-spring-boot-starter：统一 AI 接入层
+
+统一 starter 负责：
+
+```text
+1. 统一请求/响应协议
+2. 模块策略处理
+3. Provider 路由
+4. DashScope Provider 适配
+5. Kimi Provider 适配
+6. FastAPI demo Provider 适配
+7. 自动装配与配置绑定
+8. 统一异常体系
+```
+
+### 5.3 模块策略
+
+保留 `AiModuleStrategy`，但它只负责业务模块标准化，不负责数据库：
+
+```text
+1. 根据 module=aichat 补齐默认 provider/model
+2. 校验当前业务允许使用的 Provider
+3. 统一整理 options
+4. 为同步和流式请求输出标准化 AiChatRequest
 ```
 
 ---
 
-## 6. ai-core 核心接口设计
+## 6. 多模型接入设计
 
-### 6.1 AiChatClient
+### 6.1 支持同时加载的模型
+
+当前阶段正式支持：
+
+```text
+1. Qwen：通过 DashScope 接入
+2. Kimi：通过 OpenAI-Compatible 接入
+3. FastAPI：仅 demo，不作为正式生产 Provider
+```
+
+对应依赖：
+
+```xml
+<dependency>
+    <groupId>com.alibaba.cloud.ai</groupId>
+    <artifactId>spring-ai-alibaba-starter-dashscope</artifactId>
+</dependency>
+
+<dependency>
+    <groupId>org.springframework.ai</groupId>
+    <artifactId>spring-ai-starter-model-openai</artifactId>
+</dependency>
+```
+
+### 6.2 路由原则
+
+Provider 路由来源统一为：
+
+```text
+1. sendDto.providerCode / sendDto.modelCode
+2. conversation.currentProviderCode / currentModelCode
+3. vita.ai.modules.aichat.default-provider / default-model
+```
+
+即：
+
+```text
+请求覆盖 > 会话默认 > 模块默认
+```
+
+### 6.3 Provider 装配原则
+
+必须废弃“注入泛型 ChatModel”这种方式，升级为：
+
+```text
+1. DashScope Provider 使用 DashScope 专属适配器或具名 Bean
+2. Kimi Provider 使用 OpenAI 专属适配器或具名 Bean
+3. AiProviderRouter 只根据 providerCode 选择 Provider
+4. Provider 内部再处理各自 SDK 的请求转换与响应映射
+```
+
+这样才能支持 DashScope 和 Kimi 同时在 classpath 中存在且同时启用。
+
+### 6.4 后续扩展方式
+
+未来新增其他模型时，遵循同一模式：
+
+```text
+1. 新增一个 Provider 适配实现
+2. 增加一组 Provider 配置
+3. 注册到 AiProviderRouter
+4. 不改 vita-aichat 主业务流程
+```
+
+---
+
+## 7. 统一请求与公开类型调整
+
+### 7.1 AiConversationCreateDto
+
+建议新增：
+
+```text
+providerCode
+modelCode
+```
+
+用途：
+
+```text
+1. 创建会话时指定默认 Provider
+2. 创建会话时指定默认 Model
+```
+
+### 7.2 AiMessageSendDto
+
+建议新增：
+
+```text
+providerCode
+modelCode
+```
+
+用途：
+
+```text
+1. 当前轮临时切换 Provider
+2. 当前轮临时切换 Model
+3. 不改会话默认设置即可切换 Qwen/Kimi
+```
+
+### 7.3 AiChatRequest
+
+统一请求模型保留以下关键字段：
+
+```text
+module
+provider
+model
+systemPrompt
+messages
+userPrompt
+temperature
+maxTokens
+stream
+options
+```
+
+这里明确：
+
+```text
+provider = providerCode
+model = modelCode
+module 固定为 aichat
+```
+
+---
+
+## 8. 数据表升级设计
+
+### 8.1 ai_conversation
+
+现有只有 `current_model_code`，升级后增加：
+
+```text
+current_provider_code
+```
+
+职责：
+
+```text
+1. 标识当前会话默认走哪个 Provider
+2. 与 current_model_code 一起构成稳定的会话级模型路由
+```
+
+### 8.2 ai_chat_request
+
+现有增加：
+
+```text
+provider_code
+request_scene
+```
+
+其中 `request_scene` 用于区分：
+
+```text
+CHAT
+ROUND_SUMMARY
+SUMMARY_COMPRESS
+```
+
+### 8.3 ai_message
+
+现有增加：
+
+```text
+provider_code
+```
+
+并明确：
+
+```text
+role_type=SUMMARY
+用于存储每轮对话结束后生成的轮次摘要
+```
+
+### 8.4 ai_conversation_summary
+
+现有增加：
+
+```text
+provider_code
+model_code
+```
+
+用途：
+
+```text
+1. 记录本次压缩摘要由哪个 Provider/Model 生成
+2. 便于后续审计和问题排查
+```
+
+---
+
+## 9. 流式接口与异步返回设计
+
+### 9.1 当前事实
+
+当前 `sendMessageStream()` 已经具备异步返回能力：
+
+```text
+1. Controller 返回 SseEmitter
+2. HTTP 线程先结束
+3. 模型流式消费在 aiChatTaskExecutor 中执行
+4. Provider 通过 Flux<AiStreamChunk> 返回增量结果
+5. aichat 持续推送 SSE 事件并批次落库
+```
+
+### 9.2 升级结论
+
+本次升级文档明确保留：
+
+```text
+Spring MVC + SseEmitter + 独立线程池 + Provider 流式消费
+```
+
+不切换到：
+
+```text
+1. 不改成 WebFlux Controller
+2. 不要求接口签名改成 Flux<ServerSentEvent<?>>
+```
+
+### 9.3 与摘要的关系
+
+必须增加一个明确约束：
+
+```text
+1. 主流式结束并发送 message-end 后，才能触发轮次摘要
+2. 摘要生成和摘要压缩不能阻塞 SSE 完成
+3. 摘要和压缩必须在事务提交后异步执行
+```
+
+---
+
+## 10. 记忆摘要与上下文压缩设计
+
+### 10.1 总体思路
+
+会话记忆分两层：
+
+```text
+第一层：轮次摘要
+第二层：压缩摘要
+```
+
+### 10.2 第一层：轮次摘要
+
+每轮问答成功后，异步生成一条摘要消息：
+
+```text
+1. 输入：本轮用户消息 + 本轮助手消息 + 最近摘要上下文
+2. 输出：一条 role_type=SUMMARY 的 ai_message
+3. 用途：作为中间记忆单元，供后续再压缩
+```
+
+触发时机：
+
+```text
+1. 同步回复成功后触发
+2. 流式回复成功并完成最终回写后触发
+3. 使用 AFTER_COMMIT 异步事件执行
+```
+
+### 10.3 第二层：摘要压缩
+
+当未压缩的 `SUMMARY` 消息累计达到阈值后，再异步执行压缩：
+
+```text
+1. 读取最近一批未压缩 SUMMARY 消息
+2. 调用摘要压缩模型
+3. 生成新的 ai_conversation_summary
+4. 将之前的 SUMMARY 消息标记为已压缩或移出下一轮压缩范围
+```
+
+### 10.4 Prompt 组装顺序
+
+升级后 Prompt 顺序建议调整为：
+
+```text
+1. systemPrompt
+2. 最新 READY 的压缩摘要
+3. 尚未被压缩的 SUMMARY 消息
+4. 最近原始上下文消息
+5. 当前用户消息
+```
+
+这比“只带最新一条 conversation summary + 原始消息”更适合长期会话记忆。
+
+### 10.5 压缩触发条件
+
+压缩条件设计为可配置：
+
+```text
+1. 未压缩 SUMMARY 消息条数阈值
+2. 预计上下文 token 阈值
+3. 可选强制压缩开关
+```
+
+### 10.6 摘要模型配置
+
+摘要和压缩支持独立模型配置：
+
+```text
+1. 可与主对话模型相同
+2. 也可单独指定 providerCode/modelCode
+3. 例如主对话用 qwen-plus，摘要压缩用 qwen-turbo 或 kimi 短上下文模型
+```
+
+### 10.7 失败处理原则
+
+摘要和压缩都遵循：
+
+```text
+1. 失败不回滚主对话结果
+2. 失败只更新 summaryStatus 或请求状态
+3. 可重试，但不影响用户本轮可见回复
+```
+
+---
+
+## 11. 配置体系设计
+
+### 11.1 配置边界
+
+升级后配置重新分层：
+
+```yaml
+vita:
+  ai:
+    modules:
+      aichat:
+        enabled: true
+        default-provider: qwen
+        default-model: qwen-plus
+        allowed-providers:
+          - qwen
+          - kimi
+
+    providers:
+      fastapi:
+        enabled: false
+        base-url: http://127.0.0.1:8000
+        api-key: demo-key
+
+  aichat:
+    stream:
+      enabled: true
+    concurrency:
+      max-active: 5
+      max-waiting: 20
+    summary:
+      enabled: true
+      async: true
+      round-summary-model-provider: qwen
+      round-summary-model-code: qwen-plus
+      compress-enabled: true
+      compress-threshold-count: 10
+      compress-threshold-tokens: 12000
+      compress-model-provider: qwen
+      compress-model-code: qwen-plus
+
+spring:
+  ai:
+    providers:
+      qwen:
+        enabled: true
+        api-key: your-qwen-key
+        base-url: https://dashscope.aliyuncs.com
+        default-model: qwen-plus
+      kimi:
+        enabled: true
+        api-key: your-kimi-key
+        base-url: https://api.moonshot.cn/v1
+        default-model: kimi-k2.5
+```
+
+### 11.2 配置规则
+
+文档中明确：
+
+```text
+1. spring.ai.providers.qwen.* / spring.ai.providers.kimi.* 只管 Provider 连接配置
+2. 不再使用 spring.ai.dashscope.* / spring.ai.openai.* 作为本 starter 的有效输入
+3. vita.ai.modules.aichat.* 只管业务模块默认路由
+4. vita.aichat.summary.* 只管记忆摘要与压缩策略
+5. FastAPI demo 使用 vita.ai.providers.fastapi.* 管理
+```
+
+### 11.3 属性类约束
+
+当前 `AiChatProperty` 使用深层静态内部类，不适合继续承载摘要与压缩配置。
+
+升级文档中要求：
+
+```text
+1. AiChatProperty 拆为多个顶级属性类
+2. 不继续使用深层静态内部类承载复杂配置
+3. starter 和 aichat 分别维护自己的配置类边界
+```
+
+---
+
+## 12. 关键接口设计
+
+### 12.1 AiChatClient
+
+保持统一入口：
 
 ```java
 public interface AiChatClient {
@@ -278,127 +600,14 @@ public interface AiChatClient {
 }
 ```
 
-### 6.2 DefaultAiChatClient
+### 12.2 AiProvider
 
-```java
-@RequiredArgsConstructor
-public class DefaultAiChatClient implements AiChatClient {
-
-    private final AiModuleStrategyRegistry strategyRegistry;
-    private final AiProviderRouter aiProviderRouter;
-
-    @Override
-    public AiChatResponse chat(AiChatRequest request) {
-        AiModuleStrategy strategy = strategyRegistry.get(request.getModule());
-        AiChatRequest preparedRequest = strategy.prepare(request);
-        AiProvider provider = aiProviderRouter.route(preparedRequest);
-        return provider.chat(preparedRequest);
-    }
-
-    @Override
-    public Flux<AiStreamChunk> streamChat(AiChatRequest request) {
-        AiModuleStrategy strategy = strategyRegistry.get(request.getModule());
-        AiChatRequest preparedRequest = strategy.prepare(request);
-        AiProvider provider = aiProviderRouter.route(preparedRequest);
-        return provider.streamChat(preparedRequest);
-    }
-}
-```
-
-### 6.3 AiModuleStrategy
-
-`AiModuleStrategy` 是本次方案的核心，不再使用插槽接口。
-
-```java
-public interface AiModuleStrategy {
-
-    /**
-     * 当前策略支持的业务模块编码，例如 aichat。
-     */
-    String module();
-
-    /**
-     * 是否支持指定模块。
-     */
-    default boolean supports(String targetModule) {
-        return module() != null && module().equalsIgnoreCase(targetModule);
-    }
-
-    /**
-     * 对统一请求进行模块级标准化处理。
-     * 例如补齐默认 provider、默认 model、默认 options，并做模块级参数校验。
-     */
-    AiChatRequest prepare(AiChatRequest request);
-}
-```
-
-### 6.4 AiModuleStrategyRegistry
-
-```java
-public interface AiModuleStrategyRegistry {
-
-    AiModuleStrategy get(String module);
-}
-```
-
-推荐默认实现：
-
-```java
-@RequiredArgsConstructor
-public class DefaultAiModuleStrategyRegistry implements AiModuleStrategyRegistry {
-
-    private final List<AiModuleStrategy> strategies;
-
-    @Override
-    public AiModuleStrategy get(String module) {
-        return strategies.stream()
-                .filter(strategy -> strategy.supports(module))
-                .findFirst()
-                .orElseThrow(() -> new AiModuleStrategyNotFoundException(module));
-    }
-}
-```
-
-### 6.5 AiProviderRouter
-
-`AiProviderRouter` 不再按插槽路由，而是按“策略处理后的请求”选择 Provider。
-
-```java
-public interface AiProviderRouter {
-
-    AiProvider route(AiChatRequest request);
-}
-```
-
-推荐默认实现：
-
-```java
-@RequiredArgsConstructor
-public class DefaultAiProviderRouter implements AiProviderRouter {
-
-    private final List<AiProvider> providers;
-
-    @Override
-    public AiProvider route(AiChatRequest request) {
-        String providerCode = request.getProvider();
-        return providers.stream()
-                .filter(provider -> provider.supports(providerCode))
-                .findFirst()
-                .orElseThrow(() -> new AiProviderNotFoundException(providerCode));
-    }
-}
-```
-
-### 6.6 AiProvider
+保留统一接口，但内部实现必须按 Provider 专属装配：
 
 ```java
 public interface AiProvider {
 
     String providerCode();
-
-    default boolean supports(String targetProviderCode) {
-        return providerCode() != null && providerCode().equalsIgnoreCase(targetProviderCode);
-    }
 
     AiChatResponse chat(AiChatRequest request);
 
@@ -406,563 +615,78 @@ public interface AiProvider {
 }
 ```
 
----
+### 12.3 记忆任务接口
 
-## 7. ai-core 请求与响应模型
-
-### 7.1 AiChatRequest
-
-`AiChatRequest` 需要补充 `module` 字段，表示当前请求来自哪个业务模块。
-
-```java
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class AiChatRequest {
-
-    /**
-     * 请求唯一编号
-     */
-    private String requestId;
-
-    /**
-     * 业务模块编码，例如 aichat
-     */
-    private String module;
-
-    /**
-     * 会话ID
-     */
-    private Long conversationId;
-
-    /**
-     * 用户ID
-     */
-    private Long userId;
-
-    /**
-     * 模型供应商编码，例如 dashscope、kimi、fastapi-demo
-     */
-    private String provider;
-
-    /**
-     * 模型名称，例如 qwen-plus、moonshot-v1-8k
-     */
-    private String model;
-
-    /**
-     * 系统提示词
-     */
-    private String systemPrompt;
-
-    /**
-     * 用户当前输入
-     */
-    private String userPrompt;
-
-    /**
-     * 历史上下文消息
-     */
-    private List<AiChatMessage> messages;
-
-    /**
-     * 温度
-     */
-    private BigDecimal temperature;
-
-    /**
-     * 最大输出 token
-     */
-    private Integer maxTokens;
-
-    /**
-     * 是否流式响应
-     */
-    private Boolean stream;
-
-    /**
-     * 扩展参数
-     */
-    private Map<String, Object> options;
-}
-```
-
-### 7.2 AiChatMessage
-
-```java
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class AiChatMessage {
-
-    private String role;
-
-    private String content;
-}
-```
-
-### 7.3 AiChatResponse
-
-统一响应模型建议保持这些字段：
-
-```java
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class AiChatResponse {
-
-    private String requestId;
-
-    private String provider;
-
-    private String providerRequestId;
-
-    private String model;
-
-    private String content;
-
-    private String reasoningContent;
-
-    private String finishReason;
-
-    private Integer tokenInput;
-
-    private Integer tokenOutput;
-
-    private Integer tokenTotal;
-
-    private String rawResponse;
-}
-```
-
-### 7.4 AiStreamChunk
-
-流式响应模型建议保留统一语义：
-
-```java
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class AiStreamChunk {
-
-    private String requestId;
-
-    private String providerRequestId;
-
-    private String delta;
-
-    private String reasoningDelta;
-
-    private Boolean finished;
-
-    private String finishReason;
-
-    private Integer tokenInput;
-
-    private Integer tokenOutput;
-
-    private Integer tokenTotal;
-
-    private String rawChunk;
-}
-```
-
----
-
-## 8. aichat 接入方式
-
-### 8.1 aichat 的定位不变
-
-`vita-aichat` 仍然只做业务编排，不进入 `ai-core` 内部，也不向 `ai-core` 下沉数据库能力。
-
-当前保留内容：
+建议新增两类内部服务接口：
 
 ```text
-1. ai_conversation / ai_message / ai_chat_request / ai_message_stream_batch 落库
-2. 并发治理、等待队列、会话锁
-3. SSE 事件输出
-4. 请求生命周期状态管理
-5. 异常处理与状态回写
+1. RoundSummaryService
+   负责生成每轮摘要消息
+
+2. ConversationSummaryCompressService
+   负责多条摘要的再次压缩
 ```
 
-### 8.2 buildAiChatRequest 改造目标
-
-`buildAiChatRequest()` 只负责把 `aichat` 业务上下文转换为统一请求，并明确：
-
-```text
-module = aichat
-```
-
-示例：
-
-```java
-private AiChatRequest buildAiChatRequest(PreparedSendContext context, AiMessageSendDto sendDto) {
-    return AiChatRequest.builder()
-            .requestId(context.getRequestId())
-            .module("aichat")
-            .conversationId(context.getConversation().getId())
-            .userId(context.getUserId())
-            .provider(resolveProvider(sendDto, context.getConversation()))
-            .model(resolveModel(sendDto, context.getConversation()))
-            .systemPrompt(resolveSystemPrompt(context.getConversation()))
-            .userPrompt(sendDto.getContent())
-            .messages(buildHistoryMessages(context.getConversation().getId()))
-            .temperature(sendDto.getTemperature())
-            .maxTokens(sendDto.getMaxTokens())
-            .stream(Boolean.FALSE)
-            .options(sendDto.getOptions())
-            .build();
-}
-```
-
-### 8.3 AichatModuleStrategy 的职责
-
-当前阶段推荐在 `ai-core` 或与 `aichat` 对应的接入层中落地 `AichatModuleStrategy`，它的职责是：
-
-```text
-1. 校验 module=aichat 的请求是否完整
-2. 补齐 aichat 默认 provider
-3. 补齐 aichat 默认 model
-4. 合并 aichat 默认 options
-5. 对同步和流式请求做统一标准化
-```
-
-它不负责：
-
-```text
-1. 不查数据库
-2. 不构建会话历史
-3. 不做消息落库
-4. 不做 Redis 锁控制
-```
-
----
-
-## 9. Provider 设计原则
-
-### 9.1 DashScope Provider
-
-`DashScope` 是当前正式业务基线，文档中必须以现有 `vita-aichat` 行为为准：
-
-```text
-1. 支持同步 chat
-2. 支持流式 stream-chat
-3. 保留 providerRequestId
-4. 保留 finishReason
-5. 保留 token usage
-6. 保留 reasoning content / reasoning delta
-7. 保持当前 Prompt 顺序语义不变
-```
-
-`DashScope Provider` 内部可以继续封装 Spring AI Alibaba，但这种封装应当放在 Provider 内，而不是放在 `vita-aichat` 中。
-
-### 9.2 Kimi Provider
-
-`Kimi` 作为正式业务 Provider，建议按 OpenAI-Compatible 方式适配：
-
-```text
-1. 提供同步 chat
-2. 提供流式 stream-chat
-3. 输出统一 AiChatResponse / AiStreamChunk
-4. 不支持的 Provider 特性按“忽略而非抛错”处理
-```
-
-### 9.3 FastAPI Demo Provider
-
-`FastAPI` 只作为 demo Provider，不应按正式生产能力描述。
-
-它的职责边界仅限于：
-
-```text
-1. 演示 ai-core 如何接入一个自定义 HTTP AI 服务
-2. 提供最小 chat 协议
-3. 提供最小 stream-chat 协议
-4. 演示统一响应映射和异常映射
-```
-
-它不承诺：
-
-```text
-1. 不承诺与 DashScope/Kimi 等价的能力完整性
-2. 不承诺生产级 SLA
-3. 不承诺复杂 reasoning、token usage、tool calling 等高级能力
-```
-
----
-
-## 10. 配置设计
-
-### 10.1 总体原则
-
-本次方案明确放弃数据库驱动模型配置，不再引入 `ai_model_config` 或类似配置表。
-
-统一原则：
-
-```text
-1. ai-core 不耦合数据库
-2. 模块策略不耦合数据库
-3. Provider 不耦合数据库
-4. 运行时配置统一通过 application.yml 管理
-```
-
-### 10.2 推荐配置结构
-
-建议采用三层配置：
-
-```yaml
-vita:
-  ai:
-    core:
-      modules:
-        aichat:
-          enabled: true
-          provider: dashscope
-          model: qwen-plus
-          options:
-            enable-search: true
-            enable-thinking: false
-
-spring:
-  ai:
-    providers:
-      dashscope:
-        enabled: true
-        base-url: https://dashscope.aliyuncs.com
-        api-key: your-dashscope-api-key
-        default-model: qwen-plus
-
-      kimi:
-        enabled: true
-        base-url: https://api.moonshot.cn/v1
-        api-key: your-kimi-api-key
-        default-model: moonshot-v1-8k
-
-      fastapi-demo:
-        enabled: false
-        base-url: http://127.0.0.1:8000
-        api-key: demo-key
-        default-model: demo-chat-model
-
-vita:
-  aichat:
-    default-system-prompt: 你是一个专业 AI 助手
-    context-message-limit: 20
-    stream-batch-max-chars: 64
-    stream-batch-max-interval-ms: 200
-```
-
-### 10.3 配置边界
-
-配置边界固定为：
-
-```text
-vita.ai.core.*
-  管模块策略和默认路由
-
-spring.ai.providers.*
-  管具体 Provider 连接参数和默认模型
-
-vita.aichat.*
-  只管 aichat 业务配置
-```
-
----
-
-## 11. 属性类设计
-
-### 11.1 AiCoreProperty
-
-根配置类固定使用：
-
-```text
-AiCoreProperty
-```
-
-明确要求：
-
-```text
-1. AiCoreProperty 不允许定义静态内部类
-2. 模块配置和 Provider 配置全部拆成顶级属性类
-```
-
-推荐拆分：
-
-```text
-AiCoreProperty
-AiModuleProperty
-AiModuleOptionProperty
-DashScopeProviderProperty
-KimiProviderProperty
-FastApiDemoProviderProperty
-```
-
-### 11.2 自动装配建议
-
-`vita-ai-core-spring-boot-starter` 负责自动装配：
-
-```text
-AiCoreProperty
-AiModuleStrategyRegistry
-AiProviderRouter
-AiChatClient
-```
-
-各 Provider starter 负责各自 Provider Bean 和 Provider 属性类的装配。
-
----
-
-## 12. Maven 依赖建议
-
-`vita-aichat` 推荐依赖：
-
-```xml
-<dependency>
-    <groupId>com.vita</groupId>
-    <artifactId>vita-ai-core-spring-boot-starter</artifactId>
-</dependency>
-
-<dependency>
-    <groupId>com.vita</groupId>
-    <artifactId>vita-ai-provider-dashscope-spring-boot-starter</artifactId>
-</dependency>
-
-<dependency>
-    <groupId>com.vita</groupId>
-    <artifactId>vita-ai-provider-kimi-spring-boot-starter</artifactId>
-</dependency>
-
-<dependency>
-    <groupId>com.vita</groupId>
-    <artifactId>vita-ai-provider-fastapi-demo-spring-boot-starter</artifactId>
-</dependency>
-```
-
-依赖方向固定为：
-
-```text
-vita-aichat -> ai-core starter
-provider starter -> ai-core starter
-ai-core starter -> vita-common
-```
+它们都由 `vita-aichat` 异步触发，但模型调用仍走统一 `AiChatClient`。
 
 ---
 
 ## 13. 升级实施步骤
 
-### 第一阶段：重构 ai-core starter
-
-完成：
+### 第一阶段：收敛 starter
 
 ```text
-1. 删除插槽化表述和相关抽象
-2. 固定 AiChatClient
-3. 新增 AiModuleStrategy
-4. 新增 AiModuleStrategyRegistry
-5. 保留 AiProviderRouter 和 AiProvider
-6. 统一异常体系
-7. 完成 Spring Boot 3 自动装配
+1. 将现有 ai-core/provider 文档与代码入口收敛为 vita-ai-spring-boot-starter
+2. 内部保留 provider 包结构
+3. 调整自动装配，去掉泛型 ChatModel 注入
 ```
 
-### 第二阶段：迁移 aichat
-
-完成：
+### 第二阶段：完善多模型路由
 
 ```text
-1. aichat 只输出统一 AiChatRequest
-2. request.module 固定为 aichat
-3. send() 改为 AiChatClient.chat()
-4. streamSend() 改为 AiChatClient.streamChat()
-5. 业务层不再依赖 Provider SDK 类型
+1. DTO 增加 providerCode/modelCode
+2. 会话、消息、请求表增加 provider_code
+3. 打通请求覆盖 > 会话默认 > 模块默认 路由优先级
 ```
 
-### 第三阶段：落地 DashScope Provider
-
-完成：
+### 第三阶段：保留并强化异步流式
 
 ```text
-1. 迁移当前 DashScope 正式业务能力
-2. 保留同步与流式语义
-3. 保留 providerRequestId / finishReason / token usage / reasoning
+1. 保留现有 SseEmitter + 独立线程池模式
+2. 明确 Provider 流式能力统一走 Flux<AiStreamChunk>
+3. 保证主流式结束与摘要任务解耦
 ```
 
-### 第四阶段：落地 Kimi Provider
-
-完成：
+### 第四阶段：落地轮次摘要
 
 ```text
-1. 新增正式 Kimi Provider
-2. 统一映射到 AiChatResponse / AiStreamChunk
-3. 通过配置切换默认 Provider
+1. 每轮成功回复后异步生成一条 SUMMARY 消息
+2. 统一纳入 ai_chat_request 生命周期
+3. 摘要失败不影响主业务结果
 ```
 
-### 第五阶段：补充 FastAPI Demo Provider
-
-完成：
+### 第五阶段：落地摘要压缩
 
 ```text
-1. 提供最小 demo chat 协议
-2. 提供最小 demo stream-chat 协议
-3. 演示自定义 HTTP AI 服务的接入方式
+1. 达到阈值后触发 ai_conversation_summary 压缩
+2. Prompt 组装引入“压缩摘要 + 未压缩 SUMMARY + 最近原始消息”
+3. 支持上下文压缩阈值配置
 ```
 
 ---
 
 ## 14. 最终推荐结论
 
-最终建议采用以下结构：
+最终建议固定为：
 
 ```text
-vita-aichat
-  负责 AI Chat 业务编排
-
-vita-ai-core-spring-boot-starter
-  负责统一协议、模块策略、Provider 路由、异常体系、自动装配
-
-vita-ai-provider-xxx-spring-boot-starter
-  负责具体模型供应商实现
-```
-
-最终调用关系：
-
-```text
-AiChatController
- ↓
-AiChatServiceImpl
- ↓
-AiChatClient
- ↓
-AiModuleStrategy
- ↓
-AiProviderRouter
- ↓
-AiProvider
- ↓
-DashScope / Kimi / FastAPI Demo
+1. 对业务侧合并为一个 starter，而不是继续拆 core/provider 两层入口
+2. DashScope 和 Kimi 同时加载是必须支持的标准能力
+3. 流式接口继续保持异步返回，不切 WebFlux Controller
+4. 记忆能力按“每轮摘要 + 多轮压缩”两层设计
+5. 摘要与压缩都异步执行，不阻塞主对话
 ```
 
 一句话总结：
 
-> aichat 做业务编排，ai-core starter 做模块策略和统一路由，provider starter 做模型适配，所有运行时配置由 application.yml 管理。
-
----
-
-## 15. 升级收益
-
-升级完成后可以获得以下收益：
-
-```text
-1. aichat 业务层不再被具体模型 SDK 污染
-2. 不需要再拆 Scene Slot / Capability Slot，结构更稳定
-3. 新增业务模块时只需要新增模块策略
-4. 新增模型供应商时只需要新增 Provider starter
-5. DashScope 和 Kimi 可以同时存在并通过配置切换
-6. FastAPI demo 可以作为对外部 AI 服务的接入示例
-7. 同步与流式能力保持统一协议
-8. 统一异常体系更利于审计、限流、熔断和降级
-9. 配置集中在 application.yml，更符合当前项目约束
-10. ai-core 与 Provider 无数据库耦合，边界更清晰
-```
+> aichat 负责业务编排、SSE 与落库；统一 AI starter 负责多模型接入与路由；对话记忆通过异步轮次摘要和多轮压缩实现，支持长期上下文控制。

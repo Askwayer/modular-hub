@@ -30,6 +30,7 @@ public class AiChatMessageBuilder {
     public AiMessage buildUserMessage(Long conversationId,
                                       Long userId,
                                       String requestId,
+                                      String providerCode,
                                       String modelCode,
                                       AiMessageSendDto sendDto) {
         AiMessage userMessage = new AiMessage();
@@ -39,6 +40,7 @@ public class AiChatMessageBuilder {
         userMessage.setRoleType(AiRoleTypeEnum.USER.name());
         userMessage.setMessageType(defaultMessageType(sendDto.getMessageType()));
         userMessage.setRequestId(requestId);
+        userMessage.setProviderCode(providerCode);
         userMessage.setModelCode(modelCode);
         userMessage.setContent(sendDto.getContent().trim());
         userMessage.setContentStatus(AiContentStatusEnum.DONE.name());
@@ -60,6 +62,7 @@ public class AiChatMessageBuilder {
     public AiMessage buildAssistantPlaceholder(Long conversationId,
                                                Long userId,
                                                String requestId,
+                                               String providerCode,
                                                String modelCode,
                                                Long replyToId) {
         AiMessage assistantMessage = new AiMessage();
@@ -70,6 +73,7 @@ public class AiChatMessageBuilder {
         assistantMessage.setMessageType(AiMessageTypeEnum.TEXT.name());
         assistantMessage.setReplyToId(replyToId);
         assistantMessage.setRequestId(requestId);
+        assistantMessage.setProviderCode(providerCode);
         assistantMessage.setModelCode(modelCode);
         assistantMessage.setContent("");
         assistantMessage.setReasoningContent("");
@@ -94,6 +98,8 @@ public class AiChatMessageBuilder {
     public AiChatRequest buildChatRequest(Long conversationId,
                                           Long userId,
                                           String requestId,
+                                          String providerCode,
+                                          AiChatRequestSceneEnum requestScene,
                                           AiChatRequestModeEnum requestMode,
                                           String modelCode,
                                           Long userMessageId,
@@ -103,6 +109,8 @@ public class AiChatMessageBuilder {
         chatRequest.setConversationId(conversationId);
         chatRequest.setUserId(userId);
         chatRequest.setRequestId(requestId);
+        chatRequest.setProviderCode(providerCode);
+        chatRequest.setRequestScene(requestScene.name());
         chatRequest.setRequestMode(requestMode.name());
         chatRequest.setStatus(AiChatRequestStatusEnum.PENDING.name());
         chatRequest.setUserMessageId(userMessageId);
@@ -110,6 +118,33 @@ public class AiChatMessageBuilder {
         chatRequest.setModelCode(modelCode);
         chatRequest.setStartedAt(LocalDateTime.now());
         return chatRequest;
+    }
+
+    /**
+     * 构建轮次摘要消息。
+     */
+    public AiMessage buildSummaryMessage(Long conversationId,
+                                         Long userId,
+                                         String requestId,
+                                         String providerCode,
+                                         String modelCode,
+                                         Long replyToId,
+                                         String content) {
+        AiMessage summaryMessage = new AiMessage();
+        summaryMessage.setId(SnowUtils.getSnowflakeNextId());
+        summaryMessage.setConversationId(conversationId);
+        summaryMessage.setUserId(userId);
+        summaryMessage.setRoleType(AiRoleTypeEnum.SUMMARY.name());
+        summaryMessage.setMessageType(AiMessageTypeEnum.TEXT.name());
+        summaryMessage.setReplyToId(replyToId);
+        summaryMessage.setRequestId(requestId);
+        summaryMessage.setProviderCode(providerCode);
+        summaryMessage.setModelCode(modelCode);
+        summaryMessage.setContent(content);
+        summaryMessage.setContentStatus(AiContentStatusEnum.DONE.name());
+        summaryMessage.setUseContext((byte) 1);
+        summaryMessage.setStreamBatchCount(0);
+        return summaryMessage;
     }
 
     /**

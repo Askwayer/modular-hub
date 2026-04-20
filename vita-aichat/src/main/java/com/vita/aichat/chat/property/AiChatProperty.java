@@ -9,13 +9,8 @@ import org.springframework.stereotype.Component;
  */
 @Data
 @Component
-@ConfigurationProperties(prefix = "spring.ai")
+@ConfigurationProperties(prefix = "vita.aichat")
 public class AiChatProperty {
-
-    /**
-     * 模型提供者。
-     */
-    private String modelChat = "dashscope";
 
     /**
      * 最大上下文消息数。
@@ -28,47 +23,15 @@ public class AiChatProperty {
     private Boolean streamEnabled = true;
 
     /**
-     * 连接超时时间（毫秒）。
-     */
-    private Long connectTimeout = 5000L;
-
-    /**
-     * 读取超时时间（毫秒）。
-     */
-    private Long readTimeout = 60000L;
-
-    /**
      * 默认系统提示词。
      */
     private String defaultSystemPrompt = "你是一个严谨的开发助手。";
 
-    private Lock lock = new Lock();
-    private Concurrency concurrency = new Concurrency();
-    private Executor executor = new Executor();
+    private AiChatLockProperty lock = new AiChatLockProperty();
 
-    @Data
-    public static class Lock {
-        private Conversation conversation = new Conversation();
+    private AiChatConcurrencyProperty concurrency = new AiChatConcurrencyProperty();
 
-        @Data
-        public static class Conversation {
-            private Long leaseSeconds = 600L;
-        }
-    }
+    private AiChatExecutorProperty executor = new AiChatExecutorProperty();
 
-    @Data
-    public static class Concurrency {
-        private Integer maxActive = 5;
-        private Integer maxWaiting = 20;
-        private Long waitTimeoutSeconds = 30L;
-        private Long activePermitLeaseSeconds = 900L;
-    }
-
-    @Data
-    public static class Executor {
-        private Integer corePoolSize = 8;
-        private Integer maxPoolSize = 16;
-        private Integer queueCapacity = 0;
-        private Integer keepAliveSeconds = 60;
-    }
+    private AiChatSummaryProperty summary = new AiChatSummaryProperty();
 }

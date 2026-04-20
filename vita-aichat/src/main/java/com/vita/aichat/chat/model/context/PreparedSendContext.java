@@ -20,6 +20,9 @@ public class PreparedSendContext {
     /* 请求唯一标识 */
     private String requestId;
 
+    /* 模型提供者编码 */
+    private String providerCode;
+
     /* 模型编码 */
     private String modelCode;
 

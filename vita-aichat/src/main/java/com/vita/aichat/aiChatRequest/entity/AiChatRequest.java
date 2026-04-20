@@ -25,8 +25,14 @@ public class AiChatRequest extends BaseEntity {
     @TableField("request_id")
     private String requestId;
 
+    @TableField("provider_code")
+    private String providerCode;
+
     @TableField("provider_request_id")
     private String providerRequestId;
+
+    @TableField("request_scene")
+    private String requestScene;
 
     @TableField("request_mode")
     private String requestMode;

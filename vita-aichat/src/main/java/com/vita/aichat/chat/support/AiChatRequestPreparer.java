@@ -3,6 +3,8 @@ package com.vita.aichat.chat.support;
 import cn.hutool.core.text.CharSequenceUtil;
 import cn.hutool.core.util.IdUtil;
 import com.vita.ai.core.model.AiChatMessage;
+import com.vita.ai.core.property.AiCoreProperty;
+import com.vita.ai.core.property.AiModuleProperty;
 import com.vita.aichat.aiChatRequest.service.IAiChatRequestService;
 import com.vita.aichat.aiConversation.entity.AiConversation;
 import com.vita.aichat.aiConversation.service.IAiConversationService;
@@ -42,6 +44,7 @@ public class AiChatRequestPreparer {
     private final IAiConversationSummaryService aiConversationSummaryService;
     private final IAiChatRequestService aiChatRequestService;
     private final AiChatProperty aiChatProperty;
+    private final AiCoreProperty aiCoreProperty;
     private final AiChatRedisCoordinator aiChatRedisCoordinator;
     private final AiChatMessageBuilder aiChatMessageBuilder;
 
@@ -50,6 +53,7 @@ public class AiChatRequestPreparer {
                                  IAiConversationSummaryService aiConversationSummaryService,
                                  IAiChatRequestService aiChatRequestService,
                                  AiChatProperty aiChatProperty,
+                                 AiCoreProperty aiCoreProperty,
                                  AiChatRedisCoordinator aiChatRedisCoordinator,
                                  AiChatMessageBuilder aiChatMessageBuilder) {
         this.aiConversationService = aiConversationService;
@@ -57,6 +61,7 @@ public class AiChatRequestPreparer {
         this.aiConversationSummaryService = aiConversationSummaryService;
         this.aiChatRequestService = aiChatRequestService;
         this.aiChatProperty = aiChatProperty;
+        this.aiCoreProperty = aiCoreProperty;
         this.aiChatRedisCoordinator = aiChatRedisCoordinator;
         this.aiChatMessageBuilder = aiChatMessageBuilder;
     }
@@ -201,20 +206,22 @@ public class AiChatRequestPreparer {
                                                     String requestId,
                                                     AiMessageSendDto sendDto,
                                                     AiChatRequestModeEnum requestMode) {
-        String modelCode = generateModelCode(conversation.getCurrentModelCode());
+        String providerCode = resolveProviderCode(conversation, sendDto);
+        String modelCode = resolveModelCode(conversation, sendDto);
 
         // 构建并持久化消息实体
         AiMessage userMessage = aiChatMessageBuilder.buildUserMessage(
-                conversation.getId(), userId, requestId, modelCode, sendDto);
+                conversation.getId(), userId, requestId, providerCode, modelCode, sendDto);
         aiMessageService.create(userMessage);
 
         AiMessage assistantMessage = aiChatMessageBuilder.buildAssistantPlaceholder(
-                conversation.getId(), userId, requestId, modelCode, userMessage.getId());
+                conversation.getId(), userId, requestId, providerCode, modelCode, userMessage.getId());
         aiMessageService.create(assistantMessage);
 
         // 构建并持久化聊天请求
         com.vita.aichat.aiChatRequest.entity.AiChatRequest chatRequest = aiChatMessageBuilder.buildChatRequest(
-                conversation.getId(), userId, requestId, requestMode, modelCode,
+                conversation.getId(), userId, requestId, providerCode, com.vita.aichat.enums.AiChatRequestSceneEnum.CHAT,
+                requestMode, modelCode,
                 userMessage.getId(), assistantMessage.getId());
         try {
             aiChatRequestService.create(chatRequest);
@@ -224,17 +231,18 @@ public class AiChatRequestPreparer {
 
         // 构建统一 AI 请求 DTO
         com.vita.ai.core.model.AiChatRequest aiChatRequest = buildAiChatRequest(
-                conversation, userId, userMessage, modelCode, sendDto,
+                conversation, userId, userMessage, providerCode, modelCode, sendDto,
                 requestMode == AiChatRequestModeEnum.STREAM);
 
         // 更新会话状态
-        updateConversationForPreparedRequest(conversation, requestId, modelCode);
+        updateConversationForPreparedRequest(conversation, requestId, providerCode, modelCode, sendDto);
 
         // 组装上下文
         PreparedSendContext context = new PreparedSendContext();
         context.setUserId(userId);
         context.setConversationId(conversation.getId());
         context.setRequestId(requestId);
+        context.setProviderCode(providerCode);
         context.setModelCode(modelCode);
         context.setConversation(conversation);
         context.setUserMessage(userMessage);
@@ -250,22 +258,34 @@ public class AiChatRequestPreparer {
     private com.vita.ai.core.model.AiChatRequest buildAiChatRequest(AiConversation conversation,
                                                                       Long userId,
                                                                       AiMessage userMessage,
+                                                                      String providerCode,
                                                                       String modelCode,
                                                                       AiMessageSendDto sendDto,
                                                                       boolean stream) {
         List<AiChatMessage> messages = new ArrayList<>();
 
         // 添加会话历史摘要
-        AiConversationSummary summary = aiConversationSummaryService.getLatestReadySummary(
+        AiConversationSummary latestSummary = aiConversationSummaryService.getLatestReadySummary(
                 conversation.getId(), userId);
-        if (summary != null && CharSequenceUtil.isNotBlank(summary.getSummaryText())) {
+        if (latestSummary != null && CharSequenceUtil.isNotBlank(latestSummary.getSummaryText())) {
             messages.add(AiChatMessage.builder()
                     .role("system")
-                    .content("以下是当前会话的历史摘要：\n" + summary.getSummaryText())
+                    .content("以下是当前会话的历史压缩摘要：\n" + latestSummary.getSummaryText())
                     .build());
         }
 
-        // 添加历史消息
+        // 添加未压缩轮次摘要
+        Long latestCompressedSummaryMessageId = latestSummary != null ? latestSummary.getSourceMessageEndId() : null;
+        List<AiMessage> pendingSummaryMessages = aiMessageService.listPendingSummaryMessages(
+                conversation.getId(), userId, latestCompressedSummaryMessageId);
+        for (AiMessage pendingSummaryMessage : pendingSummaryMessages) {
+            AiChatMessage chatMessage = convertToAiChatMessage(pendingSummaryMessage);
+            if (chatMessage != null) {
+                messages.add(chatMessage);
+            }
+        }
+
+        // 添加原始历史消息
         List<AiMessage> historyMessages = aiMessageService.listRecentContextMessages(
                 conversation.getId(),
                 userId,
@@ -286,7 +306,7 @@ public class AiChatRequestPreparer {
                 .module("aichat")
                 .conversationId(conversation.getId())
                 .userId(userId)
-                .provider(null)
+                .provider(providerCode)
                 .model(modelCode)
                 .systemPrompt(CharSequenceUtil.isNotBlank(systemPrompt) ? systemPrompt : null)
                 .userPrompt(userMessage.getContent())
@@ -324,11 +344,22 @@ public class AiChatRequestPreparer {
      */
     private void updateConversationForPreparedRequest(AiConversation conversation,
                                                       String requestId,
-                                                      String modelCode) {
+                                                      String providerCode,
+                                                      String modelCode,
+                                                      AiMessageSendDto sendDto) {
         AiConversation update = new AiConversation();
         update.setId(conversation.getId());
         update.setActiveRequestId(requestId);
-        update.setCurrentModelCode(modelCode);
+        if (CharSequenceUtil.isBlank(conversation.getCurrentProviderCode())) {
+            update.setCurrentProviderCode(providerCode);
+        } else if (CharSequenceUtil.isNotBlank(sendDto.getProviderCode())) {
+            update.setCurrentProviderCode(conversation.getCurrentProviderCode());
+        }
+        if (CharSequenceUtil.isBlank(conversation.getCurrentModelCode())) {
+            update.setCurrentModelCode(modelCode);
+        } else if (CharSequenceUtil.isNotBlank(sendDto.getModelCode())) {
+            update.setCurrentModelCode(conversation.getCurrentModelCode());
+        }
         update.setLastMessageAt(LocalDateTime.now());
         update.setMessageCount(generateNumber(conversation.getMessageCount()) + 2);
         update.setRoundCount(generateNumber(conversation.getRoundCount()) + 1);
@@ -339,7 +370,12 @@ public class AiChatRequestPreparer {
         // 同步更新内存中的会话对象
         conversation.setMessageCount(update.getMessageCount());
         conversation.setRoundCount(update.getRoundCount());
-        conversation.setCurrentModelCode(modelCode);
+        if (update.getCurrentProviderCode() != null) {
+            conversation.setCurrentProviderCode(update.getCurrentProviderCode());
+        }
+        if (update.getCurrentModelCode() != null) {
+            conversation.setCurrentModelCode(update.getCurrentModelCode());
+        }
         conversation.setActiveRequestId(requestId);
     }
 
@@ -376,15 +412,34 @@ public class AiChatRequestPreparer {
     }
 
     /**
+     * 生成默认模型提供者编码。
+     */
+    public String generateProviderCode(String providerCode) {
+        if (CharSequenceUtil.isNotBlank(providerCode)) {
+            return providerCode.trim();
+        }
+        AiModuleProperty moduleProperty = aiCoreProperty.getModules().get("aichat");
+        if (moduleProperty != null && CharSequenceUtil.isNotBlank(moduleProperty.getDefaultProvider())) {
+            return moduleProperty.getDefaultProvider().trim();
+        }
+        return "qwen";
+    }
+
+    /**
      * 生成默认模型编码。
      *
      * @param modelCode 模型编码
      * @return 默认模型编码
      */
     public String generateModelCode(String modelCode) {
-        return CharSequenceUtil.isBlank(modelCode)
-                ? "qwen-plus"
-                : modelCode.trim();
+        if (CharSequenceUtil.isNotBlank(modelCode)) {
+            return modelCode.trim();
+        }
+        AiModuleProperty moduleProperty = aiCoreProperty.getModules().get("aichat");
+        if (moduleProperty != null && CharSequenceUtil.isNotBlank(moduleProperty.getDefaultModel())) {
+            return moduleProperty.getDefaultModel().trim();
+        }
+        return "qwen-plus";
     }
 
     /**
@@ -429,5 +484,19 @@ public class AiChatRequestPreparer {
      */
     private int generateNumber(Integer value) {
         return value == null ? 0 : value;
+    }
+
+    private String resolveProviderCode(AiConversation conversation, AiMessageSendDto sendDto) {
+        if (CharSequenceUtil.isNotBlank(sendDto.getProviderCode())) {
+            return generateProviderCode(sendDto.getProviderCode());
+        }
+        return generateProviderCode(conversation.getCurrentProviderCode());
+    }
+
+    private String resolveModelCode(AiConversation conversation, AiMessageSendDto sendDto) {
+        if (CharSequenceUtil.isNotBlank(sendDto.getModelCode())) {
+            return generateModelCode(sendDto.getModelCode());
+        }
+        return generateModelCode(conversation.getCurrentModelCode());
     }
 }
