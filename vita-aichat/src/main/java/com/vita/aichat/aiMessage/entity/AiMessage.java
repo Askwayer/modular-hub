@@ -65,6 +65,12 @@ public class AiMessage extends BaseEntity {
     private String providerRequestId;
 
     /**
+     * 模型提供者编码
+     */
+    @TableField("provider_code")
+    private String providerCode;
+
+    /**
      * 模型ID
      */
     @TableField("model_id")

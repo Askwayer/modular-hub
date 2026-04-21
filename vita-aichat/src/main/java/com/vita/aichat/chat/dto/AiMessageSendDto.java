@@ -17,6 +17,12 @@ public class AiMessageSendDto {
     @Size(max = 16, message = "消息类型长度不能超过16")
     private String messageType = "TEXT";
 
+    @Size(max = 64, message = "模型提供者长度不能超过64")
+    private String providerCode;
+
+    @Size(max = 64, message = "模型编码长度不能超过64")
+    private String modelCode;
+
     private Byte useContext = 1;
 
     @Size(max = 64, message = "requestId 长度不能超过64")

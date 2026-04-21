@@ -1,0 +1,4 @@
+com.vita.ai.core.config.AiCoreAutoConfiguration
+com.vita.ai.provider.qwen.config.QwenProviderAutoConfiguration
+com.vita.ai.provider.kimi.config.KimiProviderAutoConfiguration
+com.vita.ai.provider.fastapi.config.FastApiProviderAutoConfiguration

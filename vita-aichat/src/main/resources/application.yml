@@ -19,7 +19,7 @@ spring:
       max-request-size: 15MB
   config:
     import:
-      - optional:classpath:application-file-${spring.profiles.active}.yml
+      - optional:classpath:application-ai-${spring.profiles.active}.yml
 
   # 数据库连接
   datasource:

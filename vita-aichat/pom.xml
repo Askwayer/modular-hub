@@ -19,10 +19,10 @@
 
     <dependencies>
 
-        <!-- Spring AI Alibaba DashScope 模型接入（通义千问等） -->
+        <!-- Unified AI Starter — 多模型接入、策略、路由 -->
         <dependency>
-            <groupId>com.alibaba.cloud.ai</groupId>
-            <artifactId>spring-ai-alibaba-starter-dashscope</artifactId>
+            <groupId>com.vita</groupId>
+            <artifactId>vita-ai-spring-boot-starter</artifactId>
         </dependency>
 
         <!-- 公共基础模块 -->

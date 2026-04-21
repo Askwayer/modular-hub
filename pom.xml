@@ -209,6 +209,12 @@
                 <artifactId>vita-file-spring-boot-starter</artifactId>
                 <version>${vita.starters.version}</version>
             </dependency>
+            <!-- Unified AI Starter -->
+            <dependency>
+                <groupId>com.vita</groupId>
+                <artifactId>vita-ai-spring-boot-starter</artifactId>
+                <version>${vita.starters.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 

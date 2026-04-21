@@ -23,9 +23,10 @@ import java.util.List;
 public interface AiMessageMapper extends BaseMapperX<AiMessage> {
 
     default PageResponse<AiMessage> selectPageByConversationIdAndUserId(PageRequest pageRequest, Long conversationId, Long userId) {
-        LambdaQueryWrapperX<AiMessage> queryWrapper = new LambdaQueryWrapperX<AiMessage>()
+        var queryWrapper = new LambdaQueryWrapperX<AiMessage>()
                 .eq(AiMessage::getConversationId, conversationId)
-                .eq(AiMessage::getUserId, userId);
+                .eq(AiMessage::getUserId, userId)
+                .ne(AiMessage::getRoleType, "SUMMARY");
         queryWrapper.orderByAsc(AiMessage::getCreateTime);
         queryWrapper.orderByAsc(AiMessage::getId);
         return selectPage(pageRequest, queryWrapper);
@@ -36,10 +37,11 @@ public interface AiMessageMapper extends BaseMapperX<AiMessage> {
             return Collections.emptyList();
         }
         LambdaQueryWrapperX<AiMessage> queryWrapper = new LambdaQueryWrapperX<AiMessage>()
-                .eq(AiMessage::getConversationId, conversationId)
-                .eq(AiMessage::getUserId, userId)
-                .eq(AiMessage::getUseContext, (byte) 1)
-                .eq(AiMessage::getContentStatus, "DONE")
+                .eqIfPresent(AiMessage::getConversationId, conversationId)
+                .eqIfPresent(AiMessage::getUserId, userId)
+                .eqIfPresent(AiMessage::getUseContext, (byte) 1)
+                .eqIfPresent(AiMessage::getContentStatus, "DONE")
+                .neIfPresent(AiMessage::getRoleType, "SUMMARY")
                 .neIfPresent(AiMessage::getId, excludeMessageId)
                 .orderByDesc(AiMessage::getCreateTime)
                 .orderByDesc(AiMessage::getId)
@@ -51,6 +53,7 @@ public interface AiMessageMapper extends BaseMapperX<AiMessage> {
         return selectList(new LambdaQueryWrapperX<AiMessage>()
                 .eq(AiMessage::getConversationId, conversationId)
                 .eq(AiMessage::getUserId, userId)
+                .ne(AiMessage::getRoleType, "SUMMARY")
                 .orderByAsc(AiMessage::getCreateTime)
                 .orderByAsc(AiMessage::getId));
     }
@@ -59,6 +62,17 @@ public interface AiMessageMapper extends BaseMapperX<AiMessage> {
         return selectOne(new LambdaQueryWrapperX<AiMessage>()
                 .eq(AiMessage::getId, messageId)
                 .eq(AiMessage::getUserId, userId));
+    }
+
+    default List<AiMessage> selectPendingSummaryMessages(Long conversationId, Long userId, Long afterMessageId) {
+        return selectList(new LambdaQueryWrapperX<AiMessage>()
+                .eq(AiMessage::getConversationId, conversationId)
+                .eq(AiMessage::getUserId, userId)
+                .eq(AiMessage::getRoleType, "SUMMARY")
+                .eq(AiMessage::getContentStatus, "DONE")
+                .gtIfPresent(AiMessage::getId, afterMessageId)
+                .orderByAsc(AiMessage::getCreateTime)
+                .orderByAsc(AiMessage::getId));
     }
 
     default List<AiMessage> selectListByIds(Collection<Long> ids) {

@@ -27,6 +27,22 @@ public interface AiChatRequestMapper extends BaseMapperX<AiChatRequest> {
                 .eq(AiChatRequest::getUserId, userId));
     }
 
+    default List<AiChatRequest> selectRecentSuccessfulChatRequests(Long conversationId, Long userId, Integer limit) {
+        if (limit == null || limit <= 0) {
+            return Collections.emptyList();
+        }
+        return selectList(new LambdaQueryWrapperX<AiChatRequest>()
+                .eq(AiChatRequest::getConversationId, conversationId)
+                .eq(AiChatRequest::getUserId, userId)
+                .eq(AiChatRequest::getRequestScene, "CHAT")
+                .eq(AiChatRequest::getStatus, "SUCCESS")
+                .isNotNull(AiChatRequest::getUserMessageId)
+                .isNotNull(AiChatRequest::getAssistantMessageId)
+                .orderByDesc(AiChatRequest::getCompletedAt)
+                .orderByDesc(AiChatRequest::getId)
+                .last("LIMIT " + limit));
+    }
+
     default List<AiChatRequest> selectListByAssistantMessageIds(Collection<Long> assistantMessageIds) {
         if (assistantMessageIds == null || assistantMessageIds.isEmpty()) {
             return Collections.emptyList();

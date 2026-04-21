@@ -39,6 +39,18 @@ public class AiConversationSummary extends BaseEntity {
     private Integer versionNo;
 
     /**
+     * 生成摘要时使用的模型提供者
+     */
+    @TableField("provider_code")
+    private String providerCode;
+
+    /**
+     * 生成摘要时使用的模型编码
+     */
+    @TableField("model_code")
+    private String modelCode;
+
+    /**
      * 压缩起始消息ID
      */
     @TableField("source_message_start_id")
@@ -57,6 +69,30 @@ public class AiConversationSummary extends BaseEntity {
     private Integer sourceMessageCount;
 
     /**
+     * 压缩起始轮次号
+     */
+    @TableField("source_round_start_no")
+    private Integer sourceRoundStartNo;
+
+    /**
+     * 压缩结束轮次号
+     */
+    @TableField("source_round_end_no")
+    private Integer sourceRoundEndNo;
+
+    /**
+     * 压缩起始轮次记忆ID
+     */
+    @TableField("source_round_memory_start_id")
+    private Long sourceRoundMemoryStartId;
+
+    /**
+     * 压缩结束轮次记忆ID
+     */
+    @TableField("source_round_memory_end_id")
+    private Long sourceRoundMemoryEndId;
+
+    /**
      * 摘要文本
      */
     @TableField("summary_text")
@@ -73,6 +109,12 @@ public class AiConversationSummary extends BaseEntity {
      */
     @TableField("token_saved_estimate")
     private Integer tokenSavedEstimate;
+
+    /**
+     * 注入摘要时的 token 估算
+     */
+    @TableField("prompt_token_estimate")
+    private Integer promptTokenEstimate;
 
     /**
      * 状态 READY/STALE

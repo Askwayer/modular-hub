@@ -77,6 +77,12 @@ public class AiConversation extends BaseEntity {
     private Long currentModelId;
 
     /**
+     * 当前模型提供者编码
+     */
+    @TableField("current_provider_code")
+    private String currentProviderCode;
+
+    /**
      * 当前模型编码
      */
     @TableField("current_model_code")

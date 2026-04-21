@@ -5,9 +5,10 @@
 -- Scope:
 --   1) ai_conversation
 --   2) ai_message
---   3) ai_conversation_summary
---   4) ai_chat_request
---   5) ai_message_stream_batch
+--   3) ai_round_memory
+--   4) ai_conversation_summary
+--   5) ai_chat_request
+--   6) ai_message_stream_batch
 -- Note: 先 DROP 再 CREATE，适用于全新初始化或重建表
 -- =============================================
 
@@ -20,6 +21,7 @@ SET FOREIGN_KEY_CHECKS = 0;
 DROP TABLE IF EXISTS `ai_message_stream_batch`;
 DROP TABLE IF EXISTS `ai_chat_request`;
 DROP TABLE IF EXISTS `ai_conversation_summary`;
+DROP TABLE IF EXISTS `ai_round_memory`;
 DROP TABLE IF EXISTS `ai_message`;
 DROP TABLE IF EXISTS `ai_conversation`;
 
@@ -38,6 +40,7 @@ CREATE TABLE IF NOT EXISTS `ai_conversation` (
     `message_count`            INT           NOT NULL  DEFAULT 0 COMMENT '消息总数',
     `round_count`              INT           NOT NULL  DEFAULT 0 COMMENT '轮次数 1轮=问+答',
     `current_model_id`         BIGINT                  DEFAULT NULL COMMENT '当前模型ID',
+    `current_provider_code`    VARCHAR(64)             DEFAULT NULL COMMENT '当前模型提供者编码',
     `current_model_code`       VARCHAR(64)             DEFAULT NULL COMMENT '当前模型编码',
     `system_prompt`            VARCHAR(4000)           DEFAULT NULL COMMENT '系统提示词',
     `temperature`              DECIMAL(4, 2)          DEFAULT NULL COMMENT '温度参数',
@@ -81,6 +84,7 @@ CREATE TABLE IF NOT EXISTS `ai_message` (
     `reply_to_id`           BIGINT                   DEFAULT NULL COMMENT '回复消息ID,ASSISTANT通常指向对应USER消息',
     `request_id`            VARCHAR(64)              DEFAULT NULL COMMENT '请求ID,前后端链路追踪',
     `provider_request_id`   VARCHAR(128)             DEFAULT NULL COMMENT '模型供应商请求ID',
+    `provider_code`         VARCHAR(64)              DEFAULT NULL COMMENT '模型提供者编码',
     `model_id`              BIGINT                   DEFAULT NULL COMMENT '模型ID',
     `model_code`            VARCHAR(64)              DEFAULT NULL COMMENT '模型编码',
     `content`               LONGTEXT                 COMMENT '最终展示内容',
@@ -120,7 +124,45 @@ CREATE TABLE IF NOT EXISTS `ai_message` (
   COMMENT = 'AI消息表';
 
 -- =============================================
--- 3. AI 会话摘要表
+-- 3. AI 轮次记忆表
+-- =============================================
+CREATE TABLE IF NOT EXISTS `ai_round_memory` (
+    `id`                         BIGINT        NOT NULL COMMENT '主键ID',
+    `tenant_id`                  BIGINT                   DEFAULT NULL COMMENT '租户ID',
+    `conversation_id`            BIGINT        NOT NULL COMMENT '会话ID',
+    `user_id`                    BIGINT        NOT NULL COMMENT '用户ID',
+    `round_no`                   INT           NOT NULL COMMENT '轮次号，从1开始',
+    `source_request_id`          VARCHAR(64)              DEFAULT NULL COMMENT '来源业务请求ID',
+    `source_user_message_id`     BIGINT                   DEFAULT NULL COMMENT '来源用户消息ID',
+    `source_assistant_message_id` BIGINT                  DEFAULT NULL COMMENT '来源助手消息ID',
+    `provider_code`              VARCHAR(64)              DEFAULT NULL COMMENT '记忆生成提供者编码',
+    `model_code`                 VARCHAR(64)              DEFAULT NULL COMMENT '记忆生成模型编码',
+    `memory_text`                LONGTEXT      NOT NULL COMMENT '轮次记忆文本',
+    `memory_json`                JSON                     DEFAULT NULL COMMENT '结构化记忆 JSON',
+    `prompt_token_estimate`      INT                      DEFAULT NULL COMMENT '注入提示词估算 token',
+    `salience_score`             INT                      DEFAULT NULL COMMENT '显著性评分 0-100',
+    `carry_forward`              TINYINT(1)    NOT NULL  DEFAULT 0 COMMENT '是否需要延续到后续轮次',
+    `status`                     VARCHAR(16)   NOT NULL  DEFAULT 'READY' COMMENT '状态 READY/ROLLED_UP/SKIPPED',
+    `is_deleted`                 TINYINT(1)               DEFAULT 0 COMMENT '是否删除(0-否,1-是)',
+    `create_time`                DATETIME      NOT NULL  DEFAULT CURRENT_TIMESTAMP COMMENT '新增时间',
+    `create_by_id`               BIGINT                   DEFAULT NULL COMMENT '新增用户ID',
+    `create_by`                  VARCHAR(50)              DEFAULT NULL COMMENT '新增用户名称',
+    `update_time`                DATETIME                 DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `update_by_id`               BIGINT                   DEFAULT NULL COMMENT '更新用户ID',
+    `update_by`                  VARCHAR(50)              DEFAULT NULL COMMENT '更新用户名称',
+    `version`                    BIGINT                   DEFAULT 0 COMMENT '乐观锁',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_vai_round_conv_round` (`conversation_id`, `round_no`),
+    KEY `idx_vai_round_conv_status` (`conversation_id`, `status`, `round_no`),
+    KEY `idx_vai_round_user_conv` (`user_id`, `conversation_id`),
+    KEY `idx_vai_round_deleted_time` (`is_deleted`, `update_time`)
+) ENGINE = InnoDB
+  DEFAULT CHARSET = utf8mb4
+  COLLATE = utf8mb4_unicode_ci
+  COMMENT = 'AI轮次记忆表';
+
+-- =============================================
+-- 4. AI 会话摘要表
 -- =============================================
 CREATE TABLE IF NOT EXISTS `ai_conversation_summary` (
     `id`                        BIGINT        NOT NULL COMMENT '主键ID',
@@ -128,12 +170,19 @@ CREATE TABLE IF NOT EXISTS `ai_conversation_summary` (
     `conversation_id`           BIGINT        NOT NULL COMMENT '会话ID',
     `user_id`                   BIGINT        NOT NULL COMMENT '用户ID',
     `version_no`                INT           NOT NULL COMMENT '摘要版本号',
+    `provider_code`             VARCHAR(64)              DEFAULT NULL COMMENT '摘要生成提供者编码',
+    `model_code`                VARCHAR(64)              DEFAULT NULL COMMENT '摘要生成模型编码',
     `source_message_start_id`   BIGINT                   DEFAULT NULL COMMENT '压缩起始消息ID',
     `source_message_end_id`     BIGINT                   DEFAULT NULL COMMENT '压缩结束消息ID',
     `source_message_count`      INT           NOT NULL  DEFAULT 0 COMMENT '被压缩消息数',
+    `source_round_start_no`     INT                      DEFAULT NULL COMMENT '压缩起始轮次号',
+    `source_round_end_no`       INT                      DEFAULT NULL COMMENT '压缩结束轮次号',
+    `source_round_memory_start_id` BIGINT                DEFAULT NULL COMMENT '压缩起始轮次记忆ID',
+    `source_round_memory_end_id` BIGINT                  DEFAULT NULL COMMENT '压缩结束轮次记忆ID',
     `summary_text`              LONGTEXT      NOT NULL COMMENT '摘要文本',
     `summary_json`              JSON                     DEFAULT NULL COMMENT '结构化摘要 JSON',
     `token_saved_estimate`      INT                      DEFAULT NULL COMMENT '预估节省token',
+    `prompt_token_estimate`     INT                      DEFAULT NULL COMMENT '注入摘要时的估算token',
     `status`                    VARCHAR(16)   NOT NULL  DEFAULT 'READY' COMMENT '状态 READY/STALE',
     `is_deleted`                TINYINT(1)               DEFAULT 0 COMMENT '是否删除(0-否,1-是)',
     `create_time`               DATETIME      NOT NULL  DEFAULT CURRENT_TIMESTAMP COMMENT '新增时间',
@@ -154,7 +203,7 @@ CREATE TABLE IF NOT EXISTS `ai_conversation_summary` (
   COMMENT = 'AI会话摘要表';
 
 -- =============================================
--- 4. AI 请求生命周期表
+-- 5. AI 请求生命周期表
 -- =============================================
 CREATE TABLE IF NOT EXISTS `ai_chat_request` (
     `id`                    BIGINT        NOT NULL COMMENT '主键ID',
@@ -162,7 +211,9 @@ CREATE TABLE IF NOT EXISTS `ai_chat_request` (
     `conversation_id`       BIGINT        NOT NULL COMMENT '会话ID',
     `user_id`               BIGINT        NOT NULL COMMENT '用户ID',
     `request_id`            VARCHAR(64)   NOT NULL COMMENT '业务请求ID',
+    `provider_code`         VARCHAR(64)              DEFAULT NULL COMMENT '模型提供者编码',
     `provider_request_id`   VARCHAR(128)             DEFAULT NULL COMMENT '模型供应商请求ID',
+    `request_scene`         VARCHAR(32)   NOT NULL  DEFAULT 'CHAT' COMMENT '请求场景 CHAT/ROUND_SUMMARY/SUMMARY_COMPRESS',
     `request_mode`          VARCHAR(16)   NOT NULL COMMENT '请求模式 SYNC/STREAM',
     `status`                VARCHAR(16)   NOT NULL COMMENT '请求状态 PENDING/STREAMING/SUCCESS/ERROR/CANCELLED',
     `user_message_id`       BIGINT                   DEFAULT NULL COMMENT '关联用户消息ID',
@@ -190,6 +241,7 @@ CREATE TABLE IF NOT EXISTS `ai_chat_request` (
     UNIQUE KEY `uk_vai_req_conv_reqid` (`conversation_id`, `request_id`),
     KEY `idx_vai_req_user_conv` (`user_id`, `conversation_id`),
     KEY `idx_vai_req_status_started` (`status`, `started_at`),
+    KEY `idx_vai_req_scene_status` (`request_scene`, `status`),
     KEY `idx_vai_req_assistant_message` (`assistant_message_id`),
     KEY `idx_vai_req_deleted_time` (`is_deleted`, `update_time`)
 ) ENGINE = InnoDB
@@ -198,7 +250,7 @@ CREATE TABLE IF NOT EXISTS `ai_chat_request` (
   COMMENT = 'AI请求生命周期表';
 
 -- =============================================
--- 5. AI 流式批次快照表
+-- 6. AI 流式批次快照表
 -- =============================================
 CREATE TABLE IF NOT EXISTS `ai_message_stream_batch` (
     `id`                    BIGINT        NOT NULL COMMENT '主键ID',

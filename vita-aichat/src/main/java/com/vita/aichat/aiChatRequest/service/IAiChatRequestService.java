@@ -18,6 +18,8 @@ public interface IAiChatRequestService {
 
     List<AiChatRequest> listByConversationIdAndUserId(Long conversationId, Long userId);
 
+    List<AiChatRequest> listRecentSuccessfulChatRequests(Long conversationId, Long userId, Integer limit);
+
     List<AiChatRequest> listByAssistantMessageIds(Collection<Long> assistantMessageIds);
 
     void deleteByConversationIdAndUserId(Long conversationId, Long userId);

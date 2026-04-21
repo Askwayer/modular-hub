@@ -46,6 +46,12 @@
                 <artifactId>vita-poi-spring-boot-starter</artifactId>
                 <version>${vita.starters.version}</version>
             </dependency>
+            <!-- Unified AI Starter -->
+            <dependency>
+                <groupId>com.vita</groupId>
+                <artifactId>vita-ai-spring-boot-starter</artifactId>
+                <version>${vita.starters.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -75,12 +81,19 @@
             </modules>
         </profile>
         <profile>
+            <id>starter-ai</id>
+            <modules>
+                <module>vita-ai-spring-boot-starter</module>
+            </modules>
+        </profile>
+        <profile>
             <id>starter-all</id>
             <modules>
                 <module>vita-captcha-spring-boot-starter</module>
                 <module>vita-file-spring-boot-starter</module>
                 <module>vita-i18n-spring-boot-starter</module>
                 <module>vita-poi-spring-boot-starter</module>
+                <module>vita-ai-spring-boot-starter</module>
             </modules>
         </profile>
     </profiles>

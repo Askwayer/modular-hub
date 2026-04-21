@@ -2,7 +2,9 @@ package com.vita.aichat.chat.support;
 
 import cn.hutool.core.text.CharSequenceUtil;
 import cn.hutool.core.util.IdUtil;
-import com.vita.aichat.aiChatRequest.entity.AiChatRequest;
+import com.vita.ai.core.model.AiChatMessage;
+import com.vita.ai.core.property.AiCoreProperty;
+import com.vita.ai.core.property.AiModuleProperty;
 import com.vita.aichat.aiChatRequest.service.IAiChatRequestService;
 import com.vita.aichat.aiConversation.entity.AiConversation;
 import com.vita.aichat.aiConversation.service.IAiConversationService;
@@ -10,7 +12,11 @@ import com.vita.aichat.aiConversationSummary.entity.AiConversationSummary;
 import com.vita.aichat.aiConversationSummary.service.IAiConversationSummaryService;
 import com.vita.aichat.aiMessage.entity.AiMessage;
 import com.vita.aichat.aiMessage.service.IAiMessageService;
+import com.vita.aichat.aiRoundMemory.entity.AiRoundMemory;
+import com.vita.aichat.aiRoundMemory.service.IAiRoundMemoryService;
 import com.vita.aichat.chat.dto.AiMessageSendDto;
+import com.vita.aichat.chat.model.context.AiChatContextBudget;
+import com.vita.aichat.chat.model.context.ConversationRound;
 import com.vita.aichat.chat.model.context.PreparedSendContext;
 import com.vita.aichat.chat.model.context.ReservedSendContext;
 import com.vita.aichat.chat.property.AiChatProperty;
@@ -21,11 +27,6 @@ import com.vita.aichat.enums.AiRoleTypeEnum;
 import com.vita.core.context.LoginUserInfoModelContext;
 import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
-import org.springframework.ai.chat.messages.AssistantMessage;
-import org.springframework.ai.chat.messages.Message;
-import org.springframework.ai.chat.messages.SystemMessage;
-import org.springframework.ai.chat.messages.UserMessage;
-import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Component;
 
@@ -46,24 +47,42 @@ public class AiChatRequestPreparer {
     private final IAiMessageService aiMessageService;
     private final IAiConversationSummaryService aiConversationSummaryService;
     private final IAiChatRequestService aiChatRequestService;
+    private final IAiRoundMemoryService aiRoundMemoryService;
     private final AiChatProperty aiChatProperty;
+    private final AiCoreProperty aiCoreProperty;
     private final AiChatRedisCoordinator aiChatRedisCoordinator;
     private final AiChatMessageBuilder aiChatMessageBuilder;
+    private final ContextBudgetPolicy contextBudgetPolicy;
+    private final ContextTokenEstimator contextTokenEstimator;
+    private final ConversationMemoryFormatter conversationMemoryFormatter;
+    private final ConversationRoundService conversationRoundService;
 
     public AiChatRequestPreparer(IAiConversationService aiConversationService,
                                  IAiMessageService aiMessageService,
                                  IAiConversationSummaryService aiConversationSummaryService,
                                  IAiChatRequestService aiChatRequestService,
+                                 IAiRoundMemoryService aiRoundMemoryService,
                                  AiChatProperty aiChatProperty,
+                                 AiCoreProperty aiCoreProperty,
                                  AiChatRedisCoordinator aiChatRedisCoordinator,
-                                 AiChatMessageBuilder aiChatMessageBuilder) {
+                                 AiChatMessageBuilder aiChatMessageBuilder,
+                                 ContextBudgetPolicy contextBudgetPolicy,
+                                 ContextTokenEstimator contextTokenEstimator,
+                                 ConversationMemoryFormatter conversationMemoryFormatter,
+                                 ConversationRoundService conversationRoundService) {
         this.aiConversationService = aiConversationService;
         this.aiMessageService = aiMessageService;
         this.aiConversationSummaryService = aiConversationSummaryService;
         this.aiChatRequestService = aiChatRequestService;
+        this.aiRoundMemoryService = aiRoundMemoryService;
         this.aiChatProperty = aiChatProperty;
+        this.aiCoreProperty = aiCoreProperty;
         this.aiChatRedisCoordinator = aiChatRedisCoordinator;
         this.aiChatMessageBuilder = aiChatMessageBuilder;
+        this.contextBudgetPolicy = contextBudgetPolicy;
+        this.contextTokenEstimator = contextTokenEstimator;
+        this.conversationMemoryFormatter = conversationMemoryFormatter;
+        this.conversationRoundService = conversationRoundService;
     }
 
     /**
@@ -206,20 +225,22 @@ public class AiChatRequestPreparer {
                                                     String requestId,
                                                     AiMessageSendDto sendDto,
                                                     AiChatRequestModeEnum requestMode) {
-        String modelCode = generateModelCode(conversation.getCurrentModelCode());
+        String providerCode = resolveProviderCode(conversation, sendDto);
+        String modelCode = resolveModelCode(conversation, sendDto);
 
         // 构建并持久化消息实体
         AiMessage userMessage = aiChatMessageBuilder.buildUserMessage(
-                conversation.getId(), userId, requestId, modelCode, sendDto);
+                conversation.getId(), userId, requestId, providerCode, modelCode, sendDto);
         aiMessageService.create(userMessage);
 
         AiMessage assistantMessage = aiChatMessageBuilder.buildAssistantPlaceholder(
-                conversation.getId(), userId, requestId, modelCode, userMessage.getId());
+                conversation.getId(), userId, requestId, providerCode, modelCode, userMessage.getId());
         aiMessageService.create(assistantMessage);
 
         // 构建并持久化聊天请求
-        AiChatRequest chatRequest = aiChatMessageBuilder.buildChatRequest(
-                conversation.getId(), userId, requestId, requestMode, modelCode,
+        com.vita.aichat.aiChatRequest.entity.AiChatRequest chatRequest = aiChatMessageBuilder.buildChatRequest(
+                conversation.getId(), userId, requestId, providerCode, com.vita.aichat.enums.AiChatRequestSceneEnum.CHAT,
+                requestMode, modelCode,
                 userMessage.getId(), assistantMessage.getId());
         try {
             aiChatRequestService.create(chatRequest);
@@ -227,58 +248,107 @@ public class AiChatRequestPreparer {
             throw new ServiceException(GlobalErrorCode.CHAT_REQUEST_DUPLICATE);
         }
 
-        // 构建 Prompt
-        Prompt prompt = buildPrompt(conversation, userId, userMessage, modelCode,
+        // 构建统一 AI 请求 DTO
+        com.vita.ai.core.model.AiChatRequest aiChatRequest = buildAiChatRequest(
+                conversation, userId, userMessage, providerCode, modelCode, sendDto,
                 requestMode == AiChatRequestModeEnum.STREAM);
 
         // 更新会话状态
-        updateConversationForPreparedRequest(conversation, requestId, modelCode);
+        updateConversationForPreparedRequest(conversation, requestId, providerCode, modelCode, sendDto);
 
         // 组装上下文
         PreparedSendContext context = new PreparedSendContext();
         context.setUserId(userId);
         context.setConversationId(conversation.getId());
         context.setRequestId(requestId);
+        context.setProviderCode(providerCode);
         context.setModelCode(modelCode);
         context.setConversation(conversation);
         context.setUserMessage(userMessage);
         context.setAssistantMessage(assistantMessage);
         context.setChatRequest(chatRequest);
-        context.setPrompt(prompt);
+        context.setAiChatRequest(aiChatRequest);
         return context;
     }
 
     /**
-     * 构建 AI 提示词。
-     *
-     * @param conversation 会话实体
-     * @param userId       用户ID
-     * @param userMessage  用户消息实体
-     * @param modelCode    模型编码
-     * @param stream       是否流式
-     * @return 提示词对象
+     * 构建统一 AI 请求 DTO。
      */
-    private Prompt buildPrompt(AiConversation conversation,
-                               Long userId,
-                               AiMessage userMessage,
-                               String modelCode,
-                               boolean stream) {
-        List<Message> messages = new ArrayList<>();
-
-        // 添加系统提示词
+    private com.vita.ai.core.model.AiChatRequest buildAiChatRequest(AiConversation conversation,
+                                                                      Long userId,
+                                                                      AiMessage userMessage,
+                                                                      String providerCode,
+                                                                      String modelCode,
+                                                                      AiMessageSendDto sendDto,
+                                                                      boolean stream) {
         String systemPrompt = generateSystemPrompt(conversation.getSystemPrompt());
-        if (CharSequenceUtil.isNotBlank(systemPrompt)) {
-            messages.add(new SystemMessage(systemPrompt));
+        List<AiChatMessage> messages = contextBudgetPolicy.useBudgetRoundAssembly()
+                ? buildBudgetRoundMessages(conversation, userId, userMessage, providerCode, modelCode, systemPrompt)
+                : buildLegacyMessages(conversation, userId, userMessage);
+        return com.vita.ai.core.model.AiChatRequest.builder()
+                .requestId(userMessage.getRequestId())
+                .module("aichat")
+                .conversationId(conversation.getId())
+                .userId(userId)
+                .provider(providerCode)
+                .model(modelCode)
+                .systemPrompt(CharSequenceUtil.isNotBlank(systemPrompt) ? systemPrompt : null)
+                .userPrompt(userMessage.getContent())
+                .messages(messages)
+                .temperature(conversation.getTemperature())
+                .maxTokens(conversation.getMaxTokens())
+                .stream(stream)
+                .build();
+    }
+
+    private List<AiChatMessage> buildBudgetRoundMessages(AiConversation conversation,
+                                                         Long userId,
+                                                         AiMessage userMessage,
+                                                         String providerCode,
+                                                         String modelCode,
+                                                         String systemPrompt) {
+        AiChatContextBudget budget = contextBudgetPolicy.resolve(conversation, providerCode, modelCode);
+        int availablePromptTokens = Math.max(1, budget.getPromptBudgetTokens()
+                - budget.getReserveOutputTokens()
+                - budget.getSafetyMarginTokens());
+        int consumedTokens = contextTokenEstimator.estimateText(systemPrompt)
+                + contextTokenEstimator.estimateText(userMessage.getContent());
+        if (consumedTokens >= availablePromptTokens) {
+            return List.of();
         }
 
-        // 添加会话历史摘要
-        AiConversationSummary summary = aiConversationSummaryService.getLatestReadySummary(
-                conversation.getId(), userId);
-        if (summary != null && CharSequenceUtil.isNotBlank(summary.getSummaryText())) {
-            messages.add(new SystemMessage("以下是当前会话的历史摘要：\n" + summary.getSummaryText()));
+        List<AiChatMessage> messages = new ArrayList<>();
+
+        AiConversationSummary latestSummary = aiConversationSummaryService.getLatestReadySummary(conversation.getId(), userId);
+        consumedTokens = appendLongMemory(messages, latestSummary, consumedTokens, availablePromptTokens, budget);
+        consumedTokens = appendCarryForwardMemories(messages, conversation.getId(), userId, consumedTokens, availablePromptTokens, budget);
+        appendRecentRounds(messages, conversation, userId, consumedTokens, availablePromptTokens, budget);
+        return messages;
+    }
+
+    private List<AiChatMessage> buildLegacyMessages(AiConversation conversation,
+                                                    Long userId,
+                                                    AiMessage userMessage) {
+        List<AiChatMessage> messages = new ArrayList<>();
+
+        AiConversationSummary latestSummary = aiConversationSummaryService.getLatestReadySummary(conversation.getId(), userId);
+        if (latestSummary != null && CharSequenceUtil.isNotBlank(latestSummary.getSummaryText())) {
+            messages.add(AiChatMessage.builder()
+                    .role("system")
+                    .content("以下是当前会话的历史压缩摘要：\n" + latestSummary.getSummaryText())
+                    .build());
         }
 
-        // 添加历史消息
+        Long latestCompressedSummaryMessageId = latestSummary != null ? latestSummary.getSourceMessageEndId() : null;
+        List<AiMessage> pendingSummaryMessages = aiMessageService.listPendingSummaryMessages(
+                conversation.getId(), userId, latestCompressedSummaryMessageId);
+        for (AiMessage pendingSummaryMessage : pendingSummaryMessages) {
+            AiChatMessage chatMessage = convertToAiChatMessage(pendingSummaryMessage);
+            if (chatMessage != null) {
+                messages.add(chatMessage);
+            }
+        }
+
         List<AiMessage> historyMessages = aiMessageService.listRecentContextMessages(
                 conversation.getId(),
                 userId,
@@ -287,60 +357,108 @@ public class AiChatRequestPreparer {
         );
         Collections.reverse(historyMessages);
         for (AiMessage historyMessage : historyMessages) {
-            Message promptMessage = convertToPromptMessage(historyMessage);
-            if (promptMessage != null) {
-                messages.add(promptMessage);
+            AiChatMessage chatMessage = convertToAiChatMessage(historyMessage);
+            if (chatMessage != null) {
+                messages.add(chatMessage);
             }
         }
-
-        // 添加当前用户消息
-        messages.add(new UserMessage(userMessage.getContent()));
-
-        return new Prompt(messages, buildChatOptions(conversation, modelCode, stream));
+        return messages;
     }
 
     /**
-     * 将消息实体转换为提示词消息。
-     *
-     * @param aiMessage 消息实体
-     * @return 提示词消息
+     * 将消息实体转换为统一 AiChatMessage。
      */
-    private Message convertToPromptMessage(AiMessage aiMessage) {
+    private AiChatMessage convertToAiChatMessage(AiMessage aiMessage) {
         if (aiMessage == null || CharSequenceUtil.isBlank(aiMessage.getContent())) {
             return null;
         }
-        return switch (AiRoleTypeEnum.valueOf(aiMessage.getRoleType())) {
-            case USER -> new UserMessage(aiMessage.getContent());
-            case ASSISTANT -> new AssistantMessage(aiMessage.getContent());
-            case SYSTEM -> new SystemMessage(aiMessage.getContent());
-            case SUMMARY -> new SystemMessage("历史摘要：\n" + aiMessage.getContent());
+        String role = switch (AiRoleTypeEnum.valueOf(aiMessage.getRoleType())) {
+            case USER -> "user";
+            case ASSISTANT -> "assistant";
+            case SYSTEM, SUMMARY -> "system";
         };
+        String content = AiRoleTypeEnum.valueOf(aiMessage.getRoleType()) == AiRoleTypeEnum.SUMMARY
+                ? "历史摘要：\n" + aiMessage.getContent()
+                : aiMessage.getContent();
+        return AiChatMessage.builder().role(role).content(content).build();
     }
 
-    /**
-     * 构建模型调用选项。
-     *
-     * @param conversation 会话实体
-     * @param modelCode    模型编码
-     * @param stream       是否流式
-     * @return 模型选项
-     */
-    private com.alibaba.cloud.ai.dashscope.chat.DashScopeChatOptions buildChatOptions(
-            AiConversation conversation, String modelCode, boolean stream) {
-        var builder = com.alibaba.cloud.ai.dashscope.chat.DashScopeChatOptions.builder()
-                .model(modelCode)
-                .stream(stream)
-                .incrementalOutput(stream)
-                .enableSearch(Boolean.TRUE)
-                .enableThinking(isThinkingModel(modelCode));
+    private int appendLongMemory(List<AiChatMessage> messages,
+                                 AiConversationSummary latestSummary,
+                                 int consumedTokens,
+                                 int availablePromptTokens,
+                                 AiChatContextBudget budget) {
+        String longMemory = conversationMemoryFormatter.renderLongMemory(latestSummary);
+        if (CharSequenceUtil.isBlank(longMemory)) {
+            return consumedTokens;
+        }
+        AiChatMessage summaryMessage = AiChatMessage.builder().role("system").content(longMemory).build();
+        int estimate = contextTokenEstimator.estimateMessage(summaryMessage);
+        if (estimate > budget.getLongMemoryMaxTokens() || consumedTokens + estimate > availablePromptTokens) {
+            return consumedTokens;
+        }
+        messages.add(summaryMessage);
+        return consumedTokens + estimate;
+    }
 
-        if (conversation.getMaxTokens() != null) {
-            builder.maxToken(conversation.getMaxTokens());
+    private int appendCarryForwardMemories(List<AiChatMessage> messages,
+                                           Long conversationId,
+                                           Long userId,
+                                           int consumedTokens,
+                                           int availablePromptTokens,
+                                           AiChatContextBudget budget) {
+        List<AiRoundMemory> carryForwardMemories = aiRoundMemoryService.listReadyCarryForwardMemories(conversationId, userId);
+        if (carryForwardMemories.isEmpty()) {
+            return consumedTokens;
         }
-        if (conversation.getTemperature() != null) {
-            builder.temperature(conversation.getTemperature().doubleValue());
+        List<AiChatMessage> selectedMessages = new ArrayList<>();
+        int carryForwardTokens = 0;
+        for (int index = carryForwardMemories.size() - 1; index >= 0; index--) {
+            AiRoundMemory roundMemory = carryForwardMemories.get(index);
+            String carryForwardContent = conversationMemoryFormatter.renderRoundMemory(roundMemory);
+            if (CharSequenceUtil.isBlank(carryForwardContent)) {
+                continue;
+            }
+            AiChatMessage memoryMessage = AiChatMessage.builder().role("system").content(carryForwardContent).build();
+            int estimate = contextTokenEstimator.estimateMessage(memoryMessage);
+            if (carryForwardTokens + estimate > budget.getCarryForwardMaxTokens()
+                    || consumedTokens + carryForwardTokens + estimate > availablePromptTokens) {
+                continue;
+            }
+            selectedMessages.add(0, memoryMessage);
+            carryForwardTokens += estimate;
         }
-        return builder.build();
+        messages.addAll(selectedMessages);
+        return consumedTokens + carryForwardTokens;
+    }
+
+    private void appendRecentRounds(List<AiChatMessage> messages,
+                                    AiConversation conversation,
+                                    Long userId,
+                                    int consumedTokens,
+                                    int availablePromptTokens,
+                                    AiChatContextBudget budget) {
+        List<ConversationRound> conversationRounds = conversationRoundService.listRecentCompletedRounds(
+                conversation.getId(), userId, budget.getMaxRoundsHardLimit());
+        List<AiChatMessage> roundMessages = new ArrayList<>();
+        int currentTokens = consumedTokens;
+        for (int index = conversationRounds.size() - 1; index >= 0; index--) {
+            ConversationRound conversationRound = conversationRounds.get(index);
+            AiChatMessage roundUserMessage = convertToAiChatMessage(conversationRound.getUserMessage());
+            AiChatMessage roundAssistantMessage = convertToAiChatMessage(conversationRound.getAssistantMessage());
+            if (roundUserMessage == null || roundAssistantMessage == null) {
+                continue;
+            }
+            int roundTokens = contextTokenEstimator.estimateMessage(roundUserMessage)
+                    + contextTokenEstimator.estimateMessage(roundAssistantMessage);
+            if (currentTokens + roundTokens > availablePromptTokens) {
+                break;
+            }
+            roundMessages.add(0, roundAssistantMessage);
+            roundMessages.add(0, roundUserMessage);
+            currentTokens += roundTokens;
+        }
+        messages.addAll(roundMessages);
     }
 
     /**
@@ -352,11 +470,22 @@ public class AiChatRequestPreparer {
      */
     private void updateConversationForPreparedRequest(AiConversation conversation,
                                                       String requestId,
-                                                      String modelCode) {
+                                                      String providerCode,
+                                                      String modelCode,
+                                                      AiMessageSendDto sendDto) {
         AiConversation update = new AiConversation();
         update.setId(conversation.getId());
         update.setActiveRequestId(requestId);
-        update.setCurrentModelCode(modelCode);
+        if (CharSequenceUtil.isBlank(conversation.getCurrentProviderCode())) {
+            update.setCurrentProviderCode(providerCode);
+        } else if (CharSequenceUtil.isNotBlank(sendDto.getProviderCode())) {
+            update.setCurrentProviderCode(conversation.getCurrentProviderCode());
+        }
+        if (CharSequenceUtil.isBlank(conversation.getCurrentModelCode())) {
+            update.setCurrentModelCode(modelCode);
+        } else if (CharSequenceUtil.isNotBlank(sendDto.getModelCode())) {
+            update.setCurrentModelCode(conversation.getCurrentModelCode());
+        }
         update.setLastMessageAt(LocalDateTime.now());
         update.setMessageCount(generateNumber(conversation.getMessageCount()) + 2);
         update.setRoundCount(generateNumber(conversation.getRoundCount()) + 1);
@@ -367,7 +496,12 @@ public class AiChatRequestPreparer {
         // 同步更新内存中的会话对象
         conversation.setMessageCount(update.getMessageCount());
         conversation.setRoundCount(update.getRoundCount());
-        conversation.setCurrentModelCode(modelCode);
+        if (update.getCurrentProviderCode() != null) {
+            conversation.setCurrentProviderCode(update.getCurrentProviderCode());
+        }
+        if (update.getCurrentModelCode() != null) {
+            conversation.setCurrentModelCode(update.getCurrentModelCode());
+        }
         conversation.setActiveRequestId(requestId);
     }
 
@@ -404,15 +538,34 @@ public class AiChatRequestPreparer {
     }
 
     /**
+     * 生成默认模型提供者编码。
+     */
+    public String generateProviderCode(String providerCode) {
+        if (CharSequenceUtil.isNotBlank(providerCode)) {
+            return providerCode.trim();
+        }
+        AiModuleProperty moduleProperty = aiCoreProperty.getModules().get("aichat");
+        if (moduleProperty != null && CharSequenceUtil.isNotBlank(moduleProperty.getDefaultProvider())) {
+            return moduleProperty.getDefaultProvider().trim();
+        }
+        return "qwen";
+    }
+
+    /**
      * 生成默认模型编码。
      *
      * @param modelCode 模型编码
      * @return 默认模型编码
      */
     public String generateModelCode(String modelCode) {
-        return CharSequenceUtil.isBlank(modelCode)
-                ? aiChatProperty.getDashscope().getChat().getModel()
-                : modelCode.trim();
+        if (CharSequenceUtil.isNotBlank(modelCode)) {
+            return modelCode.trim();
+        }
+        AiModuleProperty moduleProperty = aiCoreProperty.getModules().get("aichat");
+        if (moduleProperty != null && CharSequenceUtil.isNotBlank(moduleProperty.getDefaultModel())) {
+            return moduleProperty.getDefaultModel().trim();
+        }
+        return "qwen-plus";
     }
 
     /**
@@ -457,5 +610,19 @@ public class AiChatRequestPreparer {
      */
     private int generateNumber(Integer value) {
         return value == null ? 0 : value;
+    }
+
+    private String resolveProviderCode(AiConversation conversation, AiMessageSendDto sendDto) {
+        if (CharSequenceUtil.isNotBlank(sendDto.getProviderCode())) {
+            return generateProviderCode(sendDto.getProviderCode());
+        }
+        return generateProviderCode(conversation.getCurrentProviderCode());
+    }
+
+    private String resolveModelCode(AiConversation conversation, AiMessageSendDto sendDto) {
+        if (CharSequenceUtil.isNotBlank(sendDto.getModelCode())) {
+            return generateModelCode(sendDto.getModelCode());
+        }
+        return generateModelCode(conversation.getCurrentModelCode());
     }
 }

@@ -14,6 +14,7 @@ public class AiChatSendVo {
     private String requestId;
     private Long userMessageId;
     private Long assistantMessageId;
+    private String providerCode;
     private String modelCode;
     private String content;
     private String reasoningContent;
