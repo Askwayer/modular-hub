@@ -59,6 +59,7 @@ DROP TABLE IF EXISTS `sys_user`;
 CREATE TABLE `sys_user`
 (
     `id`              bigint                                                        NOT NULL AUTO_INCREMENT COMMENT 'ID',
+    `tenant_id`       bigint                                                                 DEFAULT NULL COMMENT '租户ID',
     `dept_id`         bigint                                                                 DEFAULT NULL COMMENT '部门ID',
     `nick_name`       varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci           DEFAULT NULL COMMENT '昵称',
     `user_name`       varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci  NOT NULL COMMENT '用户名称',
@@ -75,8 +76,7 @@ CREATE TABLE `sys_user`
     `pwd_update_date` datetime                                                               DEFAULT NULL COMMENT '密码最后更新时间',
     `create_time`     datetime                                                      NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '新增时间',
     `update_time`     datetime                                                               DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    `is_deleted`      tinyint(1) DEFAULT '0' COMMENT '是否删除(0-否,1-是)',
-    `tenant_id`       bigint                                                                 DEFAULT NULL COMMENT '租户ID',
+    `is_deleted`      tinyint(1)                                                              DEFAULT '0' COMMENT '是否删除(0-否,1-是)',
     `create_by_id`    bigint                                                                 DEFAULT NULL COMMENT '新增用户ID',
     `create_by`       varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci           DEFAULT NULL COMMENT '新增用户名称',
     `update_by_id`    bigint                                                                 DEFAULT NULL COMMENT '更新用户ID',
@@ -84,7 +84,7 @@ CREATE TABLE `sys_user`
     `version`         bigint                                                                 DEFAULT '0' COMMENT '乐观锁',
     `remark`          varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci          DEFAULT NULL COMMENT '备注',
     PRIMARY KEY (`id`),
-    UNIQUE KEY `user_name` (`user_name`),
+    UNIQUE KEY `uk_user_name` (`user_name`),
     KEY               `idx_user_user_name` (`user_name`),
     KEY               `idx_user_dept_id` (`dept_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='用户信息表';
@@ -369,4 +369,3 @@ CREATE TABLE `sys_role_dept_scope`
     KEY            `idx_role_id` (`role_id`),
     KEY            `idx_dept_id` (`dept_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='角色自定义数据范围表';
-

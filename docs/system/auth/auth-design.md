@@ -319,11 +319,14 @@ StpUtil.logout();
 
 ## 7.1 用户表 `sys_user`
 
+`sys_user` 作为业务主表样例，字段布局统一遵循 `id -> tenant_id -> 业务字段 -> 公共审计后缀`。其中 `pwd_update_date` 属于用户域业务字段，不属于全局强制公共字段。
+
 ```sql
 DROP TABLE IF EXISTS `sys_user`;
 CREATE TABLE `sys_user`
 (
     `id`              bigint                                                        NOT NULL AUTO_INCREMENT COMMENT 'ID',
+    `tenant_id`       bigint                                                                 DEFAULT NULL COMMENT '租户ID',
     `dept_id`         bigint                                                                 DEFAULT NULL COMMENT '部门ID',
     `nick_name`       varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci           DEFAULT NULL COMMENT '昵称',
     `user_name`       varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci  NOT NULL COMMENT '用户名称',
@@ -340,8 +343,7 @@ CREATE TABLE `sys_user`
     `pwd_update_date` datetime                                                               DEFAULT NULL COMMENT '密码最后更新时间',
     `create_time`     datetime                                                      NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '新增时间',
     `update_time`     datetime                                                               DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    `is_deleted`      tinyint(1) DEFAULT '0' COMMENT '是否删除(0-否,1-是)',
-    `tenant_id`       bigint                                                                 DEFAULT NULL COMMENT '租户ID',
+    `is_deleted`      tinyint(1)                                                              DEFAULT '0' COMMENT '是否删除(0-否,1-是)',
     `create_by_id`    bigint                                                                 DEFAULT NULL COMMENT '新增用户ID',
     `create_by`       varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci           DEFAULT NULL COMMENT '新增用户名称',
     `update_by_id`    bigint                                                                 DEFAULT NULL COMMENT '更新用户ID',
