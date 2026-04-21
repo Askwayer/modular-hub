@@ -237,10 +237,14 @@ public class AiChatServiceImpl implements IAiChatService {
         if (!Boolean.TRUE.equals(aiChatProperty.getStreamEnabled())) {
             throw new ServiceException(GlobalErrorCode.CHAT_STREAM_DISABLED);
         }
+        // SSE 端点已排除 Sa-Token 拦截器，需在此手动验证登录状态
+        LoginUserInfoModel currentUserInfo = LoginUserInfoModelContext.getLoginUserInfo();
+        if (currentUserInfo == null) {
+            throw new ServiceException(GlobalErrorCode.UNAUTHORIZED);
+        }
 
         ReservedSendContext reservedContext = aiChatRequestPreparer.reserveSendContext(conversationId, sendDto);
         SseEmitter emitter = aiChatSseWriter.createEmitter();
-        LoginUserInfoModel currentUserInfo = LoginUserInfoModelContext.getLoginUserInfo();
         StreamRequestState streamState = new StreamRequestState(reservedContext, emitter);
         registerStreamEmitterCallbacks(streamState);
 
@@ -332,13 +336,22 @@ public class AiChatServiceImpl implements IAiChatService {
         }
     }
 
+    /**
+     * 提交流式任务到异步执行器，负责状态跟踪、用户上下文传递与异常兜底处理。
+     *
+     * @param streamState    流式请求上下文状态对象，用于跟踪任务提交状态和客户端连接状态
+     * @param currentUserInfo 当前登录用户信息，需要在异步线程中恢复用户上下文
+     * @param capacityPermit  容量许可对象，包含活跃许可ID和等待状态信息
+     */
     private void submitStreamTask(StreamRequestState streamState,
                                   LoginUserInfoModel currentUserInfo,
                                   AiChatCapacityPermit capacityPermit) {
+        // 标记任务已提交，记录活跃许可ID用于后续资源释放
         streamState.getWorkerSubmitted().set(true);
         streamState.setActivePermitId(capacityPermit.getActivePermitId());
 
         try {
+            // 提交异步任务，传递登录用户上下文并在任务结束后清理
             aiChatExecutor.execute(() -> {
                 try {
                     LoginUserInfoModelContext.setLoginUserInfo(currentUserInfo);
@@ -348,6 +361,7 @@ public class AiChatServiceImpl implements IAiChatService {
                 }
             });
         } catch (RejectedExecutionException ex) {
+            // 线程池拒绝时的兜底处理：释放容量许可和请求预留，发送错误事件并关闭 SSE 连接
             ServiceException serviceException = new ServiceException(GlobalErrorCode.SERVICE_UNAVAILABLE);
             aiChatConcurrencyCoordinator.releaseActivePermit(capacityPermit.getActivePermitId());
             aiChatRequestPreparer.releaseRequestReservation(streamState.getReservedContext());

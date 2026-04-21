@@ -3,8 +3,6 @@ vita:
     modules:
       aichat:
         enabled: true
-        #        default-provider: kimi
-        #        default-model: kimi-k2.5
         default-provider: qwen
         default-model: qwen-plus
         allowed-providers:

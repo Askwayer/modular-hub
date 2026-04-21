@@ -133,6 +133,14 @@ public class ControllerExceptionHandler {
         return accept != null && accept.contains(MediaType.TEXT_EVENT_STREAM_VALUE);
     }
 
+    /**
+     * 向 SSE 响应流写入错误事件，使用 OutputStream 避免与 SseEmitter 的流冲突
+     *
+     * @param response  HTTP 响应对象
+     * @param code      错误码
+     * @param message   错误信息
+     * @param request   HTTP 请求对象，用于解析请求 ID
+     */
     private void writeSseError(HttpServletResponse response,
                                Integer code,
                                String message,
@@ -144,9 +152,9 @@ public class ControllerExceptionHandler {
             String payload = JSON.toJSONString(
                     CommonStreamResult.error("error", resolveRequestId(request), code, message)
             );
-            response.getWriter().write("event:error\n");
-            response.getWriter().write("data:" + payload + "\n\n");
-            response.getWriter().flush();
+            response.getOutputStream().write("event:error\n" .getBytes(StandardCharsets.UTF_8));
+            response.getOutputStream().write(("data:" + payload + "\n\n").getBytes(StandardCharsets.UTF_8));
+            response.getOutputStream().flush();
         } catch (IOException ex) {
             LOG.warn("SSE 错误事件发送失败", ex);
         }

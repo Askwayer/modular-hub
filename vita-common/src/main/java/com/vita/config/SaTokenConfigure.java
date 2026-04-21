@@ -87,6 +87,6 @@ public class SaTokenConfigure implements WebMvcConfigurer {
                 .excludePathPatterns("/auth/login",
                         "/captcha/**",
                         "/public/**",
-                        "/chat/**");
+                        "/chat/conversations/*/messages/stream");
     }
 }
