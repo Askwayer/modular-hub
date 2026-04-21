@@ -12,7 +12,11 @@ import com.vita.aichat.aiConversationSummary.entity.AiConversationSummary;
 import com.vita.aichat.aiConversationSummary.service.IAiConversationSummaryService;
 import com.vita.aichat.aiMessage.entity.AiMessage;
 import com.vita.aichat.aiMessage.service.IAiMessageService;
+import com.vita.aichat.aiRoundMemory.entity.AiRoundMemory;
+import com.vita.aichat.aiRoundMemory.service.IAiRoundMemoryService;
 import com.vita.aichat.chat.dto.AiMessageSendDto;
+import com.vita.aichat.chat.model.context.AiChatContextBudget;
+import com.vita.aichat.chat.model.context.ConversationRound;
 import com.vita.aichat.chat.model.context.PreparedSendContext;
 import com.vita.aichat.chat.model.context.ReservedSendContext;
 import com.vita.aichat.chat.property.AiChatProperty;
@@ -43,27 +47,42 @@ public class AiChatRequestPreparer {
     private final IAiMessageService aiMessageService;
     private final IAiConversationSummaryService aiConversationSummaryService;
     private final IAiChatRequestService aiChatRequestService;
+    private final IAiRoundMemoryService aiRoundMemoryService;
     private final AiChatProperty aiChatProperty;
     private final AiCoreProperty aiCoreProperty;
     private final AiChatRedisCoordinator aiChatRedisCoordinator;
     private final AiChatMessageBuilder aiChatMessageBuilder;
+    private final ContextBudgetPolicy contextBudgetPolicy;
+    private final ContextTokenEstimator contextTokenEstimator;
+    private final ConversationMemoryFormatter conversationMemoryFormatter;
+    private final ConversationRoundService conversationRoundService;
 
     public AiChatRequestPreparer(IAiConversationService aiConversationService,
                                  IAiMessageService aiMessageService,
                                  IAiConversationSummaryService aiConversationSummaryService,
                                  IAiChatRequestService aiChatRequestService,
+                                 IAiRoundMemoryService aiRoundMemoryService,
                                  AiChatProperty aiChatProperty,
                                  AiCoreProperty aiCoreProperty,
                                  AiChatRedisCoordinator aiChatRedisCoordinator,
-                                 AiChatMessageBuilder aiChatMessageBuilder) {
+                                 AiChatMessageBuilder aiChatMessageBuilder,
+                                 ContextBudgetPolicy contextBudgetPolicy,
+                                 ContextTokenEstimator contextTokenEstimator,
+                                 ConversationMemoryFormatter conversationMemoryFormatter,
+                                 ConversationRoundService conversationRoundService) {
         this.aiConversationService = aiConversationService;
         this.aiMessageService = aiMessageService;
         this.aiConversationSummaryService = aiConversationSummaryService;
         this.aiChatRequestService = aiChatRequestService;
+        this.aiRoundMemoryService = aiRoundMemoryService;
         this.aiChatProperty = aiChatProperty;
         this.aiCoreProperty = aiCoreProperty;
         this.aiChatRedisCoordinator = aiChatRedisCoordinator;
         this.aiChatMessageBuilder = aiChatMessageBuilder;
+        this.contextBudgetPolicy = contextBudgetPolicy;
+        this.contextTokenEstimator = contextTokenEstimator;
+        this.conversationMemoryFormatter = conversationMemoryFormatter;
+        this.conversationRoundService = conversationRoundService;
     }
 
     /**
@@ -262,45 +281,10 @@ public class AiChatRequestPreparer {
                                                                       String modelCode,
                                                                       AiMessageSendDto sendDto,
                                                                       boolean stream) {
-        List<AiChatMessage> messages = new ArrayList<>();
-
-        // 添加会话历史摘要
-        AiConversationSummary latestSummary = aiConversationSummaryService.getLatestReadySummary(
-                conversation.getId(), userId);
-        if (latestSummary != null && CharSequenceUtil.isNotBlank(latestSummary.getSummaryText())) {
-            messages.add(AiChatMessage.builder()
-                    .role("system")
-                    .content("以下是当前会话的历史压缩摘要：\n" + latestSummary.getSummaryText())
-                    .build());
-        }
-
-        // 添加未压缩轮次摘要
-        Long latestCompressedSummaryMessageId = latestSummary != null ? latestSummary.getSourceMessageEndId() : null;
-        List<AiMessage> pendingSummaryMessages = aiMessageService.listPendingSummaryMessages(
-                conversation.getId(), userId, latestCompressedSummaryMessageId);
-        for (AiMessage pendingSummaryMessage : pendingSummaryMessages) {
-            AiChatMessage chatMessage = convertToAiChatMessage(pendingSummaryMessage);
-            if (chatMessage != null) {
-                messages.add(chatMessage);
-            }
-        }
-
-        // 添加原始历史消息
-        List<AiMessage> historyMessages = aiMessageService.listRecentContextMessages(
-                conversation.getId(),
-                userId,
-                userMessage.getId(),
-                generateMaxContextMessages(conversation.getMaxContextMessages())
-        );
-        Collections.reverse(historyMessages);
-        for (AiMessage historyMessage : historyMessages) {
-            AiChatMessage chatMessage = convertToAiChatMessage(historyMessage);
-            if (chatMessage != null) {
-                messages.add(chatMessage);
-            }
-        }
-
         String systemPrompt = generateSystemPrompt(conversation.getSystemPrompt());
+        List<AiChatMessage> messages = contextBudgetPolicy.useBudgetRoundAssembly()
+                ? buildBudgetRoundMessages(conversation, userId, userMessage, providerCode, modelCode, systemPrompt)
+                : buildLegacyMessages(conversation, userId, userMessage);
         return com.vita.ai.core.model.AiChatRequest.builder()
                 .requestId(userMessage.getRequestId())
                 .module("aichat")
@@ -315,6 +299,70 @@ public class AiChatRequestPreparer {
                 .maxTokens(conversation.getMaxTokens())
                 .stream(stream)
                 .build();
+    }
+
+    private List<AiChatMessage> buildBudgetRoundMessages(AiConversation conversation,
+                                                         Long userId,
+                                                         AiMessage userMessage,
+                                                         String providerCode,
+                                                         String modelCode,
+                                                         String systemPrompt) {
+        AiChatContextBudget budget = contextBudgetPolicy.resolve(conversation, providerCode, modelCode);
+        int availablePromptTokens = Math.max(1, budget.getPromptBudgetTokens()
+                - budget.getReserveOutputTokens()
+                - budget.getSafetyMarginTokens());
+        int consumedTokens = contextTokenEstimator.estimateText(systemPrompt)
+                + contextTokenEstimator.estimateText(userMessage.getContent());
+        if (consumedTokens >= availablePromptTokens) {
+            return List.of();
+        }
+
+        List<AiChatMessage> messages = new ArrayList<>();
+
+        AiConversationSummary latestSummary = aiConversationSummaryService.getLatestReadySummary(conversation.getId(), userId);
+        consumedTokens = appendLongMemory(messages, latestSummary, consumedTokens, availablePromptTokens, budget);
+        consumedTokens = appendCarryForwardMemories(messages, conversation.getId(), userId, consumedTokens, availablePromptTokens, budget);
+        appendRecentRounds(messages, conversation, userId, consumedTokens, availablePromptTokens, budget);
+        return messages;
+    }
+
+    private List<AiChatMessage> buildLegacyMessages(AiConversation conversation,
+                                                    Long userId,
+                                                    AiMessage userMessage) {
+        List<AiChatMessage> messages = new ArrayList<>();
+
+        AiConversationSummary latestSummary = aiConversationSummaryService.getLatestReadySummary(conversation.getId(), userId);
+        if (latestSummary != null && CharSequenceUtil.isNotBlank(latestSummary.getSummaryText())) {
+            messages.add(AiChatMessage.builder()
+                    .role("system")
+                    .content("以下是当前会话的历史压缩摘要：\n" + latestSummary.getSummaryText())
+                    .build());
+        }
+
+        Long latestCompressedSummaryMessageId = latestSummary != null ? latestSummary.getSourceMessageEndId() : null;
+        List<AiMessage> pendingSummaryMessages = aiMessageService.listPendingSummaryMessages(
+                conversation.getId(), userId, latestCompressedSummaryMessageId);
+        for (AiMessage pendingSummaryMessage : pendingSummaryMessages) {
+            AiChatMessage chatMessage = convertToAiChatMessage(pendingSummaryMessage);
+            if (chatMessage != null) {
+                messages.add(chatMessage);
+            }
+        }
+
+        List<AiMessage> historyMessages = aiMessageService.listRecentContextMessages(
+                conversation.getId(),
+                userId,
+                userMessage.getId(),
+                generateMaxContextMessages(conversation.getMaxContextMessages())
+        );
+        Collections.reverse(historyMessages);
+        for (AiMessage historyMessage : historyMessages) {
+            AiChatMessage chatMessage = convertToAiChatMessage(historyMessage);
+            if (chatMessage != null) {
+                messages.add(chatMessage);
+            }
+        }
+        return messages;
     }
 
     /**
@@ -333,6 +381,84 @@ public class AiChatRequestPreparer {
                 ? "历史摘要：\n" + aiMessage.getContent()
                 : aiMessage.getContent();
         return AiChatMessage.builder().role(role).content(content).build();
+    }
+
+    private int appendLongMemory(List<AiChatMessage> messages,
+                                 AiConversationSummary latestSummary,
+                                 int consumedTokens,
+                                 int availablePromptTokens,
+                                 AiChatContextBudget budget) {
+        String longMemory = conversationMemoryFormatter.renderLongMemory(latestSummary);
+        if (CharSequenceUtil.isBlank(longMemory)) {
+            return consumedTokens;
+        }
+        AiChatMessage summaryMessage = AiChatMessage.builder().role("system").content(longMemory).build();
+        int estimate = contextTokenEstimator.estimateMessage(summaryMessage);
+        if (estimate > budget.getLongMemoryMaxTokens() || consumedTokens + estimate > availablePromptTokens) {
+            return consumedTokens;
+        }
+        messages.add(summaryMessage);
+        return consumedTokens + estimate;
+    }
+
+    private int appendCarryForwardMemories(List<AiChatMessage> messages,
+                                           Long conversationId,
+                                           Long userId,
+                                           int consumedTokens,
+                                           int availablePromptTokens,
+                                           AiChatContextBudget budget) {
+        List<AiRoundMemory> carryForwardMemories = aiRoundMemoryService.listReadyCarryForwardMemories(conversationId, userId);
+        if (carryForwardMemories.isEmpty()) {
+            return consumedTokens;
+        }
+        List<AiChatMessage> selectedMessages = new ArrayList<>();
+        int carryForwardTokens = 0;
+        for (int index = carryForwardMemories.size() - 1; index >= 0; index--) {
+            AiRoundMemory roundMemory = carryForwardMemories.get(index);
+            String carryForwardContent = conversationMemoryFormatter.renderRoundMemory(roundMemory);
+            if (CharSequenceUtil.isBlank(carryForwardContent)) {
+                continue;
+            }
+            AiChatMessage memoryMessage = AiChatMessage.builder().role("system").content(carryForwardContent).build();
+            int estimate = contextTokenEstimator.estimateMessage(memoryMessage);
+            if (carryForwardTokens + estimate > budget.getCarryForwardMaxTokens()
+                    || consumedTokens + carryForwardTokens + estimate > availablePromptTokens) {
+                continue;
+            }
+            selectedMessages.add(0, memoryMessage);
+            carryForwardTokens += estimate;
+        }
+        messages.addAll(selectedMessages);
+        return consumedTokens + carryForwardTokens;
+    }
+
+    private void appendRecentRounds(List<AiChatMessage> messages,
+                                    AiConversation conversation,
+                                    Long userId,
+                                    int consumedTokens,
+                                    int availablePromptTokens,
+                                    AiChatContextBudget budget) {
+        List<ConversationRound> conversationRounds = conversationRoundService.listRecentCompletedRounds(
+                conversation.getId(), userId, budget.getMaxRoundsHardLimit());
+        List<AiChatMessage> roundMessages = new ArrayList<>();
+        int currentTokens = consumedTokens;
+        for (int index = conversationRounds.size() - 1; index >= 0; index--) {
+            ConversationRound conversationRound = conversationRounds.get(index);
+            AiChatMessage roundUserMessage = convertToAiChatMessage(conversationRound.getUserMessage());
+            AiChatMessage roundAssistantMessage = convertToAiChatMessage(conversationRound.getAssistantMessage());
+            if (roundUserMessage == null || roundAssistantMessage == null) {
+                continue;
+            }
+            int roundTokens = contextTokenEstimator.estimateMessage(roundUserMessage)
+                    + contextTokenEstimator.estimateMessage(roundAssistantMessage);
+            if (currentTokens + roundTokens > availablePromptTokens) {
+                break;
+            }
+            roundMessages.add(0, roundAssistantMessage);
+            roundMessages.add(0, roundUserMessage);
+            currentTokens += roundTokens;
+        }
+        messages.addAll(roundMessages);
     }
 
     /**

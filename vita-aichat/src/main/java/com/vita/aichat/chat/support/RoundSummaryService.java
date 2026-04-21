@@ -2,6 +2,7 @@ package com.vita.aichat.chat.support;
 
 import cn.hutool.core.text.CharSequenceUtil;
 import cn.hutool.core.util.IdUtil;
+import com.alibaba.fastjson2.JSON;
 import com.vita.ai.core.client.AiChatClient;
 import com.vita.ai.core.model.AiChatMessage;
 import com.vita.ai.core.model.AiChatRequest;
@@ -9,15 +10,13 @@ import com.vita.ai.core.model.AiChatResponse;
 import com.vita.aichat.aiChatRequest.service.IAiChatRequestService;
 import com.vita.aichat.aiConversation.entity.AiConversation;
 import com.vita.aichat.aiConversation.service.IAiConversationService;
-import com.vita.aichat.aiConversationSummary.entity.AiConversationSummary;
-import com.vita.aichat.aiConversationSummary.service.IAiConversationSummaryService;
 import com.vita.aichat.aiMessage.entity.AiMessage;
 import com.vita.aichat.aiMessage.service.IAiMessageService;
+import com.vita.aichat.aiRoundMemory.entity.AiRoundMemory;
+import com.vita.aichat.aiRoundMemory.service.IAiRoundMemoryService;
+import com.vita.aichat.chat.model.memory.AiMemoryPayload;
 import com.vita.aichat.chat.property.AiChatProperty;
-import com.vita.aichat.enums.AiChatRequestModeEnum;
-import com.vita.aichat.enums.AiChatRequestSceneEnum;
-import com.vita.aichat.enums.AiChatRequestStatusEnum;
-import com.vita.aichat.enums.AiSummaryStatusEnum;
+import com.vita.aichat.enums.*;
 import com.vita.core.exception.ServiceException;
 import com.vita.utils.SnowUtils;
 import org.springframework.stereotype.Service;
@@ -35,37 +34,43 @@ public class RoundSummaryService {
     private final IAiMessageService aiMessageService;
     private final IAiChatRequestService aiChatRequestService;
     private final IAiConversationService aiConversationService;
-    private final IAiConversationSummaryService aiConversationSummaryService;
+    private final IAiRoundMemoryService aiRoundMemoryService;
     private final AiChatClient aiChatClient;
-    private final AiChatMessageBuilder aiChatMessageBuilder;
     private final AiChatProperty aiChatProperty;
     private final AiChatExceptionConverter aiChatExceptionConverter;
     private final ConversationSummaryCompressService conversationSummaryCompressService;
+    private final ConversationMemoryFormatter conversationMemoryFormatter;
+    private final ContextTokenEstimator contextTokenEstimator;
     private final TransactionTemplate transactionTemplate;
 
     public RoundSummaryService(IAiMessageService aiMessageService,
                                IAiChatRequestService aiChatRequestService,
                                IAiConversationService aiConversationService,
-                               IAiConversationSummaryService aiConversationSummaryService,
+                               IAiRoundMemoryService aiRoundMemoryService,
                                AiChatClient aiChatClient,
-                               AiChatMessageBuilder aiChatMessageBuilder,
                                AiChatProperty aiChatProperty,
                                AiChatExceptionConverter aiChatExceptionConverter,
                                ConversationSummaryCompressService conversationSummaryCompressService,
+                               ConversationMemoryFormatter conversationMemoryFormatter,
+                               ContextTokenEstimator contextTokenEstimator,
                                TransactionTemplate transactionTemplate) {
         this.aiMessageService = aiMessageService;
         this.aiChatRequestService = aiChatRequestService;
         this.aiConversationService = aiConversationService;
-        this.aiConversationSummaryService = aiConversationSummaryService;
+        this.aiRoundMemoryService = aiRoundMemoryService;
         this.aiChatClient = aiChatClient;
-        this.aiChatMessageBuilder = aiChatMessageBuilder;
         this.aiChatProperty = aiChatProperty;
         this.aiChatExceptionConverter = aiChatExceptionConverter;
         this.conversationSummaryCompressService = conversationSummaryCompressService;
+        this.conversationMemoryFormatter = conversationMemoryFormatter;
+        this.contextTokenEstimator = contextTokenEstimator;
         this.transactionTemplate = transactionTemplate;
     }
 
     public void generateAndCompressIfNeeded(AiChatRoundSummaryEvent event) {
+        if (!Boolean.TRUE.equals(aiChatProperty.getMemory().getRoundMemoryEnabled())) {
+            return;
+        }
         AiConversation conversation = aiConversationService.getByIdAndUserId(event.getConversationId(), event.getUserId());
         if (conversation == null) {
             return;
@@ -114,27 +119,25 @@ public class RoundSummaryService {
             }
 
             transactionTemplate.executeWithoutResult(status -> {
-                AiMessage summaryMessage = aiChatMessageBuilder.buildSummaryMessage(
-                        conversation.getId(),
-                        event.getUserId(),
+                AiMemoryPayload memoryPayload = normalizeMemoryPayload(response.getContent());
+                AiRoundMemory latestRoundMemory = aiRoundMemoryService.getLatestRoundMemory(conversation.getId(), event.getUserId());
+                int roundNo = resolveRoundNo(conversation, latestRoundMemory);
+                AiRoundMemory roundMemory = buildRoundMemory(
+                        conversation,
+                        event,
                         requestId,
                         providerCode,
                         modelCode,
-                        assistantMessage.getId(),
-                        response.getContent()
+                        userMessage,
+                        assistantMessage,
+                        memoryPayload,
+                        response
                 );
-                summaryMessage.setProviderRequestId(response.getProviderRequestId());
-                summaryMessage.setTokenInput(response.getTokenInput());
-                summaryMessage.setTokenOutput(response.getTokenOutput());
-                summaryMessage.setTokenTotal(response.getTokenTotal());
-                summaryMessage.setFinishReason(response.getFinishReason());
-                summaryMessage.setCompletedAt(LocalDateTime.now());
-                summaryMessage.setFirstTokenAt(LocalDateTime.now());
-                aiMessageService.create(summaryMessage);
+                roundMemory.setRoundNo(roundNo);
+                aiRoundMemoryService.create(roundMemory);
 
                 com.vita.aichat.aiChatRequest.entity.AiChatRequest update = new com.vita.aichat.aiChatRequest.entity.AiChatRequest();
                 update.setId(summaryRequest.getId());
-                update.setAssistantMessageId(summaryMessage.getId());
                 update.setProviderRequestId(response.getProviderRequestId());
                 update.setStatus(AiChatRequestStatusEnum.SUCCESS.name());
                 update.setFinishReason(response.getFinishReason());
@@ -151,17 +154,9 @@ public class RoundSummaryService {
                 aiConversationService.update(conversationUpdate);
             });
 
-            AiConversationSummary latestSummary = aiConversationSummaryService.getLatestReadySummary(conversation.getId(), event.getUserId());
-            Long latestCompressedSummaryMessageId = latestSummary != null ? latestSummary.getSourceMessageEndId() : null;
-            List<AiMessage> pendingSummaryMessages = aiMessageService.listPendingSummaryMessages(
-                    conversation.getId(),
-                    event.getUserId(),
-                    latestCompressedSummaryMessageId
-            );
             conversationSummaryCompressService.compressIfNeeded(
                     conversation,
                     event.getUserId(),
-                    pendingSummaryMessages,
                     providerCode,
                     modelCode
             );
@@ -193,13 +188,118 @@ public class RoundSummaryService {
                 .userId(userId)
                 .provider(providerCode)
                 .model(modelCode)
-                .systemPrompt("请将当前这一轮对话提炼为一条后续可复用的会话记忆。摘要要简洁，保留事实、用户意图、限制条件、偏好和待办。")
+                .systemPrompt("""
+                        请将当前这一轮对话提炼为一条后续可复用的内部短期记忆。
+                        你必须只输出一个 JSON 对象，不要输出 markdown，不要补充解释。
+                        JSON 字段：
+                        - memoryText: 一条紧凑中文记忆
+                        - facts: 关键事实数组
+                        - preferences: 用户偏好数组
+                        - constraints: 限制条件数组
+                        - openLoops: 仍需延续的问题数组
+                        - pendingTasks: 待办数组
+                        - disallowed: 明确禁忌数组
+                        - carryForward: 布尔值，表示后续几轮是否应继续注入
+                        - salienceScore: 0 到 100 的整数，表示记忆显著性
+                        - carryForwardReason: 若 carryForward=true，给出一句原因
+                        """)
                 .messages(List.of(
                         AiChatMessage.builder().role("user").content(userMessage.getContent()).build(),
                         AiChatMessage.builder().role("assistant").content(assistantMessage.getContent()).build()
                 ))
-                .userPrompt("请输出一条简明轮次摘要。")
+                .userPrompt("请只输出 JSON。")
                 .stream(false)
                 .build();
+    }
+
+    private AiMemoryPayload normalizeMemoryPayload(String responseContent) {
+        AiMemoryPayload payload = conversationMemoryFormatter.parsePayload(responseContent);
+        if (payload == null) {
+            payload = new AiMemoryPayload();
+            payload.setMemoryText(responseContent.trim());
+        }
+        if (CharSequenceUtil.isBlank(payload.getMemoryText()) && CharSequenceUtil.isNotBlank(payload.getSummaryText())) {
+            payload.setMemoryText(payload.getSummaryText().trim());
+        }
+        if (payload.getCarryForward() == null) {
+            payload.setCarryForward(hasCarryForwardSignals(payload));
+        }
+        if (payload.getSalienceScore() == null) {
+            payload.setSalienceScore(defaultSalienceScore(payload));
+        }
+        return payload;
+    }
+
+    private AiRoundMemory buildRoundMemory(AiConversation conversation,
+                                           AiChatRoundSummaryEvent event,
+                                           String requestId,
+                                           String providerCode,
+                                           String modelCode,
+                                           AiMessage userMessage,
+                                           AiMessage assistantMessage,
+                                           AiMemoryPayload payload,
+                                           AiChatResponse response) {
+        AiRoundMemory roundMemory = new AiRoundMemory();
+        roundMemory.setId(SnowUtils.getSnowflakeNextId());
+        roundMemory.setConversationId(conversation.getId());
+        roundMemory.setUserId(event.getUserId());
+        roundMemory.setSourceRequestId(userMessage.getRequestId());
+        roundMemory.setSourceUserMessageId(userMessage.getId());
+        roundMemory.setSourceAssistantMessageId(assistantMessage.getId());
+        roundMemory.setProviderCode(providerCode);
+        roundMemory.setModelCode(modelCode);
+        roundMemory.setMemoryText(CharSequenceUtil.blankToDefault(payload.getMemoryText(), response.getContent()).trim());
+        roundMemory.setMemoryJson(JSON.toJSONString(payload));
+        roundMemory.setCarryForward(Boolean.TRUE.equals(payload.getCarryForward()) ? (byte) 1 : (byte) 0);
+        roundMemory.setSalienceScore(payload.getSalienceScore());
+        roundMemory.setStatus(resolveRoundMemoryStatus(payload).name());
+        roundMemory.setPromptTokenEstimate(estimateRoundMemoryTokens(roundMemory));
+        return roundMemory;
+    }
+
+    private int resolveRoundNo(AiConversation conversation, AiRoundMemory latestRoundMemory) {
+        int conversationRoundNo = conversation.getRoundCount() == null ? 0 : conversation.getRoundCount();
+        int latestRoundNo = latestRoundMemory == null || latestRoundMemory.getRoundNo() == null ? 0 : latestRoundMemory.getRoundNo();
+        return Math.max(conversationRoundNo, latestRoundNo + 1);
+    }
+
+    private AiRoundMemoryStatusEnum resolveRoundMemoryStatus(AiMemoryPayload payload) {
+        boolean carryForward = Boolean.TRUE.equals(payload.getCarryForward());
+        int salienceScore = payload.getSalienceScore() == null ? 0 : payload.getSalienceScore();
+        if (!carryForward && salienceScore < aiChatProperty.getMemory().getSalienceThreshold()) {
+            return AiRoundMemoryStatusEnum.SKIPPED;
+        }
+        return AiRoundMemoryStatusEnum.READY;
+    }
+
+    private int estimateRoundMemoryTokens(AiRoundMemory roundMemory) {
+        String renderedMemory = conversationMemoryFormatter.renderRoundMemory(roundMemory);
+        if (CharSequenceUtil.isBlank(renderedMemory)) {
+            return contextTokenEstimator.estimateText(roundMemory.getMemoryText());
+        }
+        return contextTokenEstimator.estimateText(renderedMemory);
+    }
+
+    private boolean hasCarryForwardSignals(AiMemoryPayload payload) {
+        return (payload.getOpenLoops() != null && !payload.getOpenLoops().isEmpty())
+                || (payload.getPendingTasks() != null && !payload.getPendingTasks().isEmpty())
+                || (payload.getConstraints() != null && !payload.getConstraints().isEmpty());
+    }
+
+    private int defaultSalienceScore(AiMemoryPayload payload) {
+        int score = 40;
+        score += sizeScore(payload.getFacts());
+        score += sizeScore(payload.getPreferences());
+        score += sizeScore(payload.getConstraints());
+        score += sizeScore(payload.getOpenLoops());
+        score += sizeScore(payload.getPendingTasks());
+        if (Boolean.TRUE.equals(payload.getCarryForward())) {
+            score += 20;
+        }
+        return Math.min(score, 100);
+    }
+
+    private int sizeScore(List<String> values) {
+        return values == null ? 0 : Math.min(values.size() * 8, 24);
     }
 }

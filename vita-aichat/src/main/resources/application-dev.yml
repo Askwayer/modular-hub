@@ -72,6 +72,28 @@ vita:
       max-pool-size: 16
       queue-capacity: 0
       keep-alive-seconds: 60
+    context:
+      assembly-mode: BUDGET_ROUND
+      prompt-budget-tokens: 6000
+      reserve-output-tokens: 2000
+      safety-margin-tokens: 500
+      long-memory-max-tokens: 1200
+      carry-forward-max-tokens: 1000
+      max-rounds-hard-limit: 6
+      model-budgets:
+        qwen:
+          qwen-plus:
+            prompt-budget-tokens: 6000
+            reserve-output-tokens: 2000
+        kimi:
+          kimi-k2.5:
+            prompt-budget-tokens: 7000
+            reserve-output-tokens: 2500
+    memory:
+      round-memory-enabled: true
+      rollup-trigger-rounds: 8
+      rollup-trigger-tokens: 2400
+      salience-threshold: 35
     summary:
       enabled: true
       async: true
