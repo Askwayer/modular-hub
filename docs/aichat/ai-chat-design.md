@@ -106,13 +106,14 @@ flowchart LR
 
 ### 3.1 拆分原则
 
-当前数据结构按“会话主状态、逻辑消息、请求生命周期、流式批次、历史摘要”拆分：
+当前数据结构按“会话主状态、逻辑消息、请求生命周期、流式批次、轮次记忆、长期摘要”拆分：
 
 - 会话只保存主状态和默认参数
 - 消息只保存逻辑消息和最终聚合结果
 - 请求保存一次模型调用的生命周期与幂等追踪
 - 流式批次保存增量快照，不存每个原始 token
-- 摘要保存历史压缩结果，不代替实时消息
+- 轮次记忆保存每轮内部提炼结果，不对用户可见
+- 长期摘要保存滚动压缩结果，不代替实时消息
 
 这样拆分后，消息展示、请求治理、流式排障、后续摘要压缩可以分别演进。
 
@@ -124,7 +125,8 @@ flowchart LR
 | `ai_message` | `id`、`conversation_id`、`reply_to_id`、`request_id` | 保存用户消息和助手最终结果 |
 | `ai_chat_request` | `id`、`conversation_id`、`request_id` | 保存单次模型请求生命周期 |
 | `ai_message_stream_batch` | `assistant_message_id`、`request_id`、`batch_no` | 保存流式增量快照 |
-| `ai_conversation_summary` | `conversation_id`、`version_no` | 保存历史摘要结果 |
+| `ai_round_memory` | `conversation_id`、`round_no` | 保存每轮内部短期记忆 |
+| `ai_conversation_summary` | `conversation_id`、`version_no` | 保存长期滚动记忆 |
 
 ### 3.3 `ai_conversation`
 
@@ -133,7 +135,8 @@ flowchart LR
 关键字段：
 
 - `status`：当前代码要求发送消息前必须是 `ACTIVE`
-- `current_model_code` / `system_prompt` / `temperature` / `max_tokens` / `max_context_messages`：会话级模型参数
+- `current_model_code` / `system_prompt` / `temperature` / `max_tokens`：会话级模型参数
+- `max_context_messages`：兼容保留字段，在新上下文模型中会按约 `2 条消息 ≈ 1 轮` 折算为最近完整轮次硬上限
 - `summary_version` / `summary_status`：摘要版本与状态
 - `active_request_id`：当前正在生成的请求 ID
 - `last_error_code` / `last_error_message`：最近一次失败信息
@@ -147,7 +150,8 @@ flowchart LR
 
 关键点：
 
-- `role_type` 区分 `USER` / `ASSISTANT` / `SYSTEM` / `SUMMARY`
+- `role_type` 兼容定义 `USER` / `ASSISTANT` / `SYSTEM` / `SUMMARY`
+- 新链路不再写入 `SUMMARY`，历史 `SUMMARY` 仅用于兼容迁移
 - `reply_to_id` 用于把助手消息关联回用户消息
 - `content` / `reasoning_content` 存最终聚合内容
 - `content_status` 数据库主状态仍以 `GENERATING`、`DONE`、`ERROR`、`CANCELLED` 为主；`WAITING` 主要用于流式 SSE 事件提示
@@ -185,13 +189,25 @@ flowchart LR
 - 时间窗口：`200ms`
 - 字符阈值：`64`
 
-### 3.7 `ai_conversation_summary`
+### 3.7 `ai_round_memory`
 
-`ai_conversation_summary` 只承担历史压缩摘要职责，不承担实时消息存储。
+`ai_round_memory` 保存每一轮 `USER + ASSISTANT` 完成后的内部记忆，不参与页面消息展示。
 
-Prompt 构建时只会读取最新 `READY` 摘要，把它作为系统消息插入上下文。
+关键点：
 
-### 3.8 枚举类型
+- `round_no` 是轮次原子编号
+- `source_user_message_id` / `source_assistant_message_id` 绑定原始消息
+- `memory_text` / `memory_json` 同时保留文本和结构化记忆
+- `carry_forward` / `salience_score` 控制后续上下文注入
+- `status` 区分 `READY`、`ROLLED_UP`、`SKIPPED`
+
+### 3.8 `ai_conversation_summary`
+
+`ai_conversation_summary` 只承担长期滚动记忆职责，不承担实时消息存储。
+
+Prompt 构建时只会读取最新 `READY` 长期记忆，把它作为系统消息插入上下文。
+
+### 3.9 枚举类型
 
 当前代码定义了 9 个枚举类，统一位于 `com.vita.aichat.enums` 包下：
 
@@ -431,18 +447,20 @@ sequenceDiagram
 
 ### 6.2 Prompt 组装顺序
 
-当前 Prompt 顺序固定为：
+当前默认使用预算驱动的按轮次上下文组装，Prompt 顺序固定为：
 
 1. `systemPrompt`
-2. 最新 `READY` 摘要
-3. 最近上下文消息
-4. 当前用户消息
+2. 最新 `READY` 长期记忆
+3. `carry_forward=true` 的短期轮次记忆
+4. 最近完整问答轮次
+5. 当前用户消息
 
-历史消息筛选规则：
+上下文预算规则：
 
-- 只读取 `use_context=1` 的消息
-- 排除当前这条用户消息
-- 上下文条数取 `conversation.max_context_messages`，为空或非法时回退到 `vita.aichat.max-context-messages`
+- 摘要、短期记忆、最近轮次都计入同一预算
+- 最近上下文以 `ai_chat_request(scene=CHAT,status=SUCCESS)` 还原完整轮次
+- 截断单位是“整轮”，不会拆成半轮或单条消息
+- `conversation.max_context_messages` 在新模型中仅作为最近轮次硬上限覆写
 
 ### 6.3 DashScope 参数构建
 
@@ -489,11 +507,11 @@ sequenceDiagram
 
 已经具备：
 
-- Provider：当前固定为 DashScope
+- Provider：当前正式支持 qwen / kimi
 - Model：按 `modelCode` 选择具体模型
-- Prompt：支持系统提示词、摘要、历史上下文、当前输入
-- Context Window：支持最近上下文消息截断
-- Summary Memory：通过 `ai_conversation_summary` 预留长期摘要压缩能力
+- Prompt：支持系统提示词、长期记忆、短期记忆、完整轮次、当前输入
+- Context Window：支持统一 token 预算和按轮次截断
+- Summary Memory：通过 `ai_round_memory + ai_conversation_summary` 形成短期记忆和长期记忆闭环
 - Request Lifecycle：`ai_chat_request` 记录一次模型调用的完整生命周期
 - Idempotency：`requestId + Redis mark + DB 唯一键`
 - Streaming Snapshot：`ai_message_stream_batch`

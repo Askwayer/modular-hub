@@ -23,9 +23,10 @@ import java.util.List;
 public interface AiMessageMapper extends BaseMapperX<AiMessage> {
 
     default PageResponse<AiMessage> selectPageByConversationIdAndUserId(PageRequest pageRequest, Long conversationId, Long userId) {
-        LambdaQueryWrapperX<AiMessage> queryWrapper = new LambdaQueryWrapperX<AiMessage>()
+        var queryWrapper = new LambdaQueryWrapperX<AiMessage>()
                 .eq(AiMessage::getConversationId, conversationId)
-                .eq(AiMessage::getUserId, userId);
+                .eq(AiMessage::getUserId, userId)
+                .ne(AiMessage::getRoleType, "SUMMARY");
         queryWrapper.orderByAsc(AiMessage::getCreateTime);
         queryWrapper.orderByAsc(AiMessage::getId);
         return selectPage(pageRequest, queryWrapper);
@@ -52,6 +53,7 @@ public interface AiMessageMapper extends BaseMapperX<AiMessage> {
         return selectList(new LambdaQueryWrapperX<AiMessage>()
                 .eq(AiMessage::getConversationId, conversationId)
                 .eq(AiMessage::getUserId, userId)
+                .ne(AiMessage::getRoleType, "SUMMARY")
                 .orderByAsc(AiMessage::getCreateTime)
                 .orderByAsc(AiMessage::getId));
     }

@@ -23,7 +23,7 @@
     {
       "name": "vita.aichat.max-context-messages",
       "type": "java.lang.Integer",
-      "description": "上下文窗口中最多携带的历史消息条数。"
+      "description": "兼容保留字段，会按约 2 条消息折算为 1 轮，作为最近完整轮次的硬上限覆写。"
     },
     {
       "name": "vita.aichat.stream-enabled",
@@ -76,9 +76,69 @@
       "description": "AI Chat 独立线程池空闲线程存活时间，单位秒。"
     },
     {
+      "name": "vita.aichat.context.assembly-mode",
+      "type": "java.lang.String",
+      "description": "上下文组装模式，支持 LEGACY 和 BUDGET_ROUND。"
+    },
+    {
+      "name": "vita.aichat.context.prompt-budget-tokens",
+      "type": "java.lang.Integer",
+      "description": "上下文输入预算 token 上限。"
+    },
+    {
+      "name": "vita.aichat.context.reserve-output-tokens",
+      "type": "java.lang.Integer",
+      "description": "为模型输出预留的 token 数。"
+    },
+    {
+      "name": "vita.aichat.context.safety-margin-tokens",
+      "type": "java.lang.Integer",
+      "description": "上下文预算安全余量。"
+    },
+    {
+      "name": "vita.aichat.context.long-memory-max-tokens",
+      "type": "java.lang.Integer",
+      "description": "长期记忆允许占用的最大 token 预算。"
+    },
+    {
+      "name": "vita.aichat.context.carry-forward-max-tokens",
+      "type": "java.lang.Integer",
+      "description": "短期 carry-forward 记忆允许占用的最大 token 预算。"
+    },
+    {
+      "name": "vita.aichat.context.max-rounds-hard-limit",
+      "type": "java.lang.Integer",
+      "description": "最近完整问答轮次的硬上限。"
+    },
+    {
+      "name": "vita.aichat.memory.round-memory-enabled",
+      "type": "java.lang.Boolean",
+      "description": "是否启用每轮内部记忆生成。"
+    },
+    {
+      "name": "vita.aichat.memory.rollup-trigger-rounds",
+      "type": "java.lang.Integer",
+      "description": "未滚动轮次记忆达到多少轮后触发长期记忆压缩。"
+    },
+    {
+      "name": "vita.aichat.memory.rollup-trigger-tokens",
+      "type": "java.lang.Integer",
+      "description": "未滚动轮次记忆达到多少 token 估算后触发长期记忆压缩。"
+    },
+    {
+      "name": "vita.aichat.memory.salience-threshold",
+      "type": "java.lang.Integer",
+      "description": "低于该显著性阈值且无需 carry-forward 的轮次记忆会被跳过。"
+    },
+    {
+      "name": "vita.aichat.memory.backfill-batch-size",
+      "type": "java.lang.Integer",
+      "description": "历史轮次记忆回填任务的批次大小。"
+    },
+    {
       "name": "vita.aichat.summary.enabled",
       "type": "java.lang.Boolean",
-      "description": "是否启用轮次摘要与摘要压缩。"
+      "description": "是否启用内部记忆生成与长期记忆压缩。"
     },
     {
       "name": "vita.aichat.summary.async",
@@ -88,27 +148,27 @@
     {
       "name": "vita.aichat.summary.round-summary-provider",
       "type": "java.lang.String",
-      "description": "轮次摘要使用的 provider 编码。"
+      "description": "轮次内部记忆使用的 provider 编码。"
     },
     {
       "name": "vita.aichat.summary.round-summary-model-code",
       "type": "java.lang.String",
-      "description": "轮次摘要使用的模型编码。"
+      "description": "轮次内部记忆使用的模型编码。"
     },
     {
       "name": "vita.aichat.summary.compress-enabled",
       "type": "java.lang.Boolean",
-      "description": "是否启用摘要压缩。"
+      "description": "是否启用长期记忆压缩。"
     },
     {
       "name": "vita.aichat.summary.compress-threshold-count",
       "type": "java.lang.Integer",
-      "description": "触发摘要压缩的消息条数阈值。"
+      "description": "兼容保留字段，推荐改用 vita.aichat.memory.rollup-trigger-rounds。"
     },
     {
       "name": "vita.aichat.summary.compress-threshold-tokens",
       "type": "java.lang.Integer",
-      "description": "触发摘要压缩的上下文 token 阈值。"
+      "description": "兼容保留字段，推荐改用 vita.aichat.memory.rollup-trigger-tokens。"
     },
     {
       "name": "vita.aichat.summary.compress-model-provider",

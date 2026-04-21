@@ -33,5 +33,9 @@ public class AiChatProperty {
 
     private AiChatExecutorProperty executor = new AiChatExecutorProperty();
 
+    private AiChatContextProperty context = new AiChatContextProperty();
+
+    private AiChatMemoryProperty memory = new AiChatMemoryProperty();
+
     private AiChatSummaryProperty summary = new AiChatSummaryProperty();
 }

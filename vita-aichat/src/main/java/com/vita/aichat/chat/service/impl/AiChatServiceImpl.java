@@ -11,6 +11,7 @@ import com.vita.aichat.aiConversation.service.IAiConversationService;
 import com.vita.aichat.aiConversationSummary.service.IAiConversationSummaryService;
 import com.vita.aichat.aiMessage.entity.AiMessage;
 import com.vita.aichat.aiMessage.service.IAiMessageService;
+import com.vita.aichat.aiRoundMemory.service.IAiRoundMemoryService;
 import com.vita.aichat.chat.dto.*;
 import com.vita.aichat.chat.model.context.AiChatCapacityPermit;
 import com.vita.aichat.chat.model.context.PreparedSendContext;
@@ -55,6 +56,7 @@ public class AiChatServiceImpl implements IAiChatService {
     private final IAiMessageService aiMessageService;
     private final IAiConversationSummaryService aiConversationSummaryService;
     private final IAiChatRequestService aiChatRequestService;
+    private final IAiRoundMemoryService aiRoundMemoryService;
     private final AiChatClient aiChatClient;
     private final AiChatProperty aiChatProperty;
     private final AiChatAssembler aiChatAssembler;
@@ -72,6 +74,7 @@ public class AiChatServiceImpl implements IAiChatService {
                              IAiMessageService aiMessageService,
                              IAiConversationSummaryService aiConversationSummaryService,
                              IAiChatRequestService aiChatRequestService,
+                             IAiRoundMemoryService aiRoundMemoryService,
                              AiChatClient aiChatClient,
                              AiChatProperty aiChatProperty,
                              AiChatAssembler aiChatAssembler,
@@ -88,6 +91,7 @@ public class AiChatServiceImpl implements IAiChatService {
         this.aiMessageService = aiMessageService;
         this.aiConversationSummaryService = aiConversationSummaryService;
         this.aiChatRequestService = aiChatRequestService;
+        this.aiRoundMemoryService = aiRoundMemoryService;
         this.aiChatClient = aiChatClient;
         this.aiChatProperty = aiChatProperty;
         this.aiChatAssembler = aiChatAssembler;
@@ -159,6 +163,7 @@ public class AiChatServiceImpl implements IAiChatService {
 
         aiChatRequestService.deleteByConversationIdAndUserId(conversation.getId(), userId);
         aiConversationSummaryService.deleteByConversationIdAndUserId(conversation.getId(), userId);
+        aiRoundMemoryService.deleteByConversationIdAndUserId(conversation.getId(), userId);
         aiMessageService.deleteByConversationIdAndUserId(conversation.getId(), userId);
         aiConversationService.deleteByIdAndUserId(conversation.getId(), userId);
     }

@@ -22,6 +22,13 @@ class AiChatConfigurationBindingTest {
                     "vita.aichat.stream-enabled=false",
                     "vita.aichat.lock.conversation.lease-seconds=120",
                     "vita.aichat.concurrency.max-active=7",
+                    "vita.aichat.context.assembly-mode=BUDGET_ROUND",
+                    "vita.aichat.context.prompt-budget-tokens=6800",
+                    "vita.aichat.context.reserve-output-tokens=2200",
+                    "vita.aichat.context.model-budgets.qwen.qwen-plus.max-rounds-hard-limit=5",
+                    "vita.aichat.memory.round-memory-enabled=true",
+                    "vita.aichat.memory.rollup-trigger-rounds=9",
+                    "vita.aichat.memory.rollup-trigger-tokens=2600",
                     "vita.aichat.summary.round-summary-provider=kimi",
                     "vita.aichat.summary.round-summary-model-code=kimi-k2.5",
                     "vita.aichat.summary.compress-model-provider=qwen",
@@ -43,6 +50,14 @@ class AiChatConfigurationBindingTest {
             assertThat(aiChatProperty.getStreamEnabled()).isFalse();
             assertThat(aiChatProperty.getLock().getConversation().getLeaseSeconds()).isEqualTo(120L);
             assertThat(aiChatProperty.getConcurrency().getMaxActive()).isEqualTo(7);
+            assertThat(aiChatProperty.getContext().getAssemblyMode()).isEqualTo("BUDGET_ROUND");
+            assertThat(aiChatProperty.getContext().getPromptBudgetTokens()).isEqualTo(6800);
+            assertThat(aiChatProperty.getContext().getReserveOutputTokens()).isEqualTo(2200);
+            assertThat(aiChatProperty.getContext().getModelBudgets().get("qwen").get("qwen-plus").getMaxRoundsHardLimit())
+                    .isEqualTo(5);
+            assertThat(aiChatProperty.getMemory().getRoundMemoryEnabled()).isTrue();
+            assertThat(aiChatProperty.getMemory().getRollupTriggerRounds()).isEqualTo(9);
+            assertThat(aiChatProperty.getMemory().getRollupTriggerTokens()).isEqualTo(2600);
             assertThat(aiChatProperty.getSummary().getRoundSummaryProvider()).isEqualTo("kimi");
             assertThat(aiChatProperty.getSummary().getRoundSummaryModelCode()).isEqualTo("kimi-k2.5");
             assertThat(aiChatProperty.getSummary().getCompressModelProvider()).isEqualTo("qwen");

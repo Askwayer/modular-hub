@@ -2,6 +2,7 @@ package com.vita.aichat.chat.support;
 
 import cn.hutool.core.text.CharSequenceUtil;
 import cn.hutool.core.util.IdUtil;
+import com.alibaba.fastjson2.JSON;
 import com.vita.ai.core.client.AiChatClient;
 import com.vita.ai.core.model.AiChatMessage;
 import com.vita.ai.core.model.AiChatResponse;
@@ -10,12 +11,11 @@ import com.vita.aichat.aiConversation.entity.AiConversation;
 import com.vita.aichat.aiConversation.service.IAiConversationService;
 import com.vita.aichat.aiConversationSummary.entity.AiConversationSummary;
 import com.vita.aichat.aiConversationSummary.service.IAiConversationSummaryService;
-import com.vita.aichat.aiMessage.entity.AiMessage;
+import com.vita.aichat.aiRoundMemory.entity.AiRoundMemory;
+import com.vita.aichat.aiRoundMemory.service.IAiRoundMemoryService;
+import com.vita.aichat.chat.model.memory.AiMemoryPayload;
 import com.vita.aichat.chat.property.AiChatProperty;
-import com.vita.aichat.enums.AiChatRequestModeEnum;
-import com.vita.aichat.enums.AiChatRequestSceneEnum;
-import com.vita.aichat.enums.AiChatRequestStatusEnum;
-import com.vita.aichat.enums.AiSummaryStatusEnum;
+import com.vita.aichat.enums.*;
 import com.vita.core.exception.ServiceException;
 import com.vita.utils.SnowUtils;
 import org.springframework.stereotype.Service;
@@ -31,39 +31,47 @@ import java.util.List;
 public class ConversationSummaryCompressService {
 
     private final IAiConversationSummaryService aiConversationSummaryService;
+    private final IAiRoundMemoryService aiRoundMemoryService;
     private final IAiConversationService aiConversationService;
     private final IAiChatRequestService aiChatRequestService;
     private final AiChatClient aiChatClient;
     private final AiChatProperty aiChatProperty;
     private final AiChatExceptionConverter aiChatExceptionConverter;
+    private final ConversationMemoryFormatter conversationMemoryFormatter;
+    private final ContextTokenEstimator contextTokenEstimator;
     private final TransactionTemplate transactionTemplate;
 
     public ConversationSummaryCompressService(IAiConversationSummaryService aiConversationSummaryService,
+                                              IAiRoundMemoryService aiRoundMemoryService,
                                               IAiConversationService aiConversationService,
                                               IAiChatRequestService aiChatRequestService,
                                               AiChatClient aiChatClient,
                                               AiChatProperty aiChatProperty,
                                               AiChatExceptionConverter aiChatExceptionConverter,
+                                              ConversationMemoryFormatter conversationMemoryFormatter,
+                                              ContextTokenEstimator contextTokenEstimator,
                                               TransactionTemplate transactionTemplate) {
         this.aiConversationSummaryService = aiConversationSummaryService;
+        this.aiRoundMemoryService = aiRoundMemoryService;
         this.aiConversationService = aiConversationService;
         this.aiChatRequestService = aiChatRequestService;
         this.aiChatClient = aiChatClient;
         this.aiChatProperty = aiChatProperty;
         this.aiChatExceptionConverter = aiChatExceptionConverter;
+        this.conversationMemoryFormatter = conversationMemoryFormatter;
+        this.contextTokenEstimator = contextTokenEstimator;
         this.transactionTemplate = transactionTemplate;
     }
 
     public void compressIfNeeded(AiConversation conversation,
                                  Long userId,
-                                 List<AiMessage> pendingSummaryMessages,
                                  String fallbackProviderCode,
                                  String fallbackModelCode) {
         if (!Boolean.TRUE.equals(aiChatProperty.getSummary().getCompressEnabled())) {
             return;
         }
-        if (pendingSummaryMessages == null
-                || pendingSummaryMessages.size() < aiChatProperty.getSummary().getCompressThresholdCount()) {
+        List<AiRoundMemory> readyRoundMemories = aiRoundMemoryService.listReadyRollupCandidates(conversation.getId(), userId);
+        if (!shouldCompress(readyRoundMemories)) {
             return;
         }
 
@@ -97,7 +105,7 @@ public class ConversationSummaryCompressService {
                     requestId,
                     providerCode,
                     modelCode,
-                    pendingSummaryMessages
+                    readyRoundMemories
             ));
 
             if (response == null || CharSequenceUtil.isBlank(response.getContent())) {
@@ -118,14 +126,21 @@ public class ConversationSummaryCompressService {
                 summary.setVersionNo(nextVersion);
                 summary.setProviderCode(providerCode);
                 summary.setModelCode(modelCode);
-                summary.setSourceMessageStartId(pendingSummaryMessages.get(0).getId());
-                summary.setSourceMessageEndId(pendingSummaryMessages.get(pendingSummaryMessages.size() - 1).getId());
-                summary.setSourceMessageCount(pendingSummaryMessages.size());
-                summary.setSummaryText(response.getContent());
-                summary.setSummaryJson(null);
-                summary.setTokenSavedEstimate(response.getTokenTotal());
+                summary.setSourceMessageStartId(readyRoundMemories.get(0).getSourceUserMessageId());
+                summary.setSourceMessageEndId(readyRoundMemories.get(readyRoundMemories.size() - 1).getSourceAssistantMessageId());
+                summary.setSourceMessageCount(readyRoundMemories.size());
+                summary.setSourceRoundStartNo(readyRoundMemories.get(0).getRoundNo());
+                summary.setSourceRoundEndNo(readyRoundMemories.get(readyRoundMemories.size() - 1).getRoundNo());
+                summary.setSourceRoundMemoryStartId(readyRoundMemories.get(0).getId());
+                summary.setSourceRoundMemoryEndId(readyRoundMemories.get(readyRoundMemories.size() - 1).getId());
+                AiMemoryPayload payload = normalizeSummaryPayload(response.getContent());
+                summary.setSummaryText(resolveSummaryText(payload, response.getContent()));
+                summary.setSummaryJson(JSON.toJSONString(payload));
+                summary.setPromptTokenEstimate(estimateSummaryTokens(summary));
+                summary.setTokenSavedEstimate(Math.max(sumPromptTokenEstimate(readyRoundMemories) - summary.getPromptTokenEstimate(), 0));
                 summary.setStatus(AiSummaryStatusEnum.READY.name());
                 aiConversationSummaryService.create(summary);
+                markRoundMemoriesRolledUp(readyRoundMemories);
 
                 com.vita.aichat.aiChatRequest.entity.AiChatRequest update = new com.vita.aichat.aiChatRequest.entity.AiChatRequest();
                 update.setId(compressRequest.getId());
@@ -168,11 +183,11 @@ public class ConversationSummaryCompressService {
                                                                       String requestId,
                                                                       String providerCode,
                                                                       String modelCode,
-                                                                      List<AiMessage> summaryMessages) {
-        List<AiChatMessage> messages = summaryMessages.stream()
-                .map(message -> AiChatMessage.builder()
+                                                                      List<AiRoundMemory> roundMemories) {
+        List<AiChatMessage> messages = roundMemories.stream()
+                .map(roundMemory -> AiChatMessage.builder()
                         .role("system")
-                        .content(message.getContent())
+                        .content(conversationMemoryFormatter.renderRoundMemory(roundMemory))
                         .build())
                 .toList();
         return com.vita.ai.core.model.AiChatRequest.builder()
@@ -182,9 +197,20 @@ public class ConversationSummaryCompressService {
                 .userId(userId)
                 .provider(providerCode)
                 .model(modelCode)
-                .systemPrompt("请将以下多条历史摘要进一步压缩为一条面向后续对话的长期记忆摘要，保留核心事实、用户偏好、约束和未完成事项。")
+                .systemPrompt("""
+                        请将以下多条短期轮次记忆压缩为一条长期会话记忆。
+                        你必须只输出一个 JSON 对象，不要输出 markdown，不要补充解释。
+                        JSON 字段：
+                        - summaryText: 一条紧凑中文长期记忆
+                        - facts: 关键事实数组
+                        - preferences: 用户偏好数组
+                        - constraints: 限制条件数组
+                        - openLoops: 仍需延续的问题数组
+                        - pendingTasks: 待办数组
+                        - disallowed: 明确禁忌数组
+                        """)
                 .messages(messages)
-                .userPrompt("请输出一条紧凑、清晰、可用于后续上下文注入的压缩摘要。")
+                .userPrompt("请只输出 JSON。")
                 .stream(false)
                 .build();
     }
@@ -194,5 +220,55 @@ public class ConversationSummaryCompressService {
         update.setId(conversationId);
         update.setSummaryStatus(summaryStatus.name());
         aiConversationService.update(update);
+    }
+
+    private boolean shouldCompress(List<AiRoundMemory> readyRoundMemories) {
+        if (readyRoundMemories == null || readyRoundMemories.isEmpty()) {
+            return false;
+        }
+        if (readyRoundMemories.size() >= aiChatProperty.getMemory().getRollupTriggerRounds()) {
+            return true;
+        }
+        return sumPromptTokenEstimate(readyRoundMemories) >= aiChatProperty.getMemory().getRollupTriggerTokens();
+    }
+
+    private int sumPromptTokenEstimate(List<AiRoundMemory> readyRoundMemories) {
+        return readyRoundMemories.stream()
+                .mapToInt(memory -> memory.getPromptTokenEstimate() == null ? 0 : memory.getPromptTokenEstimate())
+                .sum();
+    }
+
+    private AiMemoryPayload normalizeSummaryPayload(String content) {
+        AiMemoryPayload payload = conversationMemoryFormatter.parsePayload(content);
+        if (payload == null) {
+            payload = new AiMemoryPayload();
+            payload.setSummaryText(content.trim());
+        }
+        if (CharSequenceUtil.isBlank(payload.getSummaryText()) && CharSequenceUtil.isNotBlank(payload.getMemoryText())) {
+            payload.setSummaryText(payload.getMemoryText().trim());
+        }
+        return payload;
+    }
+
+    private String resolveSummaryText(AiMemoryPayload payload, String fallback) {
+        return CharSequenceUtil.blankToDefault(payload.getSummaryText(), fallback).trim();
+    }
+
+    private int estimateSummaryTokens(AiConversationSummary summary) {
+        String renderedSummary = conversationMemoryFormatter.renderLongMemory(summary);
+        if (CharSequenceUtil.isBlank(renderedSummary)) {
+            return contextTokenEstimator.estimateText(summary.getSummaryText());
+        }
+        return contextTokenEstimator.estimateText(renderedSummary);
+    }
+
+    private void markRoundMemoriesRolledUp(List<AiRoundMemory> readyRoundMemories) {
+        List<AiRoundMemory> updates = readyRoundMemories.stream().map(memory -> {
+            AiRoundMemory update = new AiRoundMemory();
+            update.setId(memory.getId());
+            update.setStatus(AiRoundMemoryStatusEnum.ROLLED_UP.name());
+            return update;
+        }).toList();
+        aiRoundMemoryService.updateBatch(updates);
     }
 }

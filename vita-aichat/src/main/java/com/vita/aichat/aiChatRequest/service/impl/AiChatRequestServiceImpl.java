@@ -42,6 +42,11 @@ public class AiChatRequestServiceImpl implements IAiChatRequestService {
     }
 
     @Override
+    public List<AiChatRequest> listRecentSuccessfulChatRequests(Long conversationId, Long userId, Integer limit) {
+        return aiChatRequestMapper.selectRecentSuccessfulChatRequests(conversationId, userId, limit);
+    }
+
+    @Override
     public List<AiChatRequest> listByAssistantMessageIds(Collection<Long> assistantMessageIds) {
         return aiChatRequestMapper.selectListByAssistantMessageIds(assistantMessageIds);
     }
