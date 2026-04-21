@@ -1,122 +1,85 @@
 # be-vita
 
-`be-vita` 是一个基于 Spring Boot 3.x、JDK 17、Maven 多模块结构的后端项目。当前仓库同时维护管理端能力、AI Chat 模块、公共基础设施、业务服务层、代码生成器和多个 starter。
+`be-vita` 是基于 Spring Boot 3.5.0、JDK 17、Maven 多模块结构的后端仓库，当前同时维护管理端、AI Chat、公共基础能力、业务服务层、代码生成器和多个 Spring Boot starter。
+
+## 文档分工
+
+- `README.md`：仓库总览、模块结构、启动入口与常用命令。
+- `CLAUDE.md`、`AGENTS.md`：面向 AI 代理和贡献者的执行摘要。
+- `AICoding/rules/be-vita-ai-codegen-rules.md`：唯一详细且最高优先级的 AI 代码生成规则源。
 
 ## 当前模块结构
 
 ```text
 be-vita
-├── vita-common                         # 公共基础能力
-├── vita-service                        # 业务服务层
-├── vita-generator                      # 代码生成器
-├── vita-starters                       # 自定义 starter 聚合模块
+├── vita-common
+├── vita-service
+├── vita-generator
+├── vita-starters
+│   ├── vita-ai-spring-boot-starter
 │   ├── vita-captcha-spring-boot-starter
 │   ├── vita-file-spring-boot-starter
 │   ├── vita-i18n-spring-boot-starter
 │   └── vita-poi-spring-boot-starter
-├── vita-admin                          # 管理端启动模块
-├── vita-aichat                         # AI Chat 独立启动模块
+├── vita-admin
+├── vita-aichat
 ├── sql
 │   ├── init
 │   └── upgrade
 └── docs
     ├── system
-    └── aichat
+    ├── aichat
+    └── starter
 ```
 
-## 模块职责
+## 模块职责与依赖
 
-| 模块 | 说明 | 关键入口 / 备注 |
-| --- | --- | --- |
-| `vita-common` | 公共基础能力，包含异常体系、分页、MyBatis-Plus、Redisson、Sa-Token、工具类、基础模型等 | 被 `vita-service`、`vita-admin`、`vita-aichat` 复用 |
-| `vita-service` | 系统业务服务层，承载认证、RBAC、系统管理等核心业务实现 | 当前依赖 `vita-common` |
-| `vita-generator` | 代码生成器与模板 | 默认入口 `com.vita.config.CodeGenerator` |
-| `vita-starters` | 自定义 starter 聚合 | 目前包含 captcha、file、i18n、poi 四个 starter |
-| `vita-admin` | 管理端启动模块 | 启动类 `com.vita.config.VitaAdminApplication`，上下文路径 `/admin/api` |
-| `vita-aichat` | AI Chat 启动模块 | 启动类 `com.vita.config.VitaAIChatApplication`，上下文路径 `/aichat/api` |
+- `vita-common`：公共基础模块，承载统一返回、异常、分页、MyBatis-Plus、Redisson、Sa-Token、工具类和基础模型。
+- `vita-service`：系统业务服务层，承载认证、RBAC、系统管理等核心业务。
+- `vita-admin`：管理端启动模块，入口类 `com.vita.config.VitaAdminApplication`，上下文路径 `/admin/api`。
+- `vita-aichat`：AI Chat 启动模块，入口类 `com.vita.config.VitaAIChatApplication`，上下文路径 `/aichat/api`。
+- `vita-generator`：代码生成器与模板模块，入口 `com.vita.config.CodeGenerator`。
+- `vita-starters`：starter 聚合父模块，通过 `starter-*` profile 挂载各个子 starter。
 
-## 当前依赖关系
-
-当前仓库实际依赖关系以 `pom.xml` 为准，主链路如下：
+主依赖链以根 `pom.xml` 为准：
 
 ```text
 vita-admin  -> vita-service -> vita-common
 vita-aichat -> vita-common
-vita-starters -> 被业务模块按需依赖，通过pom.xml引入，不被引入的情况下运行、debug和mvn 都忽略。
 ```
 
-约束：
+## 文档与脚本入口
 
-- 统一使用 `com.vita.*` 包前缀。
-- `vita-admin` 只承载管理端 Web 启动与控制器，不直接下沉业务实现。
-- `vita-aichat` 是独立启动模块，不应依赖 `vita-admin` 内部实现。
-- 跨模块复用的公共能力继续沉淀到 `vita-common` 或对应 starter。
-- `application` 配置文件直接配置不要引入环境变量，保持模块独立可启动。
+- 系统设计：`docs/system/`
+- AI Chat 设计：`docs/aichat/`
+- Starter 设计：`docs/starter/`
+- 系统初始化：`sql/init/system.sql`
+- AI Chat 初始化：`sql/init/aichat.sql`
+- 初始化数据：`sql/init/insert.sql`
+- 升级脚本：`sql/upgrade/`
+- 运行日志：`logs/vita-admin/`、`logs/vita-aichat/`
 
-## AI Chat 模块现状
+## 常用命令
 
-`vita-aichat` 已经落了基础骨架：
-
-- 三张核心表：`ai_conversation`、`ai_message`、`ai_conversation_summary`
-- 三组基础实体：`AiConversation`、`AiMessage`、`AiConversationSummary`
-- 三组 CRUD 控制器：`/aichat/aiConversation/**`、`/aichat/aiMessage/**`、`/aichat/aiConversationSummary/**`
-
-这些 CRUD 接口当前更适合作为脚手架或后台维护接口，不作为正式 Chat 业务接口的长期契约。正式设计见 [docs/aichat/ai-chat-design.md](docs/aichat/ai-chat-design.md)。
-
-本轮设计约定：
-
-- 首个接入模型为 `Qwen`
-- 对接协议采用 `OpenAI-compatible`
-- 业务层通过统一网关抽象接入模型，避免直接耦合厂商 SDK
-
-## 文档与脚本
-
-关键文档与初始化脚本如下：
-
-- 系统设计文档：`docs/system/`
-- AI Chat 设计文档：`docs/aichat/ai-chat-design.md`
-- 系统初始化脚本：`sql/init/system.sql`
-- AI Chat 初始化脚本：`sql/init/aichat.sql`
-- 初始化数据脚本：`sql/init/insert.sql`
-- 增量升级脚本目录：`sql/upgrade/`
-
-日志目录：
-
-- 管理端：`logs/vita-admin/`
-- AI Chat：`logs/vita-aichat/`
-
-## 本地开发
-
-环境要求：
-
-- JDK 17+
-- Maven 3.9+
-- MySQL 8.x
-- Redis 7.x
-
-常用命令：
-> 注意：请在项目根目录下执行以下命令，确保当前路径为 `be-vita` 仓库根目录。
-> `~/Documents/stage/maven/apache-maven-3.9.11`
-> 通过执行 `jdk17` 切换到 JDK 17 环境¬
 - 编译全仓：`mvn clean compile`
-- 全仓测试：`mvn test`
-- 管理端启动：`mvn 17-pl vita-admin -am spring-boot:run`
-- AI Chat 启动：`mvn -pl vita-aichat -am spring-boot:run`
-- 公共模块测试：`mvn -pl vita-common -am test`
-- 代码生成：`mvn -pl vita-generator -DskipTests exec:java -Dexec.mainClass=com.vita.config.CodeGenerator`
-- Starter 测试：`mvn -pl vita-starters/vita-captcha-spring-boot-starter test`
+- 打包全仓：`mvn clean package -DskipTests`
+- 运行全仓测试：`mvn test`
+- 启动管理端：`mvn -pl vita-admin -am spring-boot:run`
+- 启动 AI Chat：`mvn -pl vita-aichat -am spring-boot:run`
+- 执行公共模块测试：`mvn -pl vita-common -am test`
+- 执行业务层测试：`mvn -pl vita-service -am test`
+- 执行代码生成：`mvn -pl vita-generator -DskipTests exec:java -Dexec.mainClass=com.vita.config.CodeGenerator`
+- 执行验证码 starter 测试：`mvn -f vita-starters/pom.xml -Pstarter-captcha test`
 
-推荐本地启动顺序：
+## 本地启动顺序
 
-1. 启动 MySQL
-2. 启动 Redis
-3. 执行 `sql/init/system.sql`、`sql/init/insert.sql`
-4. 如需 AI Chat，再执行 `sql/init/aichat.sql`
-5. 启动 `vita-admin` 或 `vita-aichat`
+1. 启动 MySQL 8.x 和 Redis 7.x。
+2. 执行 `sql/init/system.sql` 与 `sql/init/insert.sql`。
+3. 如需 AI Chat，再执行 `sql/init/aichat.sql`。
+4. 启动 `vita-admin` 或 `vita-aichat`。
 
-## 开发约束
+## 配置与约束
 
-- Controller 仅负责参数接收、登录态获取、统一返回封装。
-- 业务逻辑放在 Service，数据访问放在 Mapper。
-- 文档、SQL、配置变更必须同步提交，不只写在 commit message 中。
-- 涉及认证、RBAC、日志、AI Chat 的方案调整，优先更新 `docs/system/` 或 `docs/aichat/`。
+- 当前 `application.yml` 通过 `${vita.*}` 占位符读取外部化配置，请在 profile 文件或运行环境中提供对应值。
+- 新建表默认字段规范、分层约束、事务规则、AI Chat 和 starter 专项规则，以 `AICoding/rules/be-vita-ai-codegen-rules.md` 为准。
+- 涉及认证、RBAC、日志、AI Chat、DDL 或初始化脚本的变更，必须同步更新对应 `docs/` 与 `sql/`。
