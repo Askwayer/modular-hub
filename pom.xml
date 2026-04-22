@@ -43,6 +43,7 @@
         <module>vita-starters</module>
         <module>vita-admin</module>
         <module>vita-aichat</module>
+        <module>vita-scheduler</module>
     </modules>
 
     <dependencyManagement>
