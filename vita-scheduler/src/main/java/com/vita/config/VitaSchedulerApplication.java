@@ -1,10 +1,13 @@
 package com.vita.config;
 
+import org.mybatis.spring.annotation.MapperScan;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.core.env.ConfigurableEnvironment;
+import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.transaction.annotation.EnableTransactionManagement;
 
 /**
  * @BelongsProject: be-vita
@@ -16,6 +19,9 @@ import org.springframework.core.env.ConfigurableEnvironment;
  */
 @SpringBootApplication(
         scanBasePackages = "com.vita")
+@MapperScan("com.vita.**.mapper")
+@EnableAsync
+@EnableTransactionManagement
 public class VitaSchedulerApplication {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(VitaSchedulerApplication.class);

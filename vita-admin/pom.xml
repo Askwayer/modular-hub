@@ -21,16 +21,16 @@
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
 
-        <!-- 公共基础模块（通过 vita-service 传递引入） -->
-        <dependency>
-            <groupId>com.vita</groupId>
-            <artifactId>vita-common</artifactId>
-        </dependency>
-
         <!-- 业务服务层（包含认证、RBAC、系统管理等） -->
         <dependency>
             <groupId>com.vita</groupId>
             <artifactId>vita-service</artifactId>
+        </dependency>
+
+        <!-- 文件上传/存储 Starter -->
+        <dependency>
+            <groupId>com.vita</groupId>
+            <artifactId>vita-file-spring-boot-starter</artifactId>
         </dependency>
 
         <!-- Spring Boot 测试框架 -->

@@ -18,11 +18,30 @@
     </properties>
 
     <dependencies>
-        <!-- 公共基础模块（通过 vita-service 传递引入） -->
+        <!-- 业务服务层（包含认证、RBAC、系统管理等） -->
         <dependency>
             <groupId>com.vita</groupId>
-            <artifactId>vita-common</artifactId>
+            <artifactId>vita-service</artifactId>
         </dependency>
 
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <mainClass>com.vita.config.VitaSchedulerApplication</mainClass>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>

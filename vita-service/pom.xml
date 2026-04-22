@@ -30,12 +30,6 @@
             <artifactId>vita-captcha-spring-boot-starter</artifactId>
         </dependency>
 
-        <!-- 文件上传/存储 Starter -->
-        <dependency>
-            <groupId>com.vita</groupId>
-            <artifactId>vita-file-spring-boot-starter</artifactId>
-        </dependency>
-
         <!-- Spring Boot 测试框架 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
