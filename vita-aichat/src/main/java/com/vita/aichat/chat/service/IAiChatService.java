@@ -5,8 +5,9 @@ import com.vita.aichat.chat.vo.AiChatSendVo;
 import com.vita.aichat.chat.vo.AiConversationDetailVo;
 import com.vita.aichat.chat.vo.AiConversationPageVo;
 import com.vita.aichat.chat.vo.AiMessagePageVo;
+import com.vita.core.CommonStreamResult;
 import com.vita.core.page.PageResponse;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import reactor.core.publisher.Flux;
 
 /**
  * AI Chat 聚合服务。
@@ -75,7 +76,8 @@ public interface IAiChatService {
      *
      * @param conversationId 会话ID
      * @param sendDto 消息发送请求对象
-     * @return SSE流式响应
+     * @return NDJSON 流式响应
      */
-    SseEmitter sendMessageStream(Long conversationId, AiMessageSendDto sendDto);
+    Flux<CommonStreamResult<com.vita.aichat.chat.vo.AiChatStreamEventVo>> sendMessageStream(Long conversationId,
+                                                                                              AiMessageSendDto sendDto);
 }

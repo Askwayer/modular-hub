@@ -2,18 +2,19 @@ package com.vita.controller.aichat;
 
 import com.vita.aichat.chat.dto.*;
 import com.vita.aichat.chat.service.IAiChatService;
-import com.vita.aichat.chat.vo.AiChatSendVo;
-import com.vita.aichat.chat.vo.AiConversationDetailVo;
-import com.vita.aichat.chat.vo.AiConversationPageVo;
-import com.vita.aichat.chat.vo.AiMessagePageVo;
+import com.vita.aichat.chat.support.AiChatReactiveBridge;
+import com.vita.aichat.chat.support.AiChatReactiveHttpSupport;
+import com.vita.aichat.chat.vo.*;
 import com.vita.core.CommonResult;
+import com.vita.core.CommonStreamResult;
 import com.vita.core.controller.BaseController;
 import com.vita.core.page.PageResponse;
 import jakarta.validation.Valid;
-import org.springframework.http.MediaType;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.util.context.ContextView;
 
 /**
  * AI Chat 控制器。
@@ -24,9 +25,12 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 public class AiChatController extends BaseController {
 
     private final IAiChatService aiChatService;
+    private final AiChatReactiveBridge aiChatReactiveBridge;
 
-    public AiChatController(IAiChatService aiChatService) {
+    public AiChatController(IAiChatService aiChatService,
+                            AiChatReactiveBridge aiChatReactiveBridge) {
         this.aiChatService = aiChatService;
+        this.aiChatReactiveBridge = aiChatReactiveBridge;
     }
 
     /**
@@ -36,8 +40,9 @@ public class AiChatController extends BaseController {
      * @return 会话ID
      */
     @PostMapping("/conversations")
-    public CommonResult<Long> createConversation(@RequestBody @Valid AiConversationCreateDto createDto) {
-        return CommonResult.success(aiChatService.createConversation(createDto));
+    public Mono<CommonResult<Long>> createConversation(@RequestBody @Valid AiConversationCreateDto createDto) {
+        return blockingCall(contextView -> aiChatService.createConversation(createDto))
+                .map(CommonResult::success);
     }
 
     /**
@@ -47,8 +52,9 @@ public class AiChatController extends BaseController {
      * @return 会话分页数据
      */
     @GetMapping("/conversations")
-    public CommonResult<PageResponse<AiConversationPageVo>> pageConversations(@Valid AiConversationPageQueryDto queryDto) {
-        return CommonResult.success(aiChatService.pageConversations(queryDto));
+    public Mono<CommonResult<PageResponse<AiConversationPageVo>>> pageConversations(@Valid AiConversationPageQueryDto queryDto) {
+        return blockingCall(contextView -> aiChatService.pageConversations(queryDto))
+                .map(CommonResult::success);
     }
 
     /**
@@ -58,8 +64,9 @@ public class AiChatController extends BaseController {
      * @return 会话详情对象
      */
     @GetMapping("/conversations/{conversationId}")
-    public CommonResult<AiConversationDetailVo> getConversation(@PathVariable("conversationId") Long conversationId) {
-        return CommonResult.success(aiChatService.getConversation(conversationId));
+    public Mono<CommonResult<AiConversationDetailVo>> getConversation(@PathVariable("conversationId") Long conversationId) {
+        return blockingCall(contextView -> aiChatService.getConversation(conversationId))
+                .map(CommonResult::success);
     }
 
     /**
@@ -70,10 +77,12 @@ public class AiChatController extends BaseController {
      * @return 操作结果
      */
     @PostMapping("/conversations/{conversationId}/title")
-    public CommonResult<Boolean> renameConversation(@PathVariable("conversationId") Long conversationId,
-                                                    @RequestBody @Valid AiConversationTitleUpdateDto updateDto) {
-        aiChatService.renameConversation(conversationId, updateDto);
-        return CommonResult.success(Boolean.TRUE);
+    public Mono<CommonResult<Boolean>> renameConversation(@PathVariable("conversationId") Long conversationId,
+                                                          @RequestBody @Valid AiConversationTitleUpdateDto updateDto) {
+        return blockingCall(contextView -> {
+            aiChatService.renameConversation(conversationId, updateDto);
+            return Boolean.TRUE;
+        }).map(CommonResult::success);
     }
 
     /**
@@ -83,9 +92,11 @@ public class AiChatController extends BaseController {
      * @return 操作结果
      */
     @DeleteMapping("/conversations/{conversationId}")
-    public CommonResult<Boolean> deleteConversation(@PathVariable("conversationId") Long conversationId) {
-        aiChatService.deleteConversation(conversationId);
-        return CommonResult.success(Boolean.TRUE);
+    public Mono<CommonResult<Boolean>> deleteConversation(@PathVariable("conversationId") Long conversationId) {
+        return blockingCall(contextView -> {
+            aiChatService.deleteConversation(conversationId);
+            return Boolean.TRUE;
+        }).map(CommonResult::success);
     }
 
     /**
@@ -96,9 +107,10 @@ public class AiChatController extends BaseController {
      * @return 消息分页数据
      */
     @GetMapping("/conversations/{conversationId}/messages")
-    public CommonResult<PageResponse<AiMessagePageVo>> pageMessages(@PathVariable("conversationId") Long conversationId,
-                                                                    @Valid AiMessagePageQueryDto queryDto) {
-        return CommonResult.success(aiChatService.pageMessages(conversationId, queryDto));
+    public Mono<CommonResult<PageResponse<AiMessagePageVo>>> pageMessages(@PathVariable("conversationId") Long conversationId,
+                                                                          @Valid AiMessagePageQueryDto queryDto) {
+        return blockingCall(contextView -> aiChatService.pageMessages(conversationId, queryDto))
+                .map(CommonResult::success);
     }
 
     /**
@@ -109,9 +121,10 @@ public class AiChatController extends BaseController {
      * @return 发送结果
      */
     @PostMapping("/conversations/{conversationId}/messages")
-    public CommonResult<AiChatSendVo> sendMessage(@PathVariable("conversationId") Long conversationId,
-                                                  @RequestBody @Valid AiMessageSendDto sendDto) {
-        return CommonResult.success(aiChatService.sendMessage(conversationId, sendDto));
+    public Mono<CommonResult<AiChatSendVo>> sendMessage(@PathVariable("conversationId") Long conversationId,
+                                                        @RequestBody @Valid AiMessageSendDto sendDto) {
+        return blockingCall(contextView -> aiChatService.sendMessage(conversationId, sendDto))
+                .map(CommonResult::success);
     }
 
     /**
@@ -119,11 +132,23 @@ public class AiChatController extends BaseController {
      *
      * @param conversationId 会话ID
      * @param sendDto        消息发送请求对象
-     * @return SSE流式响应
+     * @return NDJSON 流式响应
      */
-    @PostMapping(value = "/conversations/{conversationId}/messages/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter sendMessageStream(@PathVariable("conversationId") Long conversationId,
-                                        @RequestBody @Valid AiMessageSendDto sendDto) {
+    @PostMapping(value = "/conversations/{conversationId}/messages/stream", produces = AiChatReactiveHttpSupport.NDJSON_CONTENT_TYPE_VALUE)
+    public Flux<CommonStreamResult<AiChatStreamEventVo>> sendMessageStream(@PathVariable("conversationId") Long conversationId,
+                                                                           @RequestBody @Valid AiMessageSendDto sendDto) {
         return aiChatService.sendMessageStream(conversationId, sendDto);
+    }
+
+    private <T> Mono<T> blockingCall(BlockingSupplier<T> supplier) {
+        return Mono.deferContextual(contextView ->
+                aiChatReactiveBridge.blocking(aiChatReactiveBridge.currentRequestContext(contextView),
+                        () -> supplier.get(contextView)));
+    }
+
+    @FunctionalInterface
+    private interface BlockingSupplier<T> {
+
+        T get(ContextView contextView) throws Exception;
     }
 }

@@ -13,6 +13,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
@@ -26,6 +27,7 @@ import org.springframework.web.servlet.HandlerInterceptor;
  * @Description: 请求级上下文拦截器，负责 requestId 与登录用户上下文的准备和清理。
  */
 @Component
+@ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
 public class RequestTraceInterceptor implements HandlerInterceptor {
 
     public static final String REQUEST_ID_KEY = "requestId";
