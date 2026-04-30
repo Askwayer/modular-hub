@@ -11,5 +11,7 @@ public enum AiStreamFlushReasonEnum {
     /* 最终落库 */
     FINAL,
     /* 错误触发 */
-    ERROR
+    ERROR,
+    /* 客户端取消 */
+    CANCELLED
 }

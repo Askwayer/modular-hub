@@ -24,8 +24,8 @@
 
 ### 2.1 技术栈
 
-- Web 层：`Spring MVC + SseEmitter`
-- 模型接入：`spring-ai-alibaba-starter-dashscope`
+- Web 层：`Spring WebFlux + NDJSON`
+- 模型接入：`vita-ai-spring-boot-starter`（当前正式支持 `qwen / kimi`）
 - 持久化：`MyBatis-Plus + MySQL`
 - 分布式协调：`RedisCache + Redisson`
 - 并发执行：`aiChatTaskExecutor` 独立线程池
@@ -51,10 +51,12 @@ flowchart LR
     Service --> Preparer["AiChatRequestPreparer"]
     Service --> Concurrency["AiChatConcurrencyCoordinator"]
     Service --> Outcome["AiChatOutcomeApplier"]
+    Service --> Reactive["AiChatReactiveBridge"]
     Service --> Stream["AiChatStreamProcessor"]
-    Service --> Writer["AiChatSseWriter"]
     Service --> Extractor["AiChatResponseExtractor"]
     Service --> Assembler["AiChatAssembler"]
+    Service --> Filter["AiChatReactiveContextFilter"]
+    Service --> Handler["AiChatReactiveExceptionHandler"]
 
     Concurrency --> RedisCoord["AiChatRedisCoordinator"]
     RedisCoord --> Redis["Redis / Redisson"]
@@ -62,7 +64,7 @@ flowchart LR
     Preparer --> MsgBuilder["AiChatMessageBuilder"]
     Preparer --> Domain["ai_conversation / ai_message / ai_chat_request / ai_conversation_summary"]
     Stream --> Batch["ai_message_stream_batch"]
-    Service --> Model["DashScope ChatModel"]
+    Service --> Model["Qwen / Kimi ChatModel"]
     Domain --> DB["MySQL"]
     Batch --> DB
 ```
@@ -71,16 +73,18 @@ flowchart LR
 
 | 组件 | 当前职责 |
 | --- | --- |
-| `AiChatController` | 暴露 `/chat/**` HTTP/SSE 接口，接收 DTO，返回 `CommonResult` 或 `SseEmitter` |
-| `AiChatServiceImpl` | 聚合同步/流式发送、并发治理、SSE 生命周期和结果回写 |
+| `AiChatController` | 暴露 `/chat/**` HTTP 接口；普通接口返回 `CommonResult`，流式接口返回 `Flux<CommonStreamResult<...>>` |
+| `AiChatServiceImpl` | 聚合同步/流式发送、并发治理、WebFlux 生命周期和结果回写 |
 | `AiChatRequestPreparer` | 将发送流程拆成“轻校验与 requestId 预留”以及“持久化消息/请求 + Prompt 组装”两段 |
 | `AiChatConcurrencyCoordinator` | 统一管理全局活跃并发、等待队列和会话级互斥锁 |
 | `AiChatRedisCoordinator` | 用 `RedisCache` 做 requestId 防重，用 `Redisson` 做 `RLock` 和 `RPermitExpirableSemaphore` |
-| `AiChatStreamProcessor` | 处理 `ChatModel.stream(prompt)` 的增量结果、批次聚合、SSE delta 事件和批次落库 |
+| `AiChatReactiveBridge` | 把 Reactor Context 中的 `requestId / LoginUserInfoModel` 桥接到 MDC 和 `LoginUserInfoModelContext`，并把阻塞段切到专用 scheduler |
+| `AiChatReactiveContextFilter` | 在 WebFlux 链路中解析 requestId、恢复登录用户并写入 Reactor Context |
+| `AiChatReactiveExceptionHandler` | 统一处理普通 JSON 错误和流式 NDJSON 首行错误响应 |
+| `AiChatStreamProcessor` | 处理 `ChatModel.stream(prompt)` 的增量结果、批次聚合、NDJSON delta 事件和批次落库 |
 | `AiChatOutcomeApplier` | 将成功/失败结果回写到消息表、请求表、会话表 |
 | `AiChatResponseExtractor` | 从 Spring AI `ChatResponse` 中抽取正文、推理内容、finish reason 和 usage |
 | `AiChatExceptionConverter` | 将网络异常、超时、限流等转换为统一业务异常 |
-| `AiChatSseWriter` | 统一封装 `CommonStreamResult` 的 SSE 成功/失败事件 |
 | `AiChatAssembler` | Entity 与 VO/DTO 转换，构建流式事件 VO |
 | `AiChatMessageBuilder` | 构建用户消息、助手占位消息、`AiChatRequest` 实体 |
 
@@ -99,7 +103,7 @@ flowchart LR
 
 - 路由域保持 `/chat/**` 不变
 - 同步接口返回普通 JSON
-- 流式接口返回 `SseEmitter`
+- 流式接口返回 `application/x-ndjson`
 - 所有会话和消息查询都按当前登录用户隔离
 
 ## 3. 表设计与拆分思路
@@ -154,7 +158,7 @@ flowchart LR
 - 新链路不再写入 `SUMMARY`，历史 `SUMMARY` 仅用于兼容迁移
 - `reply_to_id` 用于把助手消息关联回用户消息
 - `content` / `reasoning_content` 存最终聚合内容
-- `content_status` 数据库主状态仍以 `GENERATING`、`DONE`、`ERROR`、`CANCELLED` 为主；`WAITING` 主要用于流式 SSE 事件提示
+- `content_status` 数据库主状态仍以 `GENERATING`、`DONE`、`ERROR`、`CANCELLED` 为主；`WAITING` 主要用于流式等待提示
 - `stream_batch_count` 标记该消息最终累计了多少个批次
 
 ### 3.5 `ai_chat_request`
@@ -221,7 +225,7 @@ Prompt 构建时只会读取最新 `READY` 长期记忆，把它作为系统消�
 | `AiStreamFlushReasonEnum` | `TIME_WINDOW`, `CHAR_THRESHOLD`, `FINAL`, `ERROR` | 流式批次落库原因 |
 | `AiSummaryStatusEnum` | `NONE`, `READY`, `STALE`, `GENERATING` | 摘要状态 |
 | `AiTitleSourceEnum` | `AUTO`, `MANUAL` | 标题来源 |
-| `AiContentStatusEnum` | `WAITING`, `GENERATING`, `DONE`, `ERROR`, `CANCELLED` | 消息内容状态（含 SSE 事件中的等待提示） |
+| `AiContentStatusEnum` | `WAITING`, `GENERATING`, `DONE`, `ERROR`, `CANCELLED` | 消息内容状态（含 NDJSON 流事件中的等待提示） |
 
 ## 4. 并发治理与分布式协调
 
@@ -354,9 +358,8 @@ sequenceDiagram
     participant Service as AiChatServiceImpl
     participant Preparer as AiChatRequestPreparer
     participant Concurrency as AiChatConcurrencyCoordinator
-    participant Worker as aiChatTaskExecutor
     participant Stream as AiChatStreamProcessor
-    participant Model as DashScope ChatModel
+    participant Model as Qwen/Kimi ChatModel
     participant DB as MySQL
 
     Client->>Service: POST /messages/stream
@@ -364,28 +367,28 @@ sequenceDiagram
     Preparer->>DB: 校验会话 + requestId 防重预留
     Service->>Concurrency: tryAcquireCapacityForStream()
     alt 可立即开始
-        Service->>Worker: 提交流式生成任务
+        Service->>Service: 进入 reactive 流处理
     else 活跃名额已满
         Service->>Concurrency: tryAcquireWaitingPermit()
-        Service-->>Client: SSE waiting
+        Service-->>Client: NDJSON waiting
         Concurrency-->>Service: 异步回调 active permit
-        Service->>Worker: 提交流式生成任务
+        Service->>Service: 继续 reactive 流处理
     end
 
-    Worker->>Concurrency: acquireConversationLock()
-    Worker->>Preparer: prepareSendContext()
+    Service->>Concurrency: acquireConversationLock()
+    Service->>Preparer: prepareSendContext()
     Preparer->>DB: 写 USER / ASSISTANT 占位 / ai_chat_request / 更新 ai_conversation
-    Worker-->>Client: SSE message-start
-    Worker->>Stream: process()
+    Service-->>Client: NDJSON message-start
+    Service->>Stream: process()
     Stream->>Model: chatModel.stream(prompt)
     loop 增量输出
         Stream->>DB: ai_message_stream_batch 落库
         Stream-->>Client: message-delta / reasoning-delta
     end
-    Worker->>DB: applySuccess / applyFailure
-    Worker-->>Client: message-end / error
-    Worker->>Concurrency: releaseConversationLock()
-    Worker->>Concurrency: releaseActivePermit()
+    Service->>DB: applySuccess / applyFailure / applyCancelled
+    Service-->>Client: message-end / error
+    Service->>Concurrency: releaseConversationLock()
+    Service->>Concurrency: releaseActivePermit()
 ```
 
 关键特征：
@@ -394,7 +397,7 @@ sequenceDiagram
 - 如果超过并发阈值，先发 `waiting` 事件
 - 等待队列阶段不占用 `aiChatTaskExecutor` 工作线程
 
-### 5.5 SSE 事件协议
+### 5.5 NDJSON 事件协议
 
 当前事件名：
 
@@ -409,9 +412,10 @@ sequenceDiagram
 
 - `waiting`：`assistantMessageId` 可以为空，`contentStatus=WAITING`
 - `message-start`：表示已经拿到名额、拿到会话锁并完成预处理
-- `message-delta` / `reasoning-delta`：正文和推理增量分开发送
+- `message-delta` / `reasoning-delta`：正文和推理增量分开发送，每一行都是一个 `CommonStreamResult`
 - `message-end`：最终结束事件，附带 token 和 finish reason
-- `error`：容量不足、等待超时、线程池拒绝、模型异常等统一通过该事件返回
+- `error`：容量不足、等待超时、校验失败、未登录、模型异常等统一通过该事件返回
+- HTTP 形态：`Content-Type=application/x-ndjson`，不再依赖 SSE 的 `event:` 帧头，事件名放在 `CommonStreamResult.event`
 
 ## 6. 大模型请求构建与响应处理
 
@@ -496,7 +500,7 @@ sequenceDiagram
 - `AiChatResponseExtractor.extractChunk(response)`
 - `AiStreamBatchAccumulator` 聚合批次
 - `ai_message_stream_batch` 落库
-- `AiChatSseWriter` 推送 SSE
+- `AiChatStreamProcessor` 输出 NDJSON 事件
 - `AiChatOutcomeApplier` 回写最终结果
 
 ## 7. AI agent 相关知识点与演进边界
@@ -576,6 +580,10 @@ vita:
       keep-alive-seconds: 60
 
 spring:
+  main:
+    web-application-type: reactive
+  webflux:
+    base-path: /aichat/api
   ai:
     providers:
       qwen:
@@ -605,10 +613,10 @@ spring:
 
 当前 `vita-aichat` 的结论可以概括为：
 
-- 对外继续保持 Spring MVC + SSE
+- 对外使用 Spring WebFlux + NDJSON 流式接口
 - 对内统一通过 Spring AI 调用 Qwen / Kimi Provider 适配层
 - 存储上采用“最终消息主表 + 请求生命周期表 + 流式批次表”
 - 并发上采用“全局活跃名额 + 等待队列 + 会话级分布式锁”
-- 线程模型上采用 `aichat` 独立线程池，避免复用全局业务线程池
+- 线程模型上采用 `aichat` 独立 blocking scheduler + Reactor 流编排，避免阻塞 Netty event loop
 
 这使得当前系统已经能在多实例部署下正确支持“多人同时使用、同会话串行、超限等待提示”的 AI Chat 基础能力。

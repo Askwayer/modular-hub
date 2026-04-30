@@ -13,88 +13,27 @@
     <description>Starters Spring Boot</description>
 
     <modules>
+        <module>vita-captcha-spring-boot-starter</module>
+        <module>vita-file-spring-boot-starter</module>
+        <module>vita-i18n-spring-boot-starter</module>
+        <module>vita-poi-spring-boot-starter</module>
+        <module>vita-ai-spring-boot-starter</module>
     </modules>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <vita.starters.version>1.0.0-SNAPSHOT</vita.starters.version>
+        <easyexcel.version>4.0.3</easyexcel.version>
     </properties>
 
     <dependencyManagement>
         <dependencies>
-            <!-- 验证码 Starter -->
             <dependency>
-                <groupId>com.vita</groupId>
-                <artifactId>vita-captcha-spring-boot-starter</artifactId>
-                <version>${vita.starters.version}</version>
+                <groupId>com.alibaba</groupId>
+                <artifactId>easyexcel</artifactId>
+                <version>${easyexcel.version}</version>
             </dependency>
-            <!-- 文件上传/存储 Starter -->
-            <dependency>
-                <groupId>com.vita</groupId>
-                <artifactId>vita-file-spring-boot-starter</artifactId>
-                <version>${vita.starters.version}</version>
-            </dependency>
-            <!-- 国际化 Starter -->
-            <dependency>
-                <groupId>com.vita</groupId>
-                <artifactId>vita-i18n-spring-boot-starter</artifactId>
-                <version>${vita.starters.version}</version>
-            </dependency>
-            <!-- Excel/文档处理 Starter -->
-            <dependency>
-                <groupId>com.vita</groupId>
-                <artifactId>vita-poi-spring-boot-starter</artifactId>
-                <version>${vita.starters.version}</version>
-            </dependency>
-            <!-- Unified AI Starter -->
-            <dependency>
-                <groupId>com.vita</groupId>
-                <artifactId>vita-ai-spring-boot-starter</artifactId>
-                <version>${vita.starters.version}</version>
-            </dependency>
+
         </dependencies>
     </dependencyManagement>
 
-    <profiles>
-        <profile>
-            <id>starter-captcha</id>
-            <modules>
-                <module>vita-captcha-spring-boot-starter</module>
-            </modules>
-        </profile>
-        <profile>
-            <id>starter-file</id>
-            <modules>
-                <module>vita-file-spring-boot-starter</module>
-            </modules>
-        </profile>
-        <profile>
-            <id>starter-i18n</id>
-            <modules>
-                <module>vita-i18n-spring-boot-starter</module>
-            </modules>
-        </profile>
-        <profile>
-            <id>starter-poi</id>
-            <modules>
-                <module>vita-poi-spring-boot-starter</module>
-            </modules>
-        </profile>
-        <profile>
-            <id>starter-ai</id>
-            <modules>
-                <module>vita-ai-spring-boot-starter</module>
-            </modules>
-        </profile>
-        <profile>
-            <id>starter-all</id>
-            <modules>
-                <module>vita-captcha-spring-boot-starter</module>
-                <module>vita-file-spring-boot-starter</module>
-                <module>vita-i18n-spring-boot-starter</module>
-                <module>vita-poi-spring-boot-starter</module>
-                <module>vita-ai-spring-boot-starter</module>
-            </modules>
-        </profile>
-    </profiles>
 </project>

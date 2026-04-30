@@ -29,7 +29,7 @@ public class VitaAdminApplication {
     public static void main(String[] args) {
         SpringApplication app = new SpringApplication(VitaAdminApplication.class);
         ConfigurableEnvironment env = app.run(args).getEnvironment();
-        LOGGER.info("地址: \thttp://127.0.0.1:{}", env.getProperty("server.port"));
+        LOGGER.info("http-port:{}", env.getProperty("server.port"));
     }
 
 }

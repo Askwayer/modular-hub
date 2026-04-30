@@ -4,6 +4,7 @@ import org.mybatis.spring.annotation.MapperScan;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.SpringApplication;
+import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
@@ -26,7 +27,8 @@ public class VitaAIChatApplication {
 
     public static void main(String[] args) {
         SpringApplication app = new SpringApplication(VitaAIChatApplication.class);
+        app.setWebApplicationType(WebApplicationType.REACTIVE);
         ConfigurableEnvironment env = app.run(args).getEnvironment();
-        LOGGER.info("地址: \thttp://127.0.0.1:{}", env.getProperty("server.port"));
+        LOGGER.info("http-port:{}", env.getProperty("server.port"));
     }
 }

@@ -216,6 +216,18 @@
                 <artifactId>vita-ai-spring-boot-starter</artifactId>
                 <version>${vita.starters.version}</version>
             </dependency>
+            <!-- 国际化 -->
+            <dependency>
+                <groupId>com.vita</groupId>
+                <artifactId>vita-i18n-spring-boot-starter</artifactId>
+                <version>${vita.starters.version}</version>
+            </dependency>
+            <!-- 导入/导出 -->
+            <dependency>
+                <groupId>com.vita</groupId>
+                <artifactId>vita-poi-spring-boot-starter</artifactId>
+                <version>${vita.starters.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
