@@ -18,10 +18,23 @@
     </properties>
 
     <dependencies>
+        <!-- Web 支持，HTTP 服务、Tomcat 内嵌服务器 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
         <!-- 业务服务层（包含认证、RBAC、系统管理等） -->
         <dependency>
             <groupId>com.vita</groupId>
             <artifactId>vita-service</artifactId>
+        </dependency>
+
+        <!-- Spring Boot 测试框架 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
         </dependency>
 
     </dependencies>
@@ -39,7 +52,7 @@
                     </execution>
                 </executions>
                 <configuration>
-                    <mainClass>com.vita.config.VitaSchedulerApplication</mainClass>
+                    <mainClass>com.vita.config.VitaOpenApiApplication</mainClass>
                 </configuration>
             </plugin>
         </plugins>

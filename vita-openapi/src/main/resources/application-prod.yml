@@ -1,0 +1,45 @@
+# 项目相关配置
+vita:
+  name: vita
+  version: 1.0
+  copyrightYear: 2026
+  addressEnabled: true
+  http-port: 19002
+  mysql:
+    master:
+      host: 106.54.205.33
+      port: 3306
+      database: be_vita
+      username: root
+      password: WQO6D9ax#f*QPJup
+  redis:
+    enabled: true
+    open: true
+    host: 106.54.205.33
+    port: 6379
+    passwd: dhQjF6HJfn@&bF6!
+  sa-token:
+    token-name: Authorization
+    timeout: 3600
+    active-timeout: 3600
+    is-concurrent: true
+    is-share: false
+    is-log: true
+    token-prefix: Bearer
+    jwt-secret-key: wiki-kangLe-Cloud
+  hot:
+    enabled-sources:
+      - weibo
+      - zhihu
+      - baidu
+      - bilibili
+      - juejin
+      - ithome
+      - 36kr
+      - sspai
+    refresh-cron: 0 0/10 * * * ?
+    stale-threshold-minutes: 30
+    python:
+      base-url: http://127.0.0.1:8000
+      api-key: 4gqTA4cx5X*#I6QG
+      timeout-ms: 8000

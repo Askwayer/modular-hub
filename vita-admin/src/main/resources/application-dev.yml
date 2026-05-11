@@ -45,3 +45,19 @@ vita:
     token-prefix: Bearer
     # jwt秘钥
     jwt-secret-key: secret-key
+  hot:
+    enabled-sources:
+      - weibo
+      - zhihu
+      - baidu
+      - bilibili
+      - juejin
+      - ithome
+      - 36kr
+      - sspai
+    refresh-cron: 0 0/10 * * * ?
+    stale-threshold-minutes: 30
+    python:
+      base-url: http://127.0.0.1:8000
+      api-key: 4gqTA4cx5X*#I6QG
+      timeout-ms: 8000

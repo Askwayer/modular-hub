@@ -12,13 +12,12 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 /**
  * @BelongsProject: be-vita
  * @BelongsPackage: com.vita.config
- * @Author: znk
- * @CreateTime: 2026-03-02
- * @Description: vita admin 项目启动类
+ * @Author: Codex
+ * @CreateTime: 2026-05-11
+ * @Description: vita openapi 项目启动类
  * @Version: 1.0
  */
-@SpringBootApplication(
-        scanBasePackages = "com.vita")
+@SpringBootApplication(scanBasePackages = "com.vita")
 @MapperScan("com.vita.**.mapper")
 @EnableAsync
 @EnableTransactionManagement
@@ -31,5 +30,4 @@ public class VitaOpenApiApplication {
         ConfigurableEnvironment env = app.run(args).getEnvironment();
         LOGGER.info("http-port:{}", env.getProperty("server.port"));
     }
-
 }
