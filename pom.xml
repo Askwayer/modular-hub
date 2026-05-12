@@ -44,6 +44,7 @@
         <module>vita-admin</module>
         <module>vita-aichat</module>
         <module>vita-scheduler</module>
+        <module>vita-openapi</module>
     </modules>
 
     <dependencyManagement>

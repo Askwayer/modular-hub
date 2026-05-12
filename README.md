@@ -22,6 +22,7 @@ be-vita
 │   ├── vita-i18n-spring-boot-starter
 │   └── vita-poi-spring-boot-starter
 ├── vita-admin
+├── vita-openapi
 ├── vita-aichat
 ├── sql
 │   ├── init
@@ -37,15 +38,19 @@ be-vita
 - `vita-common`：公共基础模块，承载统一返回、异常、分页、MyBatis-Plus、Redisson、Sa-Token、工具类和基础模型。
 - `vita-service`：系统业务服务层，承载认证、RBAC、系统管理等核心业务。
 - `vita-admin`：管理端启动模块，入口类 `com.vita.config.VitaAdminApplication`，上下文路径 `/admin/api`。
+- `vita-openapi`：公开接口启动模块，入口类 `com.vita.config.VitaOpenApiApplication`，上下文路径 `/openapi/api`。
 - `vita-aichat`：AI Chat 启动模块，入口类 `com.vita.config.VitaAIChatApplication`，上下文路径 `/aichat/api`。
+- `vita-scheduler`：定时任务启动模块，入口类 `com.vita.config.VitaSchedulerApplication`，上下文路径 `/scheduler/api`。
 - `vita-generator`：代码生成器与模板模块，入口 `com.vita.config.CodeGenerator`。
 - `vita-starters`：starter 聚合父模块，通过 `starter-*` profile 挂载各个子 starter。
 
 主依赖链以根 `pom.xml` 为准：
 
 ```text
-vita-admin  -> vita-service -> vita-common
-vita-aichat -> vita-common
+vita-admin   -> vita-service -> vita-common
+vita-openapi -> vita-service -> vita-common
+vita-scheduler -> vita-service -> vita-common
+vita-aichat  -> vita-common
 ```
 
 ## 文档与脚本入口
@@ -65,7 +70,9 @@ vita-aichat -> vita-common
 - 打包全仓：`mvn clean package -DskipTests`
 - 运行全仓测试：`mvn test`
 - 启动管理端：`mvn -pl vita-admin -am spring-boot:run`
+- 启动公开接口：`mvn -pl vita-openapi -am spring-boot:run`
 - 启动 AI Chat：`mvn -pl vita-aichat -am spring-boot:run`
+- 启动调度端：`mvn -pl vita-scheduler -am spring-boot:run`
 - 执行公共模块测试：`mvn -pl vita-common -am test`
 - 执行业务层测试：`mvn -pl vita-service -am test`
 - 执行代码生成：`mvn -pl vita-generator -DskipTests exec:java -Dexec.mainClass=com.vita.config.CodeGenerator`
