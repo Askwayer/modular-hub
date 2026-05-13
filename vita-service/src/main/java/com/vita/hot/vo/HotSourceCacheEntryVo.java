@@ -21,13 +21,19 @@ public class HotSourceCacheEntryVo implements Serializable {
 
     private String sourceCode;
 
+    private String routeCode;
+
     private String sourceName;
+
+    private String sourceType;
 
     private String fetchedAt;
 
     private String cachedAt;
 
     private String lastError;
+
+    private Boolean snapshotReady;
 
     private List<HotItemVo> items = new ArrayList<>();
 }

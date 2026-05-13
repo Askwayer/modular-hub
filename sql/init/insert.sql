@@ -181,7 +181,15 @@ VALUES (2001, '用户管理查看', 'system:user:view', 'MENU_ACTION', 1001, NUL
        (2029, '登录日志删除', 'system:login-log:delete', 'MENU_ACTION', NULL, 'DELETE',
         '/system/sysLoginLog/delete', 'system:login-log:delete', 82, 1, 1, 0, 0,
         '2026-04-02 00:00:00', 1, 'system', '2026-04-02 00:00:00', 1, 'system',
-        0, '登录日志删除权限');
+        0, '登录日志删除权限'),
+       (2030, '热搜缓存查看', 'system:hot-cache:view', 'MENU_ACTION', NULL, 'GET',
+        '/system/hot/cache/status', 'system:hot-cache:view', 91, 1, 1, 0, 0,
+        '2026-04-02 00:00:00', 1, 'system', '2026-04-02 00:00:00', 1, 'system',
+        0, '涵盖热搜缓存状态查询'),
+       (2031, '热搜缓存刷新', 'system:hot-cache:refresh', 'MENU_ACTION', NULL, 'POST',
+        '/system/hot/cache/refresh,/system/hot/cache/refreshAll', 'system:hot-cache:refresh', 92, 1, 1, 0, 0,
+        '2026-04-02 00:00:00', 1, 'system', '2026-04-02 00:00:00', 1, 'system',
+        0, '涵盖单源刷新与全量刷新');
 
 -- ----------------------------
 -- Records of sys_user_role
@@ -285,6 +293,12 @@ VALUES (5001, 1, 2001, 0, 0, '2026-04-02 00:00:00',
        (5031, 1, 2028, 0, 0, '2026-04-02 00:00:00',
         1, 'system', '2026-04-02 00:00:00', 1, 'system', 0),
        (5032, 1, 2029, 0, 0, '2026-04-02 00:00:00',
+        1, 'system', '2026-04-02 00:00:00', 1, 'system', 0),
+       (5033, 1, 2030, 0, 0, '2026-04-02 00:00:00',
+        1, 'system', '2026-04-02 00:00:00', 1, 'system', 0),
+       (5034, 1, 2031, 0, 0, '2026-04-02 00:00:00',
+        1, 'system', '2026-04-02 00:00:00', 1, 'system', 0),
+       (5035, 2, 2030, 0, 0, '2026-04-02 00:00:00',
         1, 'system', '2026-04-02 00:00:00', 1, 'system', 0);
 
 SET

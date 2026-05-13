@@ -13,7 +13,7 @@ import java.util.List;
  * @BelongsProject: be-vita
  * @BelongsPackage: com.vita.scheduler.task
  * @Author: Codex
- * @CreateTime: 2026-05-11
+ * @CreateTime: 2026-05-12
  * @Description: 热榜缓存定时刷新任务
  * @Version: 1.0
  */
@@ -31,7 +31,7 @@ public class HotCacheRefreshTask {
     /**
      * 定时刷新全部启用热榜缓存。
      */
-    @Scheduled(cron = "${vita.hot.refresh-cron:0 0/10 * * * ?}")
+        @Scheduled(cron = "${vita.hot.refresh-cron:0 0/15 * * * ?}")
     public void refreshAllEnabledSources() {
         List<HotSourceStatusVo> statusList = hotSourceService.refreshAllEnabledSources();
         LOGGER.info("热榜缓存刷新完成，sourceCount={}", statusList.size());

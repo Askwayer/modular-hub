@@ -9,7 +9,7 @@ vita:
   # 获取地址开关
   addressEnabled: true
   # 服务端口
-  http-port: 19001
+  http-port: 19005
   # mysql 配置
   mysql:
     master:
@@ -46,18 +46,10 @@ vita:
     # jwt秘钥
     jwt-secret-key: secret-key
   hot:
-    enabled-sources:
-      - weibo
-      - zhihu
-      - baidu
-      - bilibili
-      - juejin
-      - ithome
-      - 36kr
-      - sspai
-    refresh-cron: 0 0/10 * * * ?
-    stale-threshold-minutes: 30
-    python:
-      base-url: http://127.0.0.1:8000
+    refresh-cron: 0 0/15 * * * ?
+    refresh-parallelism: 6
+    stale-threshold-minutes: 20
+    daily-hot-api:
+      base-url: http://127.0.0.1:18000
       api-key: 4gqTA4cx5X*#I6QG
       timeout-ms: 8000
