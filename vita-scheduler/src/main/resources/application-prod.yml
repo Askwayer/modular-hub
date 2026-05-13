@@ -46,7 +46,6 @@ vita:
     # jwt秘钥
     jwt-secret-key: wiki-kangLe-Cloud
   hot:
-    refresh-cron: 0 0/15 * * * ?
     refresh-parallelism: 6
     stale-threshold-minutes: 20
     registry-cache-ttl-minutes: 1440

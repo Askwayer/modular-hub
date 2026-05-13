@@ -20,7 +20,6 @@ public final class HotConstants {
     public static final long HOT_CACHE_TTL_MINUTES = 20L;
     public static final long DEFAULT_REGISTRY_CACHE_TTL_MINUTES = 24 * 60L;
     public static final long HOT_REFRESH_LOCK_LEASE_SECONDS = 300L;
-    public static final String DEFAULT_REFRESH_CRON = "0 0/15 * * * ?";
     public static final long DEFAULT_STALE_THRESHOLD_MINUTES = 20L;
     public static final int DEFAULT_REFRESH_PARALLELISM = 6;
 

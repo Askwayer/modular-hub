@@ -91,18 +91,16 @@ public class HotSourceServiceImpl implements IHotSourceService {
     }
 
     @Override
-    public HotRefreshExecutionResult refreshAllEnabledSourcesForScheduler() {
+    public HotRefreshExecutionResult refreshAllEnabledSourcesWithFallback() {
         SourceDefinitionsLoadResult loadResult = loadSourceDefinitionsForRefresh(true);
         if (!loadResult.available()) {
-            return new HotRefreshExecutionResult(CollUtil.newArrayList(), false, false, true);
+            return HotRefreshExecutionResult.skipped();
         }
         List<HotSourceStatusVo> statusList = refreshLoadedSources(loadResult.sourceDefinitions());
-        return new HotRefreshExecutionResult(
-                statusList,
-                loadResult.loadedFromRemote(),
-                loadResult.loadedFromCache(),
-                false
-        );
+        if (loadResult.loadedFromCache()) {
+            return HotRefreshExecutionResult.cacheFallback(statusList);
+        }
+        return HotRefreshExecutionResult.remote(statusList);
     }
 
     @Override

@@ -47,11 +47,11 @@ public interface IHotSourceService {
     List<HotSourceStatusVo> refreshAllEnabledSources();
 
     /**
-     * 定时任务专用的全部热榜刷新入口。
+     * 带容错的全部热榜刷新入口。
      *
      * @return 刷新执行结果
      */
-    HotRefreshExecutionResult refreshAllEnabledSourcesForScheduler();
+    HotRefreshExecutionResult refreshAllEnabledSourcesWithFallback();
 
     /**
      * 查询全部启用源缓存状态。

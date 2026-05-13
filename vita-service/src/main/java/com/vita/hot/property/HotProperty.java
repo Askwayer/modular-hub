@@ -27,11 +27,6 @@ public class HotProperty {
     private List<String> enabledSources = new ArrayList<>();
 
     /**
-     * 热榜数据刷新 Cron 表达式
-     */
-    private String refreshCron = HotConstants.DEFAULT_REFRESH_CRON;
-
-    /**
      * 数据过时阈值（分钟）
      */
     private Long staleThresholdMinutes = HotConstants.DEFAULT_STALE_THRESHOLD_MINUTES;
