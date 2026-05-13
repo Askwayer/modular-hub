@@ -21,18 +21,23 @@ import java.util.List;
 @ConfigurationProperties(prefix = "vita.hot")
 public class HotProperty {
 
-    private List<String> enabledSources = new ArrayList<>(HotConstants.DEFAULT_ENABLED_SOURCES);
+    /**
+     * 启用的热榜数据源列表
+     */
+    private List<String> enabledSources = new ArrayList<>();
 
+    /**
+     * 热榜数据刷新 Cron 表达式
+     */
     private String refreshCron = HotConstants.DEFAULT_REFRESH_CRON;
 
+    /**
+     * 数据过时阈值（分钟）
+     */
     private Long staleThresholdMinutes = HotConstants.DEFAULT_STALE_THRESHOLD_MINUTES;
 
-    private Python python = new Python();
-
-    @Data
-    public static class Python {
-        private String baseUrl = "http://127.0.0.1:8000";
-        private String apiKey;
-        private Integer timeoutMs = 8000;
-    }
+    /**
+     * 刷新任务并行度
+     */
+    private Integer refreshParallelism = HotConstants.DEFAULT_REFRESH_PARALLELISM;
 }

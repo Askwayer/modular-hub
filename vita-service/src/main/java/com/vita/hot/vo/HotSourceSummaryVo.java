@@ -19,9 +19,19 @@ public class HotSourceSummaryVo implements Serializable {
 
     private String sourceCode;
 
+    private String routeCode;
+
+    private String iconKey;
+
     private String sourceName;
 
+    private String sourceType;
+
+    private String description;
+
     private Boolean enabled;
+
+    private Boolean defaultVisible;
 
     private Boolean cached;
 

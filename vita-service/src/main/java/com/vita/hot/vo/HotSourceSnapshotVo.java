@@ -21,7 +21,11 @@ public class HotSourceSnapshotVo implements Serializable {
 
     private String sourceCode;
 
+    private String routeCode;
+
     private String sourceName;
+
+    private String sourceType;
 
     private String fetchedAt;
 

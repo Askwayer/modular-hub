@@ -369,6 +369,7 @@ List<RouterVo>           // 前端路由树
 - `system:permission:view/add/update/delete`
 - `system:dept:view/add/update/delete`
 - `system:ip-block:view/add/update/delete`
+- `system:hot-cache:view/refresh`
 - `system:oper-log:view/delete`
 - `system:login-log:view/delete`
 
@@ -377,6 +378,12 @@ List<RouterVo>           // 前端路由树
 - 全部 `/system/*` 控制器都应落 `@SaCheckPermission`
 - `/auth/*` 不加 `@SaCheckPermission`
 - `SysOperLogController`、`SysLoginLogController` 只保留读和删，不对外暴露 `add/update`
+
+热搜缓存接口映射：
+
+- `GET /system/hot/cache/status` -> `system:hot-cache:view`
+- `POST /system/hot/cache/refresh` -> `system:hot-cache:refresh`
+- `POST /system/hot/cache/refreshAll` -> `system:hot-cache:refresh`
 
 ---
 

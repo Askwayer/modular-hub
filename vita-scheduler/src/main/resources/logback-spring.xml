@@ -19,7 +19,7 @@
 
     <springProfile name="!prod">
         <!-- 日志目录 -->
-        <property name="LOG_HOME" value="./logs/vita-admin"/>
+        <property name="LOG_HOME" value="./logs/vita-scheduler"/>
 
         <!-- 普通业务日志 -->
         <appender name="FILE_INFO" class="ch.qos.logback.core.rolling.RollingFileAppender">

@@ -1,10 +1,12 @@
 package com.vita.controller.hot;
 
+import cn.dev33.satoken.annotation.SaCheckPermission;
 import com.vita.core.CommonResult;
 import com.vita.core.controller.BaseController;
 import com.vita.hot.service.IHotSourceService;
 import com.vita.hot.vo.HotSourceSnapshotVo;
 import com.vita.hot.vo.HotSourceStatusVo;
+import jakarta.validation.constraints.NotBlank;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,7 +22,7 @@ import java.util.List;
  */
 @Validated
 @RestController
-@RequestMapping("/hot/cache")
+@RequestMapping("/system/hot/cache")
 public class HotCacheController extends BaseController {
 
     private final IHotSourceService hotSourceService;
@@ -36,7 +38,8 @@ public class HotCacheController extends BaseController {
      * @return 刷新后的快照
      */
     @PostMapping("/refresh")
-    public CommonResult<HotSourceSnapshotVo> refresh(@RequestParam("sourceCode") String sourceCode) {
+    @SaCheckPermission("system:hot-cache:refresh")
+    public CommonResult<HotSourceSnapshotVo> refresh(@RequestParam("sourceCode") @NotBlank(message = "sourceCode不能为空") String sourceCode) {
         return CommonResult.success(hotSourceService.refreshSource(sourceCode));
     }
 
@@ -46,6 +49,7 @@ public class HotCacheController extends BaseController {
      * @return 刷新后的状态列表
      */
     @PostMapping("/refreshAll")
+    @SaCheckPermission("system:hot-cache:refresh")
     public CommonResult<List<HotSourceStatusVo>> refreshAll() {
         return CommonResult.success(hotSourceService.refreshAllEnabledSources());
     }
@@ -56,6 +60,7 @@ public class HotCacheController extends BaseController {
      * @return 状态列表
      */
     @GetMapping("/status")
+    @SaCheckPermission("system:hot-cache:view")
     public CommonResult<List<HotSourceStatusVo>> status() {
         return CommonResult.success(hotSourceService.listCacheStatus());
     }
