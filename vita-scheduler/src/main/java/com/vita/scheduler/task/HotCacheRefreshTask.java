@@ -1,13 +1,11 @@
 package com.vita.scheduler.task;
 
+import com.vita.hot.service.HotRefreshExecutionResult;
 import com.vita.hot.service.IHotSourceService;
-import com.vita.hot.vo.HotSourceStatusVo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-
-import java.util.List;
 
 /**
  * @BelongsProject: be-vita
@@ -31,9 +29,18 @@ public class HotCacheRefreshTask {
     /**
      * 定时刷新全部启用热榜缓存。
      */
-        @Scheduled(cron = "${vita.hot.refresh-cron:0 0/15 * * * ?}")
+    @Scheduled(cron = "${vita.hot.refresh-cron:0 0/15 * * * ?}")
     public void refreshAllEnabledSources() {
-        List<HotSourceStatusVo> statusList = hotSourceService.refreshAllEnabledSources();
-        LOGGER.info("热榜缓存刷新完成，sourceCount={}", statusList.size());
+        LOGGER.info("热榜缓存定时刷新开始，step=fetch-source-registry");
+        HotRefreshExecutionResult result = hotSourceService.refreshAllEnabledSourcesForScheduler();
+        if (result.skipped()) {
+            LOGGER.warn("热榜缓存定时刷新跳过，reason=source-registry-unavailable-without-cache");
+            return;
+        }
+        if (result.registryFallbackToCache()) {
+            LOGGER.warn("热榜缓存定时刷新完成，sourceCount={}, registrySource=cache", result.statusList().size());
+            return;
+        }
+        LOGGER.info("热榜缓存定时刷新完成，sourceCount={}, registrySource=remote", result.statusList().size());
     }
 }

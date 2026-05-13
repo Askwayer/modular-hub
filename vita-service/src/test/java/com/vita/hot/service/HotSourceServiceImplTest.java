@@ -49,6 +49,7 @@ class HotSourceServiceImplTest {
         hotProperty = new HotProperty();
         hotProperty.setEnabledSources(List.of());
         hotProperty.setStaleThresholdMinutes(20L);
+        hotProperty.setRegistryCacheTtlMinutes(24 * 60L);
         hotProperty.setRefreshParallelism(2);
         hotSourceService = new HotSourceServiceImpl(hotProperty, redisCache, redissonClient, hotEngineClient);
     }
@@ -117,7 +118,7 @@ class HotSourceServiceImplTest {
         assertTrue(redisCache.getCacheObject(HotConstants.buildSourceCacheKey("weibo")) instanceof HotSourceCacheEntryVo);
         assertEquals(HotConstants.HOT_CACHE_TTL_MINUTES,
                 redisCache.getTimeout(HotConstants.buildSourceCacheKey("weibo"), TimeUnit.MINUTES));
-        assertEquals(HotConstants.HOT_CACHE_TTL_MINUTES,
+        assertEquals(hotProperty.getRegistryCacheTtlMinutes(),
                 redisCache.getTimeout(HotConstants.HOT_SOURCE_REGISTRY_CACHE_KEY, TimeUnit.MINUTES));
         assertEquals(1, hotEngineClient.registryFetchCount);
         assertEquals(1, hotEngineClient.snapshotFetchCount);
@@ -177,6 +178,36 @@ class HotSourceServiceImplTest {
         assertEquals("refresh failed", result.get(0).getLastError());
         assertFalse(result.get(1).getCached());
         assertEquals(0, hotEngineClient.registryFetchCount);
+    }
+
+    @Test
+    void refreshAllEnabledSourcesForSchedulerShouldFallbackToCachedRegistryWhenRemoteRegistryFails() {
+        redisCache.setCacheObject(HotConstants.HOT_SOURCE_REGISTRY_CACHE_KEY, buildRegistry());
+        hotEngineClient.registryException = new ServiceException(GlobalErrorCode.SERVICE_UNAVAILABLE.getCode(), "registry down");
+        hotEngineClient.snapshot = buildRemoteSnapshot("weibo");
+
+        HotRefreshExecutionResult result = hotSourceService.refreshAllEnabledSourcesForScheduler();
+
+        assertFalse(result.skipped());
+        assertFalse(result.registryFetchedFromRemote());
+        assertTrue(result.registryFallbackToCache());
+        assertEquals(2, result.statusList().size());
+        assertEquals(1, hotEngineClient.registryFetchCount);
+        assertEquals(2, hotEngineClient.snapshotFetchCount);
+    }
+
+    @Test
+    void refreshAllEnabledSourcesForSchedulerShouldSkipWhenRegistryUnavailableWithoutCache() {
+        hotEngineClient.registryException = new ServiceException(GlobalErrorCode.SERVICE_UNAVAILABLE.getCode(), "registry down");
+
+        HotRefreshExecutionResult result = hotSourceService.refreshAllEnabledSourcesForScheduler();
+
+        assertTrue(result.skipped());
+        assertFalse(result.registryFetchedFromRemote());
+        assertFalse(result.registryFallbackToCache());
+        assertTrue(result.statusList().isEmpty());
+        assertEquals(1, hotEngineClient.registryFetchCount);
+        assertEquals(0, hotEngineClient.snapshotFetchCount);
     }
 
     private HotSourceRegistryVo buildRegistry() {

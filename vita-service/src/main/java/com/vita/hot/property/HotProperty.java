@@ -37,6 +37,11 @@ public class HotProperty {
     private Long staleThresholdMinutes = HotConstants.DEFAULT_STALE_THRESHOLD_MINUTES;
 
     /**
+     * 源目录缓存 TTL（分钟）
+     */
+    private Long registryCacheTtlMinutes = HotConstants.DEFAULT_REGISTRY_CACHE_TTL_MINUTES;
+
+    /**
      * 刷新任务并行度
      */
     private Integer refreshParallelism = HotConstants.DEFAULT_REFRESH_PARALLELISM;

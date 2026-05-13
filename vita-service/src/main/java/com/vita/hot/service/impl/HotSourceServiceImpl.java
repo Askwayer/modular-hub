@@ -10,6 +10,7 @@ import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
 import com.vita.hot.constant.HotConstants;
 import com.vita.hot.property.HotProperty;
+import com.vita.hot.service.HotRefreshExecutionResult;
 import com.vita.hot.service.IHotSourceService;
 import com.vita.hot.support.HotEngineClient;
 import com.vita.hot.vo.*;
@@ -82,7 +83,34 @@ public class HotSourceServiceImpl implements IHotSourceService {
 
     @Override
     public List<HotSourceStatusVo> refreshAllEnabledSources() {
-        List<HotSourceDefinitionVo> sourceDefinitions = loadSourceDefinitions(true);
+        SourceDefinitionsLoadResult loadResult = loadSourceDefinitionsForRefresh(true);
+        if (!loadResult.available()) {
+            throw loadResult.exception();
+        }
+        return refreshLoadedSources(loadResult.sourceDefinitions());
+    }
+
+    @Override
+    public HotRefreshExecutionResult refreshAllEnabledSourcesForScheduler() {
+        SourceDefinitionsLoadResult loadResult = loadSourceDefinitionsForRefresh(true);
+        if (!loadResult.available()) {
+            return new HotRefreshExecutionResult(CollUtil.newArrayList(), false, false, true);
+        }
+        List<HotSourceStatusVo> statusList = refreshLoadedSources(loadResult.sourceDefinitions());
+        return new HotRefreshExecutionResult(
+                statusList,
+                loadResult.loadedFromRemote(),
+                loadResult.loadedFromCache(),
+                false
+        );
+    }
+
+    @Override
+    public List<HotSourceStatusVo> listCacheStatus() {
+        return buildViewList(getCachedSourceDefinitions(), this::buildStatus);
+    }
+
+    private List<HotSourceStatusVo> refreshLoadedSources(List<HotSourceDefinitionVo> sourceDefinitions) {
         if (CollUtil.isEmpty(sourceDefinitions)) {
             return CollUtil.newArrayList();
         }
@@ -112,11 +140,6 @@ public class HotSourceServiceImpl implements IHotSourceService {
             executor.shutdown();
         }
         return buildViewList(sourceDefinitions, this::buildStatus);
-    }
-
-    @Override
-    public List<HotSourceStatusVo> listCacheStatus() {
-        return buildViewList(getCachedSourceDefinitions(), this::buildStatus);
     }
 
     private void refreshSilently(HotSourceDefinitionVo sourceDefinition) {
@@ -238,7 +261,11 @@ public class HotSourceServiceImpl implements IHotSourceService {
 
     private HotSourceDefinitionVo resolveSourceDefinition(String sourceCode, boolean forceSync) {
         String normalizedSourceCode = normalizeSourceCode(sourceCode);
-        List<HotSourceDefinitionVo> sourceDefinitions = loadSourceDefinitions(forceSync);
+        SourceDefinitionsLoadResult loadResult = loadSourceDefinitionsForRefresh(forceSync);
+        if (!loadResult.available()) {
+            throw loadResult.exception();
+        }
+        List<HotSourceDefinitionVo> sourceDefinitions = loadResult.sourceDefinitions();
         for (HotSourceDefinitionVo sourceDefinition : sourceDefinitions) {
             if (CharSequenceUtil.equals(normalizedSourceCode, sourceDefinition.getSourceCode())) {
                 return sourceDefinition;
@@ -253,19 +280,19 @@ public class HotSourceServiceImpl implements IHotSourceService {
     /**
      * 刷新链路优先回源同步热榜源目录，并在失败时回退到最近一次缓存目录。
      */
-    private List<HotSourceDefinitionVo> loadSourceDefinitions(boolean forceSync) {
+    private SourceDefinitionsLoadResult loadSourceDefinitionsForRefresh(boolean forceSync) {
         if (forceSync) {
             try {
-                return syncSourceDefinitions();
+                return SourceDefinitionsLoadResult.loadedFromRemote(syncSourceDefinitions());
             } catch (ServiceException ex) {
                 List<HotSourceDefinitionVo> cachedSourceDefinitions = getCachedSourceDefinitions();
                 if (CollUtil.isNotEmpty(cachedSourceDefinitions)) {
-                    return cachedSourceDefinitions;
+                    return SourceDefinitionsLoadResult.loadedFromCache(cachedSourceDefinitions, ex);
                 }
-                throw ex;
+                return SourceDefinitionsLoadResult.unavailable(ex);
             }
         }
-        return getCachedSourceDefinitions();
+        return SourceDefinitionsLoadResult.loadedFromCache(getCachedSourceDefinitions(), null);
     }
 
     /**
@@ -343,9 +370,17 @@ public class HotSourceServiceImpl implements IHotSourceService {
         redisCache.setCacheObject(
                 HotConstants.HOT_SOURCE_REGISTRY_CACHE_KEY,
                 cacheRegistry,
-                HotConstants.HOT_CACHE_TTL_MINUTES,
+                resolveRegistryCacheTtlMinutes(),
                 TimeUnit.MINUTES
         );
+    }
+
+    private long resolveRegistryCacheTtlMinutes() {
+        Long configuredTtl = hotProperty.getRegistryCacheTtlMinutes();
+        if (configuredTtl == null || configuredTtl <= 0) {
+            return HotConstants.DEFAULT_REGISTRY_CACHE_TTL_MINUTES;
+        }
+        return configuredTtl;
     }
 
     private boolean isSnapshotReady(HotSourceCacheEntryVo cacheEntry) {
@@ -429,5 +464,30 @@ public class HotSourceServiceImpl implements IHotSourceService {
 
     private Integer getItemCount(HotSourceCacheEntryVo cacheEntry) {
         return cacheEntry == null ? 0 : copyItems(cacheEntry.getItems()).size();
+    }
+
+    private record SourceDefinitionsLoadResult(
+            List<HotSourceDefinitionVo> sourceDefinitions,
+            boolean loadedFromRemote,
+            boolean loadedFromCache,
+            ServiceException exception
+    ) {
+
+        private static SourceDefinitionsLoadResult loadedFromRemote(List<HotSourceDefinitionVo> sourceDefinitions) {
+            return new SourceDefinitionsLoadResult(sourceDefinitions, true, false, null);
+        }
+
+        private static SourceDefinitionsLoadResult loadedFromCache(List<HotSourceDefinitionVo> sourceDefinitions,
+                                                                  ServiceException exception) {
+            return new SourceDefinitionsLoadResult(sourceDefinitions, false, true, exception);
+        }
+
+        private static SourceDefinitionsLoadResult unavailable(ServiceException exception) {
+            return new SourceDefinitionsLoadResult(CollUtil.newArrayList(), false, false, exception);
+        }
+
+        private boolean available() {
+            return exception == null || CollUtil.isNotEmpty(sourceDefinitions);
+        }
     }
 }

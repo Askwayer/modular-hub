@@ -1,3 +1,10 @@
 {
-  "properties": []
+  "properties": [
+    {
+      "name": "vita.hot.registry-cache-ttl-minutes",
+      "type": "java.lang.Long",
+      "description": "源目录缓存保留时长，单位分钟。",
+      "defaultValue": 1440
+    }
+  ]
 }
