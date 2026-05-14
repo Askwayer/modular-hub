@@ -1,37 +1,30 @@
 package com.vita.hot.service.impl;
 
-import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.text.CharSequenceUtil;
-import cn.hutool.core.util.BooleanUtil;
 import cn.hutool.core.util.ObjectUtil;
 import com.vita.core.RedisCache;
 import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
 import com.vita.hot.constant.HotConstants;
 import com.vita.hot.property.HotProperty;
-import com.vita.hot.service.HotRefreshExecutionResult;
 import com.vita.hot.service.IHotSourceService;
 import com.vita.hot.support.HotEngineClient;
-import com.vita.hot.vo.*;
+import com.vita.hot.vo.HotEngineHealthVo;
+import com.vita.hot.vo.HotSourceSnapshotVo;
+import com.vita.hot.vo.HotSourceStatusVo;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
 
-import java.time.Duration;
-import java.time.Instant;
-import java.time.format.DateTimeParseException;
-import java.util.ArrayList;
-import java.util.LinkedHashSet;
+import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Set;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
+import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.function.BiFunction;
 
 /**
  * @BelongsProject: be-vita
@@ -50,131 +43,124 @@ public class HotSourceServiceImpl implements IHotSourceService {
     private final RedisCache redisCache;
     private final RedissonClient redissonClient;
     private final HotEngineClient hotEngineClient;
+    private final ThreadPoolTaskExecutor threadPoolTaskExecutor;
 
+    /**
+     * 构造函数注入热榜相关依赖
+     *
+     * @param hotProperty     热榜配置属性对象
+     * @param redisCache      Redis缓存操作工具
+     * @param redissonClient  Redisson客户端，用于分布式锁等功能
+     * @param hotEngineClient 热榜引擎客户端，用于调用Python服务
+     */
     public HotSourceServiceImpl(HotProperty hotProperty,
                                 RedisCache redisCache,
                                 RedissonClient redissonClient,
-                                HotEngineClient hotEngineClient) {
+                                HotEngineClient hotEngineClient, ThreadPoolTaskExecutor threadPoolTaskExecutor) {
         this.hotProperty = hotProperty;
         this.redisCache = redisCache;
         this.redissonClient = redissonClient;
         this.hotEngineClient = hotEngineClient;
+        this.threadPoolTaskExecutor = threadPoolTaskExecutor;
     }
 
+
+    /**
+     * 检查热榜引擎服务的健康状态
+     *
+     * @return 热榜引擎健康状态信息
+     */
     @Override
-    public List<HotSourceSummaryVo> listCachedSources() {
-        return buildViewList(getCachedSourceDefinitions(), this::buildSummary);
-    }
-
-    @Override
-    public HotSourceSnapshotVo getCachedSource(String sourceCode) {
-        HotSourceCacheEntryVo cacheEntry = getCacheEntry(normalizeSourceCode(sourceCode));
-        if (!isSnapshotReady(cacheEntry)) {
-            throw new ServiceException(GlobalErrorCode.SERVICE_UNAVAILABLE.getCode(), "热榜缓存未就绪，请稍后重试");
-        }
-        return buildSnapshot(cacheEntry);
-    }
-
-    @Override
-    public HotSourceSnapshotVo refreshSource(String sourceCode) {
-        HotSourceDefinitionVo sourceDefinition = resolveSourceDefinition(sourceCode, true);
-        return refreshSourceInternal(sourceDefinition);
-    }
-
-    @Override
-    public List<HotSourceStatusVo> refreshAllEnabledSources() {
-        SourceDefinitionsLoadResult loadResult = loadSourceDefinitionsForRefresh(true);
-        if (!loadResult.available()) {
-            throw loadResult.exception();
-        }
-        return refreshLoadedSources(loadResult.sourceDefinitions());
-    }
-
-    @Override
-    public HotRefreshExecutionResult refreshAllEnabledSourcesWithFallback() {
-        SourceDefinitionsLoadResult loadResult = loadSourceDefinitionsForRefresh(true);
-        if (!loadResult.available()) {
-            return HotRefreshExecutionResult.skipped();
-        }
-        List<HotSourceStatusVo> statusList = refreshLoadedSources(loadResult.sourceDefinitions());
-        if (loadResult.loadedFromCache()) {
-            return HotRefreshExecutionResult.cacheFallback(statusList);
-        }
-        return HotRefreshExecutionResult.remote(statusList);
-    }
-
-    @Override
-    public List<HotSourceStatusVo> listCacheStatus() {
-        return buildViewList(getCachedSourceDefinitions(), this::buildStatus);
-    }
-
-    private List<HotSourceStatusVo> refreshLoadedSources(List<HotSourceDefinitionVo> sourceDefinitions) {
-        if (CollUtil.isEmpty(sourceDefinitions)) {
-            return CollUtil.newArrayList();
-        }
-
-        int parallelism = resolveRefreshParallelism(sourceDefinitions.size());
-        if (parallelism <= 1 || sourceDefinitions.size() <= 1) {
-            for (HotSourceDefinitionVo sourceDefinition : sourceDefinitions) {
-                refreshSilently(sourceDefinition);
-            }
-            return buildViewList(sourceDefinitions, this::buildStatus);
-        }
-
-        ExecutorService executor = Executors.newFixedThreadPool(parallelism);
-        try {
-            List<Future<?>> futures = new ArrayList<>(sourceDefinitions.size());
-            for (HotSourceDefinitionVo sourceDefinition : sourceDefinitions) {
-                futures.add(executor.submit(() -> refreshSilently(sourceDefinition)));
-            }
-            for (Future<?> future : futures) {
-                try {
-                    future.get();
-                } catch (Exception ex) {
-                    LOGGER.warn("等待热榜缓存刷新任务完成失败", ex);
-                }
-            }
-        } finally {
-            executor.shutdown();
-        }
-        return buildViewList(sourceDefinitions, this::buildStatus);
-    }
-
-    private void refreshSilently(HotSourceDefinitionVo sourceDefinition) {
-        try {
-            refreshSourceInternal(sourceDefinition);
-        } catch (ServiceException ex) {
-            LOGGER.warn("刷新热榜缓存失败，sourceCode={}, message={}", sourceDefinition.getSourceCode(), ex.getMessage());
-        }
+    public HotEngineHealthVo health() {
+        return hotEngineClient.getHealthStatus();
     }
 
     /**
-     * 在分布式锁保护下刷新单个热榜源，并把最新快照写回 Redis。
+     * 刷新热榜源注册表信息并写入Redis缓存
+     * 从热榜引擎获取所有可用的热榜源列表并更新到缓存中
+     *
+     * @return 刷新后的热榜源代码列表
      */
-    private HotSourceSnapshotVo refreshSourceInternal(HotSourceDefinitionVo sourceDefinition) {
-        RLock lock = redissonClient.getLock(HotConstants.buildRefreshLockKey(sourceDefinition.getSourceCode()));
+    @Override
+    public Long refreshSourceRegistry() {
+        HotSourceSnapshotVo vo = hotEngineClient.fetchSourceSnapshot("sources");
+        Long size = 0L;
+        if (CollUtil.isEmpty(vo.getSources())) {
+            return size;
+        }
+        List<String> list = vo.getSources().stream()
+                .filter(Objects::nonNull)
+                // 提取源代码字段
+                .map(HotSourceSnapshotVo::getSourceCode)
+                // 过滤 null 和空白字符串
+                .filter(CharSequenceUtil::isNotBlank)
+                // 去除前后都空格
+                .map(CharSequenceUtil::trim)
+                // 去重，保留原始顺序
+                .distinct()
+                .toList();
+        size = redisCache.setCacheList(HotConstants.HOT_SOURCE_META_KEY, list);
+        redisCache.expire(HotConstants.HOT_SOURCE_META_KEY, hotProperty.getRegistryCacheTtlMinutes());
+        return size;
+    }
+
+    /**
+     * 手动刷新指定热榜源的缓存数据
+     * 调用热榜引擎获取最新数据并更新本地缓存
+     *
+     * @param sourceCode 热榜源代码标识
+     * @return 刷新后的热榜快照数据
+     */
+    @Override
+    public HotSourceSnapshotVo refreshSource(String sourceCode) {
+        HotSourceSnapshotVo vo = hotEngineClient.fetchSourceSnapshot(sourceCode);
+        redisCache.setCacheObject(HotConstants.buildSourceCacheKey(sourceCode), vo, hotProperty.getRegistryCacheTtlMinutes(), TimeUnit.MINUTES);
+        return vo;
+    }
+
+    /**
+     * 批量刷新所有已启用的热榜源缓存。
+     * 使用全量刷新锁，避免 admin、scheduler、crontab 同时触发全量刷新。
+     *
+     * @return 所有热榜源的刷新状态列表
+     */
+    @Override
+    public List<HotSourceStatusVo> refreshAllEnabledSources() {
+        RLock lock = redissonClient.getLock(HotConstants.HOT_REFRESH_ALL_LOCK_KEY);
         boolean locked = false;
+
         try {
-            locked = lock.tryLock(0L, HotConstants.HOT_REFRESH_LOCK_LEASE_SECONDS, TimeUnit.SECONDS);
+            // 尝试获取锁，等待时间为0，锁过期时间为5分钟
+            locked = lock.tryLock(0, HotConstants.HOT_REFRESH_LOCK_LEASE_SECONDS, TimeUnit.SECONDS);
             if (!locked) {
-                throw new ServiceException(GlobalErrorCode.LOCKED);
+                LOGGER.warn("无法获取全量刷新锁，可能已有其他实例正在执行全量刷新，跳过本次刷新");
+                return CollUtil.newArrayList();
             }
-            HotSourceSnapshotVo remoteSnapshot = hotEngineClient.fetchSourceSnapshot(sourceDefinition.getSourceCode());
-            HotSourceCacheEntryVo cacheEntry = buildCacheEntry(sourceDefinition, remoteSnapshot);
-            setCacheEntry(cacheEntry);
-            return buildSnapshot(cacheEntry);
-        } catch (InterruptedException ex) {
+            LOGGER.info("成功获取全量刷新锁，开始执行全量刷新");
+            List<String> sourceCodes = loadSourceCodes();
+            // 源列表为空时，先刷新源列表
+            if (CollUtil.isEmpty(sourceCodes)) {
+                refreshSourceRegistry();
+                sourceCodes = loadSourceCodes();
+            }
+
+            if (CollUtil.isEmpty(sourceCodes)) {
+                LOGGER.warn("热榜源列表为空，跳过批量刷新");
+                return CollUtil.newArrayList();
+            }
+            // 这里可以考虑并行刷新以提高效率，使用 CompletableFuture 来异步执行刷新操作
+            List<CompletableFuture<HotSourceStatusVo>> futures = sourceCodes.stream().map(sourceCode -> CompletableFuture.supplyAsync(
+                    () -> refreshSourceAndBuildStatus(sourceCode),
+                    threadPoolTaskExecutor
+            )).toList();
+
+            return futures.stream()
+                    .map(CompletableFuture::join)
+                    .toList();
+        } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new ServiceException(GlobalErrorCode.LOCKED);
-        } catch (ServiceException ex) {
-            if (ObjectUtil.notEqual(ex.getCode(), GlobalErrorCode.LOCKED.getCode())) {
-                markRefreshFailure(sourceDefinition, ex.getMessage());
-            }
-            throw ex;
-        } catch (Exception ex) {
-            LOGGER.warn("刷新热榜缓存发生异常，sourceCode={}", sourceDefinition.getSourceCode(), ex);
-            markRefreshFailure(sourceDefinition, ex.getMessage());
-            throw new ServiceException(GlobalErrorCode.SERVICE_UNAVAILABLE.getCode(), "热榜缓存刷新失败");
+            LOGGER.warn("获取全量刷新热榜源锁被中断", e);
+            throw new ServiceException(GlobalErrorCode.SERVICE_UNAVAILABLE.getCode(), "获取热榜刷新锁被中断");
         } finally {
             if (locked && lock.isHeldByCurrentThread()) {
                 lock.unlock();
@@ -182,310 +168,176 @@ public class HotSourceServiceImpl implements IHotSourceService {
         }
     }
 
-    private HotSourceCacheEntryVo buildCacheEntry(HotSourceDefinitionVo sourceDefinition, HotSourceSnapshotVo remoteSnapshot) {
-        HotSourceCacheEntryVo cacheEntry = new HotSourceCacheEntryVo();
-        cacheEntry.setSourceCode(sourceDefinition.getSourceCode());
-        cacheEntry.setRouteCode(pickText(remoteSnapshot.getRouteCode(), sourceDefinition.getRouteCode()));
-        cacheEntry.setSourceName(pickText(remoteSnapshot.getSourceName(), sourceDefinition.getSourceName()));
-        cacheEntry.setSourceType(pickText(remoteSnapshot.getSourceType(), sourceDefinition.getSourceType()));
-        cacheEntry.setFetchedAt(remoteSnapshot.getFetchedAt());
-        cacheEntry.setCachedAt(Instant.now().toString());
-        cacheEntry.setLastError(null);
-        cacheEntry.setSnapshotReady(Boolean.TRUE);
-        cacheEntry.setItems(copyItems(remoteSnapshot.getItems()));
-        return cacheEntry;
+    /**
+     * 批量刷新所有已启用的热榜源缓存（带降级策略）
+     * 当部分源刷新失败时，返回已有的缓存状态而不是抛出异常
+     *
+     * @return 所有热榜源的刷新状态列表，失败时返回已有缓存
+     */
+    @Override
+    public List<HotSourceStatusVo> refreshAllEnabledSourcesWithFallback() {
+        try {
+            return refreshAllEnabledSources();
+        } catch (Exception e) {
+            LOGGER.warn("批量刷新热榜源缓存失败，降级返回已有缓存状态，error={}", e.getMessage(), e);
+            return listCacheStatus();
+        }
     }
 
-    private HotSourceSnapshotVo buildSnapshot(HotSourceCacheEntryVo cacheEntry) {
-        HotSourceSnapshotVo snapshotVo = new HotSourceSnapshotVo();
-        snapshotVo.setSourceCode(cacheEntry.getSourceCode());
-        snapshotVo.setRouteCode(cacheEntry.getRouteCode());
-        snapshotVo.setSourceName(cacheEntry.getSourceName());
-        snapshotVo.setSourceType(cacheEntry.getSourceType());
-        snapshotVo.setFetchedAt(cacheEntry.getFetchedAt());
-        snapshotVo.setCachedAt(cacheEntry.getCachedAt());
-        snapshotVo.setStale(isStale(cacheEntry.getFetchedAt()));
-        snapshotVo.setItems(copyItems(cacheEntry.getItems()));
-        return snapshotVo;
+    /**
+     * 查询指定热榜源的缓存快照数据
+     * 从Redis缓存中读取已缓存的热榜数据
+     *
+     * @param sourceCode 热榜源代码标识
+     * @return 热榜快照数据，缓存不存在或过期时可能返回null
+     */
+    @Override
+    public HotSourceSnapshotVo getCachedSource(String sourceCode) {
+        Object cacheObject = redisCache.getCacheObject(HotConstants.buildSourceCacheKey(sourceCode));
+        if (ObjectUtil.isNotNull(cacheObject) && cacheObject instanceof HotSourceSnapshotVo snapshot) {
+            return snapshot;
+        }
+        HotSourceSnapshotVo emptySnapshot = new HotSourceSnapshotVo();
+        emptySnapshot.setSourceCode(sourceCode);
+        emptySnapshot.setItems(CollUtil.newArrayList());
+        return emptySnapshot;
     }
 
-    private HotSourceSummaryVo buildSummary(HotSourceDefinitionVo sourceDefinition, HotSourceCacheEntryVo cacheEntry) {
-        HotSourceSummaryVo summaryVo = new HotSourceSummaryVo();
-        fillDefinition(summaryVo, sourceDefinition);
-        summaryVo.setCached(isSnapshotReady(cacheEntry));
-        summaryVo.setStale(isStale(getFetchedAt(cacheEntry)));
-        summaryVo.setFetchedAt(getFetchedAt(cacheEntry));
-        summaryVo.setCachedAt(getCachedAt(cacheEntry));
-        summaryVo.setItemCount(getItemCount(cacheEntry));
-        return summaryVo;
+    /**
+     * 查询所有热榜源的缓存状态信息
+     * 包括缓存是否就绪、最后更新时间、数据条数等状态信息
+     *
+     * @return 所有热榜源的缓存状态列表
+     */
+    @Override
+    public List<HotSourceStatusVo> listCacheStatus() {
+        List<String> sourceCodes = loadSourceCodes();
+        if (CollUtil.isEmpty(sourceCodes)) {
+            LOGGER.warn("热榜源列表为空，无法查询缓存状态");
+            return CollUtil.newArrayList();
+        }
+        return sourceCodes.stream()
+                .map(this::buildCachedStatus)
+                .toList();
     }
 
-    private HotSourceStatusVo buildStatus(HotSourceDefinitionVo sourceDefinition, HotSourceCacheEntryVo cacheEntry) {
+    /**
+     * 刷新单个热榜源，并构建刷新状态。
+     *
+     * @param sourceCode 热榜源代码标识
+     * @return 刷新后的热榜源状态对象，包含刷新结果和最新缓存状态
+     */
+    private HotSourceStatusVo refreshSourceAndBuildStatus(String sourceCode) {
+        try {
+            HotSourceSnapshotVo snapshot = refreshSource(sourceCode);
+            HotSourceStatusVo statusVo = new HotSourceStatusVo();
+            statusVo.setSourceCode(sourceCode);
+            statusVo.setSourceName(snapshot.getSourceName());
+            statusVo.setCached(Boolean.TRUE);
+            statusVo.setStale(Boolean.FALSE);
+            statusVo.setLastFetchedAt(snapshot.getFetchedAt());
+            statusVo.setItemCount(snapshot.getItems() == null ? 0 : snapshot.getItems().size());
+            statusVo.setRefreshSuccess(Boolean.TRUE);
+            statusVo.setErrorMessage(null);
+
+            redisCache.getExpire(HotConstants.buildSourceCacheKey(sourceCode));
+            statusVo.setTtlSeconds(redisCache.getExpire(HotConstants.buildSourceCacheKey(sourceCode)));
+
+            return statusVo;
+        } catch (Exception e) {
+            LOGGER.warn("刷新热榜源失败，sourceCode={}，error={}", sourceCode, e.getMessage(), e);
+            HotSourceStatusVo statusVo = buildCachedStatus(sourceCode);
+            statusVo.setRefreshSuccess(Boolean.FALSE);
+            statusVo.setErrorMessage(e.getMessage());
+            return statusVo;
+        }
+    }
+
+    /**
+     * 从 Redis 中加载热榜源编码列表。
+     *
+     * @return 热榜源编码列表，如果缓存中没有数据则返回空列表
+     */
+    private List<String> loadSourceCodes() {
+        List<String> sourceCodes = redisCache.getCacheList(HotConstants.HOT_SOURCE_META_KEY);
+        if (CollUtil.isEmpty(sourceCodes)) {
+            return CollUtil.newArrayList();
+        }
+        return sourceCodes.stream()
+                .filter(CharSequenceUtil::isNotBlank)
+                .map(CharSequenceUtil::trim)
+                .distinct()
+                .toList();
+    }
+
+    /**
+     * 根据 Redis 中已有缓存构建状态。
+     *
+     * @param sourceCode 热榜源编码
+     *                   - 从 Redis 中读取缓存快照数据和剩余存活时间
+     *                   - 判断快照是否过期（ttl <= 0 或快照为 null）
+     *                   - 构建 HotSourceStatusVo 对象，设置缓存状态、过期状态、数据条数等信息
+     * @return 热榜源状态对象，包含缓存状态、过期状态、数据条数等信息
+     */
+    private HotSourceStatusVo buildCachedStatus(String sourceCode) {
+        String cacheKey = HotConstants.buildSourceCacheKey(sourceCode);
+        HotSourceSnapshotVo snapshot = null;
+        Object cacheObject = redisCache.getCacheObject(cacheKey);
+        if (cacheObject instanceof HotSourceSnapshotVo vo) {
+            snapshot = vo;
+        }
+        Long ttl = redisCache.getExpire(cacheKey);
         HotSourceStatusVo statusVo = new HotSourceStatusVo();
-        fillDefinition(statusVo, sourceDefinition);
-        statusVo.setCached(isSnapshotReady(cacheEntry));
-        statusVo.setStale(isStale(getFetchedAt(cacheEntry)));
-        statusVo.setFetchedAt(getFetchedAt(cacheEntry));
-        statusVo.setCachedAt(getCachedAt(cacheEntry));
-        statusVo.setItemCount(getItemCount(cacheEntry));
-        statusVo.setLastError(cacheEntry == null ? null : cacheEntry.getLastError());
+        statusVo.setSourceCode(sourceCode);
+        statusVo.setTtlSeconds(ttl);
+        statusVo.setRefreshSuccess(null);
+        statusVo.setErrorMessage(null);
+
+        if (snapshot == null) {
+            statusVo.setCached(Boolean.FALSE);
+            statusVo.setStale(Boolean.TRUE);
+            statusVo.setItemCount(0);
+            return statusVo;
+        }
+
+        statusVo.setSourceName(snapshot.getSourceName());
+        statusVo.setCached(Boolean.TRUE);
+        statusVo.setLastFetchedAt(snapshot.getFetchedAt());
+        statusVo.setItemCount(snapshot.getItems() == null ? 0 : snapshot.getItems().size());
+
+        boolean stale = isSnapshotStale(snapshot, ttl);
+        statusVo.setStale(stale);
+
         return statusVo;
     }
 
-    private void fillDefinition(HotSourceSummaryVo summaryVo, HotSourceDefinitionVo sourceDefinition) {
-        BeanUtil.copyProperties(sourceDefinition, summaryVo);
-        summaryVo.setEnabled(BooleanUtil.isTrue(sourceDefinition.getEnabled()));
-        summaryVo.setDefaultVisible(BooleanUtil.isTrue(sourceDefinition.getDefaultVisible()));
-    }
-
-    private void fillDefinition(HotSourceStatusVo statusVo, HotSourceDefinitionVo sourceDefinition) {
-        BeanUtil.copyProperties(sourceDefinition, statusVo);
-        statusVo.setEnabled(BooleanUtil.isTrue(sourceDefinition.getEnabled()));
-        statusVo.setDefaultVisible(BooleanUtil.isTrue(sourceDefinition.getDefaultVisible()));
-    }
-
     /**
-     * 当远端抓取失败时保留最近一次快照，并记录最新失败原因。
+     * 判断缓存快照是否过期（陈旧）。
+     * <p>
+     * 判定逻辑优先级：
+     * 1. 如果 Redis 中该键已过期或不存在（ttl <= 0），视为数据不可用，返回 true。
+     * 2. 如果快照对象为空或没有抓取时间，无法判断业务时效性，保守返回 false（避免误报陈旧导致前端展示异常，具体视业务需求而定，此处保持原逻辑）。
+     * 3. 基于业务配置的陈旧阈值（staleThresholdMinutes）判断：如果最后抓取时间加上阈值早于当前时间，则视为陈旧。
+     *
+     * @param snapshot 热榜源快照对象
+     * @param ttl      缓存剩余存活时间（秒），null 表示未设置过期时间或键不存在
+     * @return true 如果快照被视为陈旧或不可用；否则返回 false
      */
-    private void markRefreshFailure(HotSourceDefinitionVo sourceDefinition, String errorMessage) {
-        HotSourceCacheEntryVo cacheEntry = ObjectUtil.defaultIfNull(
-                getCacheEntry(sourceDefinition.getSourceCode()),
-                createEmptyCacheEntry(sourceDefinition)
-        );
-        cacheEntry.setCachedAt(Instant.now().toString());
-        cacheEntry.setLastError(CharSequenceUtil.blankToDefault(errorMessage, "热榜缓存刷新失败"));
-        setCacheEntry(cacheEntry);
-    }
-
-    private HotSourceDefinitionVo resolveSourceDefinition(String sourceCode, boolean forceSync) {
-        String normalizedSourceCode = normalizeSourceCode(sourceCode);
-        SourceDefinitionsLoadResult loadResult = loadSourceDefinitionsForRefresh(forceSync);
-        if (!loadResult.available()) {
-            throw loadResult.exception();
-        }
-        List<HotSourceDefinitionVo> sourceDefinitions = loadResult.sourceDefinitions();
-        for (HotSourceDefinitionVo sourceDefinition : sourceDefinitions) {
-            if (CharSequenceUtil.equals(normalizedSourceCode, sourceDefinition.getSourceCode())) {
-                return sourceDefinition;
-            }
-        }
-        if (!forceSync) {
-            return resolveSourceDefinition(normalizedSourceCode, true);
-        }
-        throw new ServiceException(GlobalErrorCode.NOT_FOUND.getCode(), "热榜源不存在");
-    }
-
-    /**
-     * 刷新链路优先回源同步热榜源目录，并在失败时回退到最近一次缓存目录。
-     */
-    private SourceDefinitionsLoadResult loadSourceDefinitionsForRefresh(boolean forceSync) {
-        if (forceSync) {
-            try {
-                return SourceDefinitionsLoadResult.loadedFromRemote(syncSourceDefinitions());
-            } catch (ServiceException ex) {
-                List<HotSourceDefinitionVo> cachedSourceDefinitions = getCachedSourceDefinitions();
-                if (CollUtil.isNotEmpty(cachedSourceDefinitions)) {
-                    return SourceDefinitionsLoadResult.loadedFromCache(cachedSourceDefinitions, ex);
-                }
-                return SourceDefinitionsLoadResult.unavailable(ex);
-            }
-        }
-        return SourceDefinitionsLoadResult.loadedFromCache(getCachedSourceDefinitions(), null);
-    }
-
-    /**
-     * 从远端同步热榜源目录，并把原始目录快照回写到 Redis。
-     */
-    private List<HotSourceDefinitionVo> syncSourceDefinitions() {
-        HotSourceRegistryVo registryVo = hotEngineClient.fetchSourceRegistry();
-        List<HotSourceDefinitionVo> filteredSources = filterEnabledSources(registryVo.getSources());
-        if (CollUtil.isEmpty(filteredSources)) {
-            throw new ServiceException(GlobalErrorCode.SERVICE_UNAVAILABLE.getCode(), "热榜源目录为空");
-        }
-        HotSourceRegistryVo cacheRegistry = new HotSourceRegistryVo();
-        cacheRegistry.setSyncedAt(Instant.now().toString());
-        cacheRegistry.setSources(CollUtil.isEmpty(registryVo.getSources())
-                ? CollUtil.newArrayList()
-                : CollUtil.newArrayList(registryVo.getSources()));
-        setSourceRegistry(cacheRegistry);
-        return filteredSources;
-    }
-
-    private List<HotSourceDefinitionVo> filterEnabledSources(List<HotSourceDefinitionVo> remoteSources) {
-        if (CollUtil.isEmpty(remoteSources)) {
-            return CollUtil.newArrayList();
-        }
-        Set<String> allowList = getConfiguredAllowList();
-        List<HotSourceDefinitionVo> filtered = new ArrayList<>();
-        for (HotSourceDefinitionVo remoteSource : remoteSources) {
-            if (remoteSource == null || !BooleanUtil.isTrue(remoteSource.getEnabled())) {
-                continue;
-            }
-            if (CollUtil.isNotEmpty(allowList) && !allowList.contains(remoteSource.getSourceCode())) {
-                continue;
-            }
-            filtered.add(remoteSource);
-        }
-        return filtered;
-    }
-
-    private Set<String> getConfiguredAllowList() {
-        LinkedHashSet<String> allowList = new LinkedHashSet<>();
-        if (CollUtil.isEmpty(hotProperty.getEnabledSources())) {
-            return allowList;
-        }
-        for (String sourceCode : hotProperty.getEnabledSources()) {
-            String normalizedSourceCode = CharSequenceUtil.trim(sourceCode);
-            if (CharSequenceUtil.isNotBlank(normalizedSourceCode)) {
-                allowList.add(normalizedSourceCode);
-            }
-        }
-        return allowList;
-    }
-
-    private List<HotSourceDefinitionVo> getCachedSourceDefinitions() {
-        HotSourceRegistryVo registryVo = redisCache.getCacheObject(HotConstants.HOT_SOURCE_REGISTRY_CACHE_KEY);
-        if (registryVo == null || CollUtil.isEmpty(registryVo.getSources())) {
-            return CollUtil.newArrayList();
-        }
-        return filterEnabledSources(registryVo.getSources());
-    }
-
-    private HotSourceCacheEntryVo getCacheEntry(String sourceCode) {
-        return redisCache.getCacheObject(HotConstants.buildSourceCacheKey(sourceCode));
-    }
-
-    private void setCacheEntry(HotSourceCacheEntryVo cacheEntry) {
-        redisCache.setCacheObject(
-                HotConstants.buildSourceCacheKey(cacheEntry.getSourceCode()),
-                cacheEntry,
-                HotConstants.HOT_CACHE_TTL_MINUTES,
-                TimeUnit.MINUTES
-        );
-    }
-
-    private void setSourceRegistry(HotSourceRegistryVo cacheRegistry) {
-        redisCache.setCacheObject(
-                HotConstants.HOT_SOURCE_REGISTRY_CACHE_KEY,
-                cacheRegistry,
-                resolveRegistryCacheTtlMinutes(),
-                TimeUnit.MINUTES
-        );
-    }
-
-    private long resolveRegistryCacheTtlMinutes() {
-        Long configuredTtl = hotProperty.getRegistryCacheTtlMinutes();
-        if (configuredTtl == null || configuredTtl <= 0) {
-            return HotConstants.DEFAULT_REGISTRY_CACHE_TTL_MINUTES;
-        }
-        return configuredTtl;
-    }
-
-    private boolean isSnapshotReady(HotSourceCacheEntryVo cacheEntry) {
-        return cacheEntry != null && BooleanUtil.isTrue(cacheEntry.getSnapshotReady());
-    }
-
-    private int resolveRefreshParallelism(int sourceCount) {
-        Integer configuredParallelism = hotProperty.getRefreshParallelism();
-        int parallelism = configuredParallelism == null || configuredParallelism <= 0
-                ? HotConstants.DEFAULT_REFRESH_PARALLELISM
-                : configuredParallelism;
-        return Math.max(1, Math.min(parallelism, sourceCount));
-    }
-
-    /**
-     * 按配置的陈旧阈值判断当前快照是否已经过期。
-     */
-    private boolean isStale(String fetchedAt) {
-        if (CharSequenceUtil.isBlank(fetchedAt)) {
+    private boolean isSnapshotStale(HotSourceSnapshotVo snapshot, Long ttl) {
+        // 1. 缓存层级失效：TTL 无效表示缓存已过期或被删除
+        if (ttl == null || ttl <= 0) {
             return true;
         }
-        try {
-            Instant fetchedInstant = Instant.parse(fetchedAt);
-            Long configuredThreshold = hotProperty.getStaleThresholdMinutes();
-            long thresholdMinutes = configuredThreshold == null || configuredThreshold <= 0
-                    ? HotConstants.DEFAULT_STALE_THRESHOLD_MINUTES
-                    : configuredThreshold;
-            return fetchedInstant.isBefore(Instant.now().minus(Duration.ofMinutes(thresholdMinutes)));
-        } catch (DateTimeParseException ex) {
-            LOGGER.warn("解析热榜时间失败，fetchedAt={}", fetchedAt, ex);
-            return true;
-        }
-    }
 
-    private <T> List<T> buildViewList(List<HotSourceDefinitionVo> sourceDefinitions,
-                                      BiFunction<HotSourceDefinitionVo, HotSourceCacheEntryVo, T> assembler) {
-        if (CollUtil.isEmpty(sourceDefinitions)) {
-            return CollUtil.newArrayList();
-        }
-        List<T> result = new ArrayList<>(sourceDefinitions.size());
-        for (HotSourceDefinitionVo sourceDefinition : sourceDefinitions) {
-            result.add(assembler.apply(sourceDefinition, getCacheEntry(sourceDefinition.getSourceCode())));
-        }
-        return result;
-    }
-
-    private HotSourceCacheEntryVo createEmptyCacheEntry(HotSourceDefinitionVo sourceDefinition) {
-        HotSourceCacheEntryVo cacheEntry = new HotSourceCacheEntryVo();
-        cacheEntry.setSourceCode(sourceDefinition.getSourceCode());
-        cacheEntry.setRouteCode(sourceDefinition.getRouteCode());
-        cacheEntry.setSourceName(sourceDefinition.getSourceName());
-        cacheEntry.setSourceType(sourceDefinition.getSourceType());
-        cacheEntry.setItems(CollUtil.newArrayList());
-        cacheEntry.setSnapshotReady(Boolean.FALSE);
-        return cacheEntry;
-    }
-
-    private String normalizeSourceCode(String sourceCode) {
-        String normalizedSourceCode = CharSequenceUtil.trim(sourceCode);
-        if (CharSequenceUtil.isBlank(normalizedSourceCode)) {
-            throw new ServiceException(GlobalErrorCode.BAD_REQUEST);
-        }
-        return normalizedSourceCode;
-    }
-
-    private String pickText(String preferred, String fallback) {
-        return CharSequenceUtil.blankToDefault(CharSequenceUtil.trim(preferred), fallback);
-    }
-
-    private List<HotItemVo> copyItems(List<HotItemVo> items) {
-        return CollUtil.isEmpty(items) ? CollUtil.newArrayList() : CollUtil.newArrayList(items);
-    }
-
-    private String getFetchedAt(HotSourceCacheEntryVo cacheEntry) {
-        return cacheEntry == null ? null : cacheEntry.getFetchedAt();
-    }
-
-    private String getCachedAt(HotSourceCacheEntryVo cacheEntry) {
-        return cacheEntry == null ? null : cacheEntry.getCachedAt();
-    }
-
-    private Integer getItemCount(HotSourceCacheEntryVo cacheEntry) {
-        return cacheEntry == null ? 0 : copyItems(cacheEntry.getItems()).size();
-    }
-
-    private record SourceDefinitionsLoadResult(
-            List<HotSourceDefinitionVo> sourceDefinitions,
-            boolean loadedFromRemote,
-            boolean loadedFromCache,
-            ServiceException exception
-    ) {
-
-        private static SourceDefinitionsLoadResult loadedFromRemote(List<HotSourceDefinitionVo> sourceDefinitions) {
-            return new SourceDefinitionsLoadResult(sourceDefinitions, true, false, null);
+        // 2. 数据层级缺失：无快照或无抓取时间，无法计算业务陈旧度
+        // 注意：此处原逻辑返回 false，意味着“不认为它是陈旧的”（可能因为没数据所以不显示，或者由上层处理 null）
+        if (snapshot == null || snapshot.getFetchedAt() == null) {
+            return false;
         }
 
-        private static SourceDefinitionsLoadResult loadedFromCache(List<HotSourceDefinitionVo> sourceDefinitions,
-                                                                  ServiceException exception) {
-            return new SourceDefinitionsLoadResult(sourceDefinitions, false, true, exception);
-        }
-
-        private static SourceDefinitionsLoadResult unavailable(ServiceException exception) {
-            return new SourceDefinitionsLoadResult(CollUtil.newArrayList(), false, false, exception);
-        }
-
-        private boolean available() {
-            return exception == null || CollUtil.isNotEmpty(sourceDefinitions);
-        }
+        // 3. 业务层级陈旧：检查最后抓取时间是否超过了配置允许的最大陈旧时长
+        LocalDateTime staleThresholdTime = snapshot.getFetchedAt().plusMinutes(hotProperty.getStaleThresholdMinutes());
+        return staleThresholdTime.isBefore(LocalDateTime.now());
     }
+
 }

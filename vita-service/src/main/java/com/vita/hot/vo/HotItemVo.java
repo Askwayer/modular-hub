@@ -3,6 +3,7 @@ package com.vita.hot.vo;
 import lombok.Data;
 
 import java.io.Serializable;
+import java.time.LocalDateTime;
 
 /**
  * @BelongsProject: be-vita
@@ -14,8 +15,6 @@ import java.io.Serializable;
  */
 @Data
 public class HotItemVo implements Serializable {
-
-    private static final long serialVersionUID = 4277301513332499322L;
 
     private Integer rank;
 
@@ -29,5 +28,5 @@ public class HotItemVo implements Serializable {
 
     private String summary;
 
-    private String publishedAt;
+    private LocalDateTime publishedAt;
 }

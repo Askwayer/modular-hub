@@ -1,7 +1,7 @@
 package com.vita.hot.property;
 
 import lombok.Data;
-import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
@@ -14,12 +14,14 @@ import org.springframework.stereotype.Component;
  */
 @Data
 @Component
-@ConfigurationProperties(prefix = "vita.hot.daily-hot-api")
 public class HotDailyApiProperty {
 
-    private String baseUrl = "http://127.0.0.1:18000";
+    @Value("${vita.hot.daily-hot-api.base-url:http://127.0.0.1:18000}")
+    private String baseUrl;
 
+    @Value("${vita.hot.daily-hot-api.api-key:}")
     private String apiKey;
 
-    private Integer timeoutMs = 8000;
+    @Value("${vita.hot.daily-hot-api.timeout-ms:8000}")
+    private Integer timeoutMs;
 }
