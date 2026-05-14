@@ -3,7 +3,6 @@ package com.vita.hot.vo;
 import lombok.Data;
 
 import java.io.Serializable;
-import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -40,7 +39,7 @@ public class HotSourceSnapshotVo implements Serializable {
     /**
      * 热榜数据的抓取时间，表示数据的时效性
      */
-    private LocalDateTime fetchedAt;
+    private String fetchedAt;
 
     /**
      * 热搜榜单子项列表，包含每个热搜项的详细信息

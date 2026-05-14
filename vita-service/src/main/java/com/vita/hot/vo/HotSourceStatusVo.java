@@ -3,7 +3,6 @@ package com.vita.hot.vo;
 import lombok.Data;
 
 import java.io.Serializable;
-import java.time.LocalDateTime;
 
 /**
  * @BelongsProject: be-vita
@@ -44,7 +43,7 @@ public class HotSourceStatusVo implements Serializable {
     /**
      * 最后一次成功抓取数据的时间
      */
-    private LocalDateTime lastFetchedAt;
+    private String lastFetchedAt;
 
     /**
      * 热榜数据条目数量

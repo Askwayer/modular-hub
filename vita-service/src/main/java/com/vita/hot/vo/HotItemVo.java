@@ -3,7 +3,6 @@ package com.vita.hot.vo;
 import lombok.Data;
 
 import java.io.Serializable;
-import java.time.LocalDateTime;
 
 /**
  * @BelongsProject: be-vita
@@ -28,5 +27,5 @@ public class HotItemVo implements Serializable {
 
     private String summary;
 
-    private LocalDateTime publishedAt;
+    private String publishedAt;
 }

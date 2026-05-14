@@ -44,7 +44,7 @@ public class SaTokenConfigure implements WebMvcConfigurer {
                     .setHeader("Access-Control-Max-Age", "3600")
                     // 只保留一次，显式列出需要的头
                     .setHeader("Access-Control-Allow-Headers",
-                            "Authorization, Content-Type, Accept, X-Requested-With")
+                            "Authorization, Content-Type, Accept, X-Requested-With, Cache-Control,Pragma")
                     .setHeader("Access-Control-Expose-Headers",
                             "Authorization");
             SaRouter.match(SaHttpMethod.OPTIONS).free(r -> {

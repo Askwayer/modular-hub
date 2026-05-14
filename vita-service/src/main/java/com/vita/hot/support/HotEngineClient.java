@@ -1,8 +1,10 @@
 package com.vita.hot.support;
 
+import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.text.CharSequenceUtil;
 import cn.hutool.http.HttpException;
 import cn.hutool.http.HttpUtil;
+import cn.hutool.json.JSONArray;
 import cn.hutool.json.JSONException;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
@@ -57,6 +59,9 @@ public class HotEngineClient {
                 throw new ServiceException(GlobalErrorCode.BUSINESS_EXCEPTION.getCode(), "热榜抓取服务返回空响应");
             }
             // 解析 JSON 响应并转换为 HotSourceSnapshotVo 对象
+            if ("sources".equals(sourceCode)) {
+                return getSoureList(responseBody);
+            }
             return JSONUtil.toBean(responseBody, HotSourceSnapshotVo.class);
         } catch (HttpException e) {
             LOGGER.error("无法访问热榜抓取服务，url={}, sourceCode={}, error={}", url, sourceCode, e.getMessage(), e);
@@ -100,6 +105,24 @@ public class HotEngineClient {
             LOGGER.error("热榜引擎健康检查时发生异常，url={}, error={}", buildHealthCheckUrl(), e.getMessage(), e);
             throw new ServiceException(GlobalErrorCode.SERVICE_UNAVAILABLE.getCode(), "热榜引擎健康检查时发生异常");
         }
+    }
+
+    /**
+     * 从热榜引擎获取所有可用的热榜源列表并转换为 HotSourceSnapshotVo 对象。
+     *
+     * @param responseBody 热榜引擎返回的 JSON 响应字符串，包含 "sources" 数组字段
+     * @return 包含热榜源列表的 HotSourceSnapshotVo 对象，sourceCode 字段设置为 "sources"，sources 字段包含热榜源列表数据
+     */
+    public HotSourceSnapshotVo getSoureList(String responseBody) {
+        JSONObject jsonObject = JSONUtil.parseObj(responseBody);
+        JSONArray sourcesArray = jsonObject.getJSONArray("sources");
+        HotSourceSnapshotVo vo = new HotSourceSnapshotVo();
+        vo.setSourceCode("sources");
+        if (CollUtil.isEmpty(sourcesArray)) {
+            throw new ServiceException(GlobalErrorCode.BUSINESS_EXCEPTION.getCode(), "热榜抓取服务返回的 sources 列表为空");
+        }
+        vo.setSources(sourcesArray.toList(HotSourceSnapshotVo.class));
+        return vo;
     }
 
 

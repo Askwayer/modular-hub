@@ -51,7 +51,7 @@ spring:
       # 端口，默认为6379
       port: ${vita.redis.port}
       # 数据库索引
-      database: 1
+      database: 2
       # 密码
       password: ${vita.redis.passwd}
       # 连接超时时间

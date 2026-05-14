@@ -21,6 +21,8 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -336,7 +338,14 @@ public class HotSourceServiceImpl implements IHotSourceService {
         }
 
         // 3. 业务层级陈旧：检查最后抓取时间是否超过了配置允许的最大陈旧时长
-        LocalDateTime staleThresholdTime = snapshot.getFetchedAt().plusMinutes(hotProperty.getStaleThresholdMinutes());
+        DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        LocalDateTime fetchedAtTime;
+        try {
+            fetchedAtTime = LocalDateTime.parse(snapshot.getFetchedAt(), dateTimeFormatter);
+        } catch (DateTimeParseException e) {
+            return true;
+        }
+        LocalDateTime staleThresholdTime = fetchedAtTime.plusMinutes(hotProperty.getStaleThresholdMinutes());
         return staleThresholdTime.isBefore(LocalDateTime.now());
     }
 
