@@ -14,13 +14,49 @@ public final class HotConstants {
         // 常量类不允许实例化
     }
 
+    /**
+     * 单源热榜缓存 Key 前缀。
+     */
     public static final String HOT_CACHE_KEY_PREFIX = "hot:source:";
-    public static final String HOT_SOURCE_REGISTRY_CACHE_KEY = "hot:meta:sources";
+
+    /**
+     * 源列表缓存 Key。
+     */
+    public static final String HOT_SOURCE_META_KEY = "hot:meta:sources";
+
+    /**
+     * 单源刷新锁 Key 前缀。
+     */
     public static final String HOT_REFRESH_LOCK_KEY_PREFIX = "hot:lock:refresh:";
+
+    /**
+     * 全量刷新锁 Key。
+     */
+    public static final String HOT_REFRESH_ALL_LOCK_KEY = "hot:lock:refresh:all";
+
+    /**
+     * 单源热榜缓存 TTL，单位：分钟。
+     */
     public static final long HOT_CACHE_TTL_MINUTES = 20L;
+
+    /**
+     * 源列表缓存 TTL，单位：分钟。
+     */
+    public static final long HOT_SOURCE_META_TTL_MINUTES = 1440L;
+
+    /**
+     * 刷新锁租约时间，单位：秒。
+     */
     public static final long HOT_REFRESH_LOCK_LEASE_SECONDS = 300L;
-    public static final String DEFAULT_REFRESH_CRON = "0 0/15 * * * ?";
+
+    /**
+     * 默认缓存过期判断阈值，单位：分钟。
+     */
     public static final long DEFAULT_STALE_THRESHOLD_MINUTES = 20L;
+
+    /**
+     * 默认刷新并发数。
+     */
     public static final int DEFAULT_REFRESH_PARALLELISM = 6;
 
     public static String buildSourceCacheKey(String sourceCode) {

@@ -10,11 +10,11 @@ import jakarta.annotation.Resource;
 import org.redisson.Redisson;
 import org.redisson.api.RedissonClient;
 import org.redisson.config.Config;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.cache.annotation.EnableCaching;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.RedisSerializer;
@@ -49,6 +49,7 @@ public class RedissonConfig {
         // 根据 Config 创建出 RedissonClient 示例
         config.useSingleServer()
                 .setAddress(String.format("redis://%s:%s", redissonProperty.getHost(), redissonProperty.getPort()))
+                .setDatabase(redissonProperty.getDatabase())
                 .setPassword(redissonProperty.getPassword());
         return Redisson.create(config);
     }
@@ -66,6 +67,7 @@ public class RedissonConfig {
         RedisTemplate<String, Object> template = new RedisTemplate<>();
         template.setConnectionFactory(connectionFactory);
         ObjectMapper mapper = new ObjectMapper();
+        // 支持字段可见性
         mapper.setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.ANY);
         mapper.activateDefaultTyping(LaissezFaireSubTypeValidator.instance, ObjectMapper.DefaultTyping.NON_FINAL, JsonTypeInfo.As.PROPERTY);
         template.setValueSerializer(RedisSerializer.json());
@@ -75,6 +77,5 @@ public class RedissonConfig {
         template.afterPropertiesSet();
         return template;
     }
-
 
 }

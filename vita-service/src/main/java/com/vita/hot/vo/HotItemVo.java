@@ -15,8 +15,6 @@ import java.io.Serializable;
 @Data
 public class HotItemVo implements Serializable {
 
-    private static final long serialVersionUID = 4277301513332499322L;
-
     private Integer rank;
 
     private String title;

@@ -38,9 +38,9 @@ be-vita
 - `vita-common`：公共基础模块，承载统一返回、异常、分页、MyBatis-Plus、Redisson、Sa-Token、工具类和基础模型。
 - `vita-service`：系统业务服务层，承载认证、RBAC、系统管理等核心业务。
 - `vita-admin`：管理端启动模块，入口类 `com.vita.config.VitaAdminApplication`，上下文路径 `/admin/api`。
-- `vita-openapi`：公开接口启动模块，入口类 `com.vita.config.VitaOpenApiApplication`，上下文路径 `/openapi/api`。
+- `vita-openapi`：公开查询接口启动模块，入口类 `com.vita.config.VitaOpenApiApplication`，上下文路径 `/openapi/api`，承载热榜等只读 public 接口。
 - `vita-aichat`：AI Chat 启动模块，入口类 `com.vita.config.VitaAIChatApplication`，上下文路径 `/aichat/api`。
-- `vita-scheduler`：定时任务启动模块，入口类 `com.vita.config.VitaSchedulerApplication`，上下文路径 `/scheduler/api`。
+- `vita-scheduler`：热榜刷新触发启动模块，入口类 `com.vita.config.VitaSchedulerApplication`，上下文路径 `/scheduler/api`，承载热榜 public 刷新触发接口。
 - `vita-generator`：代码生成器与模板模块，入口 `com.vita.config.CodeGenerator`。
 - `vita-starters`：starter 聚合父模块，通过 `starter-*` profile 挂载各个子 starter。
 

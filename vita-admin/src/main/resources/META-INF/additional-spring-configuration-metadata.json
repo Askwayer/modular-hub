@@ -34,6 +34,11 @@
       "name": "vita.hot.daily-hot-api.timeout-ms",
       "type": "java.lang.Integer",
       "description": "热搜抓取服务超时时间，单位毫秒。"
+    },
+    {
+      "name": "vita.hot.registry-cache-ttl-minutes",
+      "type": "java.lang.String",
+      "description": "Description for vita.hot.registry-cache-ttl-minutes."
     }
   ]
 }

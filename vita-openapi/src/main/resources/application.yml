@@ -33,7 +33,7 @@ spring:
       open: ${vita.redis.open}
       host: ${vita.redis.host}
       port: ${vita.redis.port}
-      database: 0
+      database: 2
       password: ${vita.redis.passwd}
       timeout: 10s
       lettuce:

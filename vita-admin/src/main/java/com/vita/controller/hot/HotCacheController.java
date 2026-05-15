@@ -4,6 +4,7 @@ import cn.dev33.satoken.annotation.SaCheckPermission;
 import com.vita.core.CommonResult;
 import com.vita.core.controller.BaseController;
 import com.vita.hot.service.IHotSourceService;
+import com.vita.hot.vo.HotEngineHealthVo;
 import com.vita.hot.vo.HotSourceSnapshotVo;
 import com.vita.hot.vo.HotSourceStatusVo;
 import jakarta.validation.constraints.NotBlank;
@@ -27,15 +28,48 @@ public class HotCacheController extends BaseController {
 
     private final IHotSourceService hotSourceService;
 
+    /**
+     * 构造函数注入热榜服务依赖
+     *
+     * @param hotSourceService 热榜源服务接口实现
+     */
     public HotCacheController(IHotSourceService hotSourceService) {
         this.hotSourceService = hotSourceService;
     }
 
+
     /**
-     * 手动刷新单个热榜源缓存。
+     * 检查热榜引擎服务的健康状态
+     * 需要 system:hot-cache:view 权限
      *
-     * @param sourceCode 源编码
-     * @return 刷新后的快照
+     * @return 热榜引擎健康状态信息
+     */
+    @GetMapping("/health")
+    @SaCheckPermission("system:hot-cache:view")
+    public CommonResult<HotEngineHealthVo> health() {
+        return CommonResult.success(hotSourceService.health());
+    }
+
+    /**
+     * 刷新热榜源注册表信息
+     * 从热榜引擎获取所有可用的热榜源列表并更新到Redis缓存中
+     * 需要 system:hot-cache:refresh 权限
+     *
+     * @return 成功刷新的热榜源数量
+     */
+    @GetMapping("/registry/sources")
+    @SaCheckPermission("system:hot-cache:refresh")
+    public CommonResult<Long> refreshRegistry() {
+        return CommonResult.success(hotSourceService.refreshSourceRegistry());
+    }
+
+
+    /**
+     * 手动刷新指定热榜源的缓存数据
+     * 需要 system:hot-cache:refresh 权限
+     *
+     * @param sourceCode 热榜源代码标识，例如 "weibo", "zhihu" 等
+     * @return 刷新后的热榜快照数据
      */
     @PostMapping("/refresh")
     @SaCheckPermission("system:hot-cache:refresh")
@@ -44,9 +78,10 @@ public class HotCacheController extends BaseController {
     }
 
     /**
-     * 手动刷新全部启用热榜缓存。
+     * 批量刷新所有已启用的热榜源缓存
+     * 需要 system:hot-cache:refresh 权限
      *
-     * @return 刷新后的状态列表
+     * @return 所有热榜源的刷新状态列表
      */
     @PostMapping("/refreshAll")
     @SaCheckPermission("system:hot-cache:refresh")
@@ -55,9 +90,11 @@ public class HotCacheController extends BaseController {
     }
 
     /**
-     * 查询热榜缓存状态。
+     * 查询所有热榜源的缓存状态信息
+     * 包括缓存是否就绪、最后更新时间、数据条数等状态信息
+     * 需要 system:hot-cache:view 权限
      *
-     * @return 状态列表
+     * @return 所有热榜源的缓存状态列表
      */
     @GetMapping("/status")
     @SaCheckPermission("system:hot-cache:view")

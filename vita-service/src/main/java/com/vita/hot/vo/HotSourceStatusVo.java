@@ -15,33 +15,48 @@ import java.io.Serializable;
 @Data
 public class HotSourceStatusVo implements Serializable {
 
-    private static final long serialVersionUID = 6025520990857770672L;
-
+    /**
+     * 热榜源代码标识，例如 "weibo", "zhihu" 等
+     */
     private String sourceCode;
 
-    private String routeCode;
-
-    private String iconKey;
-
+    /**
+     * 热榜源名称，例如 "微博热搜", "知乎热榜" 等
+     */
     private String sourceName;
 
-    private String sourceType;
-
-    private String description;
-
-    private Boolean enabled;
-
-    private Boolean defaultVisible;
-
+    /**
+     * 缓存是否就绪标志，true 表示该热榜源已有缓存数据
+     */
     private Boolean cached;
 
+    /**
+     * 缓存是否过期标志，true 表示缓存已过期需要刷新
+     */
     private Boolean stale;
 
-    private String fetchedAt;
+    /**
+     * 缓存剩余存活时间（秒），null 表示未设置过期时间
+     */
+    private Long ttlSeconds;
 
-    private String cachedAt;
+    /**
+     * 最后一次成功抓取数据的时间
+     */
+    private String lastFetchedAt;
 
+    /**
+     * 热榜数据条目数量
+     */
     private Integer itemCount;
 
-    private String lastError;
+    /**
+     * 最近一次刷新操作是否成功，null 表示未执行过刷新
+     */
+    private Boolean refreshSuccess;
+
+    /**
+     * 刷新失败时的错误信息，成功时为 null
+     */
+    private String errorMessage;
 }

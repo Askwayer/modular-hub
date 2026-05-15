@@ -2,7 +2,6 @@ package com.vita.property;
 
 import lombok.Data;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.beans.factory.annotation.Configurable;
 import org.springframework.context.annotation.Configuration;
 
 /**
@@ -32,6 +31,12 @@ public class RedissonProperty {
      */
     @Value("${spring.data.redis.password:}")
     private String password;
+
+    /**
+     * redis数据库索引
+     */
+    @Value("${spring.data.redis.database:0}")
+    private Integer database;
 
     /**
      * 是否开启redis

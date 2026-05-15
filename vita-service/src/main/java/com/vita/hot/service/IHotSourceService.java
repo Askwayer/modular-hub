@@ -1,8 +1,8 @@
 package com.vita.hot.service;
 
+import com.vita.hot.vo.HotEngineHealthVo;
 import com.vita.hot.vo.HotSourceSnapshotVo;
 import com.vita.hot.vo.HotSourceStatusVo;
-import com.vita.hot.vo.HotSourceSummaryVo;
 
 import java.util.List;
 
@@ -17,39 +17,40 @@ import java.util.List;
 public interface IHotSourceService {
 
     /**
-     * 查询已启用源的缓存摘要。
-     *
-     * @return 源摘要列表
+     * 健康检查 hot-engine。
      */
-    List<HotSourceSummaryVo> listCachedSources();
+    HotEngineHealthVo health();
 
     /**
-     * 查询单个源的缓存详情。
+     * 刷新热榜源注册表信息并写入Redis缓存
+     * 从热榜引擎获取所有可用的热榜源列表并更新到缓存中
      *
-     * @param sourceCode 源编码
-     * @return 缓存快照
+     * @return 刷新后的热榜源代码列表
      */
-    HotSourceSnapshotVo getCachedSource(String sourceCode);
+    Long refreshSourceRegistry();
 
     /**
-     * 手动刷新单个源缓存。
-     *
-     * @param sourceCode 源编码
-     * @return 最新快照
+     * 手动刷新单个热榜源缓存。
      */
     HotSourceSnapshotVo refreshSource(String sourceCode);
 
     /**
-     * 刷新全部启用源缓存。
-     *
-     * @return 刷新后的状态列表
+     * 刷新全部启用热榜源缓存。
      */
     List<HotSourceStatusVo> refreshAllEnabledSources();
 
     /**
-     * 查询全部启用源缓存状态。
-     *
-     * @return 状态列表
+     * 刷新全部启用热榜源缓存，失败时降级返回已有缓存状态。
+     */
+    List<HotSourceStatusVo> refreshAllEnabledSourcesWithFallback();
+
+    /**
+     * 查询单个热榜源缓存。
+     */
+    HotSourceSnapshotVo getCachedSource(String sourceCode);
+
+    /**
+     * 查询热榜缓存状态。
      */
     List<HotSourceStatusVo> listCacheStatus();
 }
