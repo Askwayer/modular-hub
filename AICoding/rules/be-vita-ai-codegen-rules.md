@@ -19,30 +19,32 @@ AI 生成结果如果与本文件冲突，以本文件为准。
 - `vita-common`
 - `vita-service`
 - `vita-admin`
-- `vita-aichat`
+- `vita-openapi`
+- `vita-scheduler`
 - `vita-generator`
 - `vita-starters`
 
 当前主依赖链保持：
 
 ```text
-vita-admin  -> vita-service -> vita-common
-vita-aichat -> vita-common
+vita-admin    -> vita-service -> vita-common
+vita-openapi  -> vita-service -> vita-common
+vita-scheduler -> vita-service -> vita-common
 ```
 
 其中：
 
 - `vita-admin` 是管理端启动模块，主要承载控制器、启动配置和管理端接口暴露。
+- `vita-openapi` 是公开查询启动模块，主要承载只读公开接口暴露。
+- `vita-scheduler` 是调度触发启动模块，主要承载定时刷新或手工触发接口暴露。
 - `vita-service` 是主业务服务层模块，承载系统业务、Mapper、DTO、VO、实体定义和服务实现。
 - `vita-common` 是公共基础模块，承载统一返回、异常、分页、基础模型、MyBatis-Plus 扩展、Sa-Token、Redisson 和工具能力。
-- `vita-aichat` 是 AI Chat 独立启动模块，不依赖 `vita-admin`。
 - `vita-generator` 是代码生成器与模板模块。
-- `vita-starters` 是 profile 驱动的 starter 聚合父模块，当前包含 `vita-ai-spring-boot-starter`、`vita-captcha-spring-boot-starter`、`vita-file-spring-boot-starter`、`vita-i18n-spring-boot-starter`、`vita-poi-spring-boot-starter`。
+- `vita-starters` 是 profile 驱动的 starter 聚合父模块，当前包含 `vita-captcha-spring-boot-starter`、`vita-file-spring-boot-starter`、`vita-i18n-spring-boot-starter`、`vita-poi-spring-boot-starter`。
 
 ### 2.2 文档与脚本入口
 
 - 系统设计文档：`docs/system/`
-- AI Chat 设计文档：`docs/aichat/`
 - Starter 设计文档：`docs/starter/`
 - 初始化脚本：`sql/init/`
 - 升级脚本：`sql/upgrade/`
@@ -52,7 +54,7 @@ vita-aichat -> vita-common
 
 ### 3.1 模块边界
 
-- 必须保持 `vita-admin -> vita-service -> vita-common` 和 `vita-aichat -> vita-common` 的依赖边界。
+- 必须保持 `vita-admin -> vita-service -> vita-common`、`vita-openapi -> vita-service -> vita-common`、`vita-scheduler -> vita-service -> vita-common` 的依赖边界。
 - 必须统一使用 `com.vita.*` 作为包前缀。
 - 必须通过公开服务接口完成跨模块协作，不能直接跨模块访问内部 Mapper、内部实现类或配置细节。
 - 必须把通用能力沉淀到 `vita-common` 或合适的 starter，不能为了临时复用破坏模块边界。
@@ -104,7 +106,6 @@ vita-aichat -> vita-common
 以下改动必须同步更新文档或 SQL：
 
 - 认证链路、RBAC 权限规则、日志方案
-- AI Chat 接口、模型接入、状态机变化
 - Starter 配置项、自动装配行为
 - 数据库表结构、初始化脚本、升级脚本
 - 生成器模板输出规范
@@ -112,7 +113,6 @@ vita-aichat -> vita-common
 对应位置：
 
 - `docs/system/`
-- `docs/aichat/`
 - `docs/starter/`
 - `sql/init/`
 - `sql/upgrade/`
@@ -133,7 +133,6 @@ vita-aichat -> vita-common
 - 禁止新增第二套 `Result` / `Response` / `ApiResult` / 分页对象。
 - 禁止新增 `*Properties` 命名。
 - 禁止把配置字段散落到 `config`、`service`、`support` 中。
-- 禁止在 AI Chat Controller 中直接拼 Prompt、直接调模型 SDK 或 HTTP API。
 - 禁止为了临时实现功能破坏模块边界。
 - 禁止直接输出密码、Token、数据库密码、模型 API Key 等敏感信息。
 
@@ -145,7 +144,6 @@ vita-aichat -> vita-common
 
 - 业务主表
 - 日志表
-- AI Chat 业务表
 - 需要审计、逻辑删除、租户隔离或乐观锁控制的扩展表
 
 纯关联表例外：
@@ -230,11 +228,10 @@ CREATE TABLE `sys_user`
 - 普通业务模块默认生成 `create`、`update`、`delete`、`get`、`list`、`page` 六类 Service 方法。
 - 管理端扩展方法优先保持现有风格，例如 `getAll`、`getOptionListByUserId`、`check*Unique`、`auth*`、`cancelAuth*`。
 
-### 7.2 `vita-aichat`
+### 7.2 `vita-openapi` / `vita-scheduler`
 
-- Controller 不得直接写模型调用逻辑、Prompt 编排、SSE 输出、并发治理和状态流转。
-- 模型请求构造、响应解析、流式输出、失败回写、资源释放和状态收敛必须下沉到 `service`、`support`、`model`、`property`。
-- 新增 AI Chat 接口、模型接入、状态机变化前，必须先同步 `docs/aichat/ai-chat-design.md`。
+- 只读公开接口必须保持薄 Controller、薄启动模块，不得在启动模块中下沉复杂业务编排。
+- 调度触发接口只负责触发、鉴权和返回结果，核心刷新逻辑必须下沉到 `vita-service`。
 
 ### 7.3 `vita-starters`
 
@@ -253,7 +250,7 @@ CREATE TABLE `sys_user`
 ### 8.1 生成前
 
 - 确认目标模块和依赖边界。
-- 确认是否属于管理端、AI Chat、starter 或 generator 模板场景。
+- 确认是否属于管理端、公开接口、调度端、starter 或 generator 模板场景。
 - 确认是否需要同步 `docs/`、`sql/`。
 - 确认新表是否落入“默认字段规范”适用范围。
 

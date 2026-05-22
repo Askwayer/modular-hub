@@ -47,27 +47,6 @@ public interface GlobalErrorCode {
     ErrorCode BUSINESS_EXCEPTION = new ErrorCode(1001, "业务异常，请联系管理员");
     ErrorCode BUILTIN_PARAM_CANNOT_MODIFY = new ErrorCode(1002, "内置参数不能修改，请联系管理员");
 
-    // ========== AI Chat 业务错误段 2000-2199 ==========
-
-    // --- 会话错误 2001-2099 ---
-    ErrorCode CHAT_CONVERSATION_NOT_FOUND = new ErrorCode(2001, "会话不存在");
-    ErrorCode CHAT_CONVERSATION_NOT_ACTIVE = new ErrorCode(2002, "当前会话不可发送消息");
-    ErrorCode CHAT_MESSAGE_TYPE_UNSUPPORTED = new ErrorCode(2003, "暂不支持该消息类型");
-    ErrorCode CHAT_REQUEST_DUPLICATE = new ErrorCode(2004, "请求ID重复，请勿重复提交");
-    ErrorCode CHAT_GENERATING_CONFLICT = new ErrorCode(2005, "当前会话已有生成任务，请稍后重试");
-    ErrorCode CHAT_STREAM_DISABLED = new ErrorCode(2006, "当前环境未开启流式回复");
-    ErrorCode CHAT_CAPACITY_QUEUE_FULL = new ErrorCode(2007, "当前并发较高，等待队列已满，请稍后重试");
-    ErrorCode CHAT_CAPACITY_WAIT_TIMEOUT = new ErrorCode(2008, "当前并发较高，等待生成超时，请稍后重试");
-
-    // --- 模型错误 2101-2199 ---
-    ErrorCode MODEL_AUTH_ERROR = new ErrorCode(2101, "模型鉴权失败");
-    ErrorCode MODEL_TIMEOUT = new ErrorCode(2102, "模型响应超时");
-    ErrorCode MODEL_RATE_LIMIT = new ErrorCode(2103, "模型请求过于频繁");
-    ErrorCode MODEL_PROVIDER_ERROR = new ErrorCode(2104, "模型服务异常");
-    ErrorCode MODEL_NETWORK_ERROR = new ErrorCode(2105, "模型网络异常");
-    ErrorCode MODEL_UNSUPPORTED = new ErrorCode(2106, "不支持的模型类型");
-    ErrorCode MODEL_RESPONSE_INVALID = new ErrorCode(2107, "模型响应数据异常");
-
     // ========== 文件上传 业务错误段 2201-2299 ==========
 
     ErrorCode FILE_UPLOAD_EXPIRED = new ErrorCode(2201, "上传ID已失效");
