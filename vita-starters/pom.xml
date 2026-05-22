@@ -17,7 +17,6 @@
         <module>vita-file-spring-boot-starter</module>
         <module>vita-i18n-spring-boot-starter</module>
         <module>vita-poi-spring-boot-starter</module>
-        <module>vita-ai-spring-boot-starter</module>
     </modules>
 
     <properties>
