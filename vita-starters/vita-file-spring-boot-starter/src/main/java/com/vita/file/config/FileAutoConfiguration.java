@@ -8,9 +8,7 @@ import org.springframework.beans.factory.InitializingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-
 import java.io.File;
-import java.util.List;
 
 /**
  * 文件上传自动配置。
@@ -43,10 +41,14 @@ public class FileAutoConfiguration {
                     throw new ServiceException(GlobalErrorCode.SERVICE_UNAVAILABLE.getCode(),
                             "本地存储目录无法创建: " + basePath);
                 }
+                if (CharSequenceUtil.isBlank(fileProperty.getLocal().getPublicDomain())) {
+                    throw new ServiceException(GlobalErrorCode.BAD_REQUEST.getCode(),
+                            "vita.file.local.public-domain 未配置");
+                }
                 String secret = fileProperty.getSignature().getSecret();
                 if (CharSequenceUtil.isBlank(secret) || "change-me".equals(secret)) {
-                    // 仅告警，不阻断
-                    // TODO: 生产环境应替换为强制校验
+                    throw new ServiceException(GlobalErrorCode.BAD_REQUEST.getCode(),
+                            "vita.file.signature.secret 未配置");
                 }
             }
 
@@ -67,6 +69,10 @@ public class FileAutoConfiguration {
                 if (CharSequenceUtil.isBlank(fileProperty.getMinio().getBucket())) {
                     throw new ServiceException(GlobalErrorCode.BAD_REQUEST.getCode(),
                             "vita.file.minio.bucket 未配置");
+                }
+                if (CharSequenceUtil.isBlank(fileProperty.getMinio().getPublicDomain())) {
+                    throw new ServiceException(GlobalErrorCode.BAD_REQUEST.getCode(),
+                            "vita.file.minio.public-domain 未配置");
                 }
             }
 

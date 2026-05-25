@@ -4,23 +4,11 @@ vita:
     active: local
     public-prefix: public
     private-prefix: private
-    allowed-extensions:
-      - jpg
-      - jpeg
-      - png
-      - gif
-      - pdf
-      - doc
-      - docx
-      - xls
-      - xlsx
-      - csv
-      - txt
-      - zip
-      - mp4
     max-file-size: 10485760
     sign-expire-seconds: 300
     local:
-      base-path: /Users/zhuningkang/home/home/data/resources/vita}
+      base-path: /Users/zhuningkang/home/data/resources/vita
+      public-domain: https://oss.kangle.cloud/public
+      private-domain: https://oss.kangle.cloud/private
     signature:
       secret: change-me-local-signature-secret

@@ -1,15 +1,9 @@
 package com.vita.file.storage;
 
-import cn.hutool.core.text.CharSequenceUtil;
 import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
 import com.vita.file.property.FileProperty;
-import com.vita.file.support.FileAccessCommand;
-import com.vita.file.support.FileAccessResult;
-import com.vita.file.support.FileObjectKeyGenerator;
-import com.vita.file.support.FileSignatureSupport;
-import com.vita.file.support.FileUploadCommand;
-import com.vita.file.support.LocalFileUrlSupport;
+import com.vita.file.support.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
@@ -24,7 +18,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * 本地磁盘文件存储实现。
@@ -37,15 +30,17 @@ public class LocalFileStorage implements FileStorage {
     private static final String PART_DIR_PREFIX = "part" + File.separator;
 
     private final FileProperty fileProperty;
-    private final FileObjectKeyGenerator keyGenerator;
     private final FileSignatureSupport signatureSupport;
+    private final FileUrlSupport fileUrlSupport;
     private final LocalFileUrlSupport localFileUrlSupport;
 
-    public LocalFileStorage(FileProperty fileProperty, FileObjectKeyGenerator keyGenerator,
-                            FileSignatureSupport signatureSupport, LocalFileUrlSupport localFileUrlSupport) {
+    public LocalFileStorage(FileProperty fileProperty,
+                            FileSignatureSupport signatureSupport,
+                            FileUrlSupport fileUrlSupport,
+                            LocalFileUrlSupport localFileUrlSupport) {
         this.fileProperty = fileProperty;
-        this.keyGenerator = keyGenerator;
         this.signatureSupport = signatureSupport;
+        this.fileUrlSupport = fileUrlSupport;
         this.localFileUrlSupport = localFileUrlSupport;
     }
 
@@ -105,6 +100,7 @@ public class LocalFileStorage implements FileStorage {
         if (!partDir.exists()) {
             throw new ServiceException(GlobalErrorCode.FILE_PART_NOT_FOUND);
         }
+        localFileUrlSupport.ensureParentDirExists(targetFile);
         mergePartsByJava(partDir, targetFile);
         // 清理分片临时目录
         deletePartDir(partDir);
@@ -117,24 +113,28 @@ public class LocalFileStorage implements FileStorage {
 
     @Override
     public FileAccessResult generateAccessUrl(FileAccessCommand command) {
-        String baseUrl = fileProperty.getLocal().getBasePath();
         if (Boolean.TRUE.equals(command.getIsPublic())) {
             return FileAccessResult.builder()
-                    .accessUrl(baseUrl + "/" + getBucketName(true) + "/" + command.getObjectKey())
+                    .accessUrl(buildDirectUrl(command))
                     .signed(false)
                     .build();
         }
-        // 私有文件生成签名 URL
         try {
-            String uri = "/" + getBucketName(false) + "/" + command.getObjectKey();
+            String uri = buildDownloadUri(command.getObjectKey());
             String token = signatureSupport.generateToken(fileProperty, uri);
             return FileAccessResult.builder()
-                    .accessUrl(baseUrl + uri + "?token=" + token)
+                    .accessUrl(buildDirectUrl(command) + "?token=" + token)
                     .signed(true)
                     .build();
         } catch (IllegalArgumentException e) {
             throw new ServiceException(GlobalErrorCode.FILE_SIGN_SECRET_NOT_CONFIGURED);
         }
+    }
+
+    @Override
+    public String buildDirectUrl(FileAccessCommand command) {
+        return fileUrlSupport.join(getHostname(Boolean.TRUE.equals(command.getIsPublic())),
+                "file/download", getBucketName(Boolean.TRUE.equals(command.getIsPublic())), command.getObjectKey());
     }
 
     @Override
@@ -151,6 +151,20 @@ public class LocalFileStorage implements FileStorage {
     }
 
     @Override
+    public long getUploadedPartTotalSize(FileUploadCommand command) {
+        File partDir = getPartDir(command.getUploadId());
+        File[] partFiles = partDir.listFiles(f -> f.getName().startsWith("part."));
+        if (partFiles == null || partFiles.length == 0) {
+            return 0L;
+        }
+        long totalSize = 0L;
+        for (File partFile : partFiles) {
+            totalSize += partFile.length();
+        }
+        return totalSize;
+    }
+
+    @Override
     public String getBucketName(boolean isPublic) {
         // 本地存储使用统一目录，不区分 bucket
         return "files";
@@ -158,7 +172,8 @@ public class LocalFileStorage implements FileStorage {
 
     @Override
     public String getHostname(boolean isPublic) {
-        return fileProperty.getLocal().getBasePath();
+        return fileUrlSupport.resolveBaseUrl(fileProperty.getLocal().getPublicDomain(),
+                fileProperty.getLocal().getPrivateDomain(), isPublic);
     }
 
     private String getPartRelativePath(String uploadId, int partNum) {
@@ -170,6 +185,10 @@ public class LocalFileStorage implements FileStorage {
         String bucketName = getBucketName(true);
         return new File(basePath + File.separator + bucketName + File.separator
                 + PART_DIR_PREFIX + uploadId);
+    }
+
+    private String buildDownloadUri(String objectKey) {
+        return "/file/download/" + getBucketName(false) + "/" + objectKey;
     }
 
     private void mergePartsByJava(File partDir, File targetFile) {
