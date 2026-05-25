@@ -63,7 +63,7 @@ POST /file/upload/base64      → Base64 图片上传
 1. **uploadId 两阶段设计**：先获取 uploadId（Redis 缓存元数据），再实际上传。避免"上传了文件但元数据丢失"的情况。
 2. **公共/私有文件隔离**：通过 `isPublic` 参数区分，影响存储路径前缀（`public/` vs `private/`）和访问方式（直接 URL vs 签名 URL）。
 3. **文件名生成策略**：`UUID + yyyy/MM/dd/ + 后缀`，不保留原始文件名，避免冲突和注入。
-4. **后缀白名单校验**：配置 `file.suffix.video/audio/image/document/other`，上传时校验。
+4. **后缀白名单校验**：通过 starter 内部固定常量维护允许后缀，上传时统一校验。
 5. **分片最小尺寸**：默认 5MB，避免小分片过多。
 6. **前缀目录**：支持单层 `prefixDir`，最长 30 字符，不支持多级。
 
@@ -180,7 +180,7 @@ public interface FileApplicationService {
 ```
 1. 调用方传入: FileUploadRequestDto (isPublic, suffix, prefixDir, fileSize, isPart, originName)
 2. FileApplicationService:
-   a. 校验后缀是否在 allowedExtensions 中
+   a. 校验后缀是否在固定白名单常量中
    b. 如果是分片上传，校验 suffix 必传
    c. 生成 objectKey: {visibilityPrefix}/{yyyy/MM/dd}/{UUID}.{ext}
    d. 如有 prefixDir: {prefixDir}/{visibilityPrefix}/{date}/{UUID}.{ext}
@@ -230,17 +230,19 @@ vita:
     active: minio                          # local | minio
     public-prefix: public
     private-prefix: private
-    allowed-extensions: [jpg, jpeg, png, gif, pdf, doc, docx, xls, xlsx]
     max-file-size: 10485760                # 10MB
     sign-expire-seconds: 300               # 签名有效期 5 分钟
     local:
       base-path: /data/vita/uploads        # 本地存储根目录 (active=local 时生效)
+      public-domain: https://oss.kangle.cloud/public
+      private-domain: https://oss.kangle.cloud/private
     minio:
       endpoint: http://127.0.0.1:9000
       access-key: minioadmin
       secret-key: minioadmin
       bucket: vita-file
-      public-base-url: http://127.0.0.1:9000/vita-file
+      public-domain: https://oss.kangle.cloud/public
+      private-domain: https://oss.kangle.cloud/private
     signature:
       secret: ${FILE_SIGNATURE_SECRET:change-me}   # 本地模式签名密钥
 ```
@@ -262,9 +264,9 @@ vita-file-spring-boot-starter -> vita-common
 
 1. `enabled=true` 时才激活
 2. `active` 必须为 `local` 或 `minio`
-3. `local` 模式下 `local.base-path` 不能为空，且目录需可创建
-4. `minio` 模式下 `endpoint`、`access-key`、`secret-key`、`bucket` 不能为空
-5. `signature.secret` 不能为默认值 `change-me`（生产环境告警）
+3. `local` 模式下 `local.base-path`、`local.public-domain` 不能为空，且目录需可创建
+4. `minio` 模式下 `endpoint`、`access-key`、`secret-key`、`bucket`、`public-domain` 不能为空
+5. `signature.secret` 不能为默认值 `change-me`
 6. `max-file-size > 0`
 7. `sign-expire-seconds > 0`
 8. 初始化 `RPermitExpirableSemaphore` 类似并发控制（可选，按需实现上传并发限制）

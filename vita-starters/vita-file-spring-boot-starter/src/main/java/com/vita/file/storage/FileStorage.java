@@ -56,9 +56,19 @@ public interface FileStorage {
     FileAccessResult generateAccessUrl(FileAccessCommand command);
 
     /**
+     * 构建直接访问 URL（不带签名）。
+     */
+    String buildDirectUrl(FileAccessCommand command);
+
+    /**
      * 列出已上传的分片。
      */
     List<String> listParts(FileUploadCommand command);
+
+    /**
+     * 获取已上传分片总大小。
+     */
+    long getUploadedPartTotalSize(FileUploadCommand command);
 
     /**
      * 获取桶名。

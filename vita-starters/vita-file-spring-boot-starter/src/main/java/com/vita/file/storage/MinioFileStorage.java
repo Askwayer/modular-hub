@@ -1,14 +1,12 @@
 package com.vita.file.storage;
 
-import cn.hutool.core.text.CharSequenceUtil;
 import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
 import com.vita.file.property.FileProperty;
 import com.vita.file.support.FileAccessCommand;
 import com.vita.file.support.FileAccessResult;
-import com.vita.file.support.FileObjectKeyGenerator;
-import com.vita.file.support.FileSignatureSupport;
 import com.vita.file.support.FileUploadCommand;
+import com.vita.file.support.FileUrlSupport;
 import io.minio.GetPresignedObjectUrlArgs;
 import io.minio.MinioClient;
 import io.minio.ObjectWriteResponse;
@@ -34,17 +32,26 @@ import java.util.concurrent.TimeUnit;
 @ConditionalOnProperty(name = "vita.file.active", havingValue = "minio")
 public class MinioFileStorage implements FileStorage {
 
-    private final VitaMinioClient minioClient;
+    private final VitaMinioClient uploadMinioClient;
+    private final VitaMinioClient signMinioClient;
     private final FileProperty fileProperty;
+    private final FileUrlSupport fileUrlSupport;
 
-    public MinioFileStorage(FileProperty fileProperty, FileObjectKeyGenerator keyGenerator,
-                            FileSignatureSupport signatureSupport) {
+    public MinioFileStorage(FileProperty fileProperty, FileUrlSupport fileUrlSupport) {
         this.fileProperty = fileProperty;
-        MinioClient client = MinioClient.builder()
+        this.fileUrlSupport = fileUrlSupport;
+        MinioClient uploadClient = MinioClient.builder()
                 .endpoint(fileProperty.getMinio().getEndpoint())
                 .credentials(fileProperty.getMinio().getAccessKey(), fileProperty.getMinio().getSecretKey())
                 .build();
-        this.minioClient = new VitaMinioClient(client);
+        String signEndpoint = fileUrlSupport.resolveBaseUrl(fileProperty.getMinio().getPublicDomain(),
+                fileProperty.getMinio().getPrivateDomain(), false);
+        MinioClient signClient = MinioClient.builder()
+                .endpoint(signEndpoint)
+                .credentials(fileProperty.getMinio().getAccessKey(), fileProperty.getMinio().getSecretKey())
+                .build();
+        this.uploadMinioClient = new VitaMinioClient(uploadClient);
+        this.signMinioClient = new VitaMinioClient(signClient);
     }
 
     @Override
@@ -60,7 +67,7 @@ public class MinioFileStorage implements FileStorage {
                     .object(command.getObjectKey())
                     .stream(inputStream, file.getSize(), -1)
                     .build();
-            minioClient.putObject(args);
+            uploadMinioClient.putObject(args);
         } catch (Exception e) {
             log.warn("MinIO 上传失败, objectKey={}", command.getObjectKey(), e);
             throw new ServiceException(GlobalErrorCode.FILE_UPLOAD_FAILED);
@@ -75,7 +82,7 @@ public class MinioFileStorage implements FileStorage {
                     .object(command.getObjectKey())
                     .stream(inputStream, inputStream.available(), -1)
                     .build();
-            minioClient.putObject(args);
+            uploadMinioClient.putObject(args);
         } catch (Exception e) {
             log.warn("MinIO 流上传失败, objectKey={}", command.getObjectKey(), e);
             throw new ServiceException(GlobalErrorCode.FILE_UPLOAD_FAILED);
@@ -84,7 +91,7 @@ public class MinioFileStorage implements FileStorage {
 
     @Override
     public String initMultipartUpload(FileUploadCommand command) {
-        String uploadId = minioClient.initMultiPartUpload(
+        String uploadId = uploadMinioClient.initMultiPartUpload(
                 getBucketName(command.getIsPublic()), command.getObjectKey());
         if (uploadId == null) {
             throw new ServiceException(GlobalErrorCode.FILE_UPLOAD_FAILED);
@@ -95,7 +102,7 @@ public class MinioFileStorage implements FileStorage {
     @Override
     public void uploadPart(MultipartFile file, FileUploadCommand command) {
         try (InputStream inputStream = file.getInputStream()) {
-            minioClient.uploadPart(inputStream,
+            uploadMinioClient.uploadPart(inputStream,
                     getBucketName(command.getIsPublic()), command.getObjectKey(),
                     command.getUploadId(), command.getPartNum());
         } catch (Exception e) {
@@ -111,7 +118,7 @@ public class MinioFileStorage implements FileStorage {
             throw new ServiceException(GlobalErrorCode.FILE_PART_NOT_FOUND);
         }
         Part[] partArray = parts.toArray(new Part[0]);
-        ObjectWriteResponse response = minioClient.completeMultipartUpload(
+        ObjectWriteResponse response = uploadMinioClient.completeMultipartUpload(
                 getBucketName(command.getIsPublic()), command.getObjectKey(),
                 command.getUploadId(), partArray);
         if (response == null) {
@@ -121,16 +128,22 @@ public class MinioFileStorage implements FileStorage {
 
     @Override
     public void abortMultipartUpload(String uploadId, String objectKey) {
-        minioClient.abortMultipartUpload(getBucketName(true), uploadId, objectKey);
+        uploadMinioClient.abortMultipartUpload(getBucketName(true), uploadId, objectKey);
     }
 
     @Override
     public FileAccessResult generateAccessUrl(FileAccessCommand command) {
+        if (Boolean.TRUE.equals(command.getIsPublic())) {
+            return FileAccessResult.builder()
+                    .accessUrl(buildDirectUrl(command))
+                    .signed(false)
+                    .build();
+        }
         try {
             String bucket = getBucketName(command.getIsPublic());
             int expireSeconds = fileProperty.getSignExpireSeconds() != null
                     ? fileProperty.getSignExpireSeconds() : 300;
-            String url = minioClient.getPresignedObjectUrl(GetPresignedObjectUrlArgs.builder()
+            String url = signMinioClient.getPresignedObjectUrl(GetPresignedObjectUrlArgs.builder()
                     .method(Method.GET)
                     .bucket(bucket)
                     .object(command.getObjectKey())
@@ -139,7 +152,7 @@ public class MinioFileStorage implements FileStorage {
                     .build());
             return FileAccessResult.builder()
                     .accessUrl(url)
-                    .signed(!Boolean.TRUE.equals(command.getIsPublic()))
+                    .signed(true)
                     .build();
         } catch (Exception e) {
             log.warn("MinIO 生成签名 URL 失败, objectKey={}", command.getObjectKey(), e);
@@ -148,6 +161,12 @@ public class MinioFileStorage implements FileStorage {
                     .signed(false)
                     .build();
         }
+    }
+
+    @Override
+    public String buildDirectUrl(FileAccessCommand command) {
+        return fileUrlSupport.join(getHostname(Boolean.TRUE.equals(command.getIsPublic())),
+                getBucketName(Boolean.TRUE.equals(command.getIsPublic())), command.getObjectKey());
     }
 
     @Override
@@ -161,17 +180,23 @@ public class MinioFileStorage implements FileStorage {
     }
 
     @Override
+    public long getUploadedPartTotalSize(FileUploadCommand command) {
+        long totalSize = 0L;
+        for (Part part : listPartsInternal(command)) {
+            totalSize += part.partSize();
+        }
+        return totalSize;
+    }
+
+    @Override
     public String getBucketName(boolean isPublic) {
         return fileProperty.getMinio().getBucket();
     }
 
     @Override
     public String getHostname(boolean isPublic) {
-        String publicBaseUrl = fileProperty.getMinio().getPublicBaseUrl();
-        if (Boolean.TRUE.equals(isPublic) && CharSequenceUtil.isNotBlank(publicBaseUrl)) {
-            return publicBaseUrl;
-        }
-        return fileProperty.getMinio().getEndpoint();
+        return fileUrlSupport.resolveBaseUrl(fileProperty.getMinio().getPublicDomain(),
+                fileProperty.getMinio().getPrivateDomain(), isPublic);
     }
 
     private List<Part> listPartsInternal(FileUploadCommand command) {
@@ -179,7 +204,7 @@ public class MinioFileStorage implements FileStorage {
         int partNumberMarker = 0;
         boolean isTruncated;
         do {
-            io.minio.ListPartsResponse response = minioClient.listParts(
+            io.minio.ListPartsResponse response = uploadMinioClient.listParts(
                     getBucketName(command.getIsPublic()), command.getObjectKey(),
                     null, partNumberMarker, command.getUploadId());
             if (response == null) {

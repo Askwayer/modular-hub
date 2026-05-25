@@ -4,8 +4,6 @@ import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
-import java.util.List;
-
 /**
  * 文件存储主配置。
  */
@@ -33,11 +31,6 @@ public class FileProperty {
      * 私有文件对象键前缀。
      */
     private String privatePrefix = "private";
-
-    /**
-     * 允许上传的文件扩展名列表，空表示不限制。
-     */
-    private List<String> allowedExtensions;
 
     /**
      * 最大上传大小，单位字节。

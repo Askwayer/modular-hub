@@ -29,7 +29,12 @@ public class MinioStorageProperty {
     private String bucket = "vita-file";
 
     /**
-     * MinIO 公开访问地址前缀，留空时回退为 endpoint/bucket。
+     * MinIO 公开访问地址前缀。
      */
-    private String publicBaseUrl;
+    private String publicDomain = "http://127.0.0.1:9000";
+
+    /**
+     * MinIO 私有访问地址前缀，留空时回退到 publicDomain。
+     */
+    private String privateDomain;
 }
