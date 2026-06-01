@@ -98,6 +98,7 @@ file:
 2. **适配 be-vita 规范**：`@ConfigurationProperties` 配置、`XxxProperty` 命名、禁止嵌套多层 static class、统一异常体系
 3. **精简冗余后端**：优先支持 **MinIO** 和 **本地存储**，移除 Ceph/七牛的独立实现（S3 协议兼容 MinIO）
 4. **接口风格**：starter 内部不直接暴露 Controller，而是提供 `FileApplicationService` 供业务模块调用
+5. **配置收敛**：starter 仅通过 `@ConfigurationProperties` 读取 `vita.file.*`，不再额外引入 `Environment` 或动态配置覆盖层
 
 ### 3.2 模块结构
 
@@ -106,10 +107,13 @@ vita-file-spring-boot-starter/
 ├── pom.xml
 ├── src/main/resources/
 │   ├── META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports
-│   └── application-file.yml
+│   ├── application-file-dev.yml
+│   └── application-file-prod.yml
 ├── src/main/java/com/vita/file/
 │   ├── config/
-│   │   └── FileAutoConfiguration.java          # 自动装配：条件 Bean、客户端初始化
+│   │   ├── FileAutoConfiguration.java          # 自动装配：条件 Bean、启动校验
+│   │   ├── MinioClientFactory.java             # MinIO 客户端工厂
+│   │   └── ResolvedMinioConfig.java            # MinIO 生效配置快照
 │   ├── property/
 │   │   ├── FileProperty.java                   # 主配置 (vita.file.*)
 │   │   ├── LocalStorageProperty.java            # 本地存储配置
@@ -199,9 +203,9 @@ public interface FileApplicationService {
 #### 3.4.2 访问流程
 
 ```
-1. 公开文件: 直接拼接 publicBaseUrl + objectKey
+1. 公开文件: 直接拼接 `public-endpoint` + objectKey（避免重复拼接 public/ 前缀）
 2. 私有文件: 调用 FileStorage.generateAccessUrl() 生成临时签名 URL
-   - MinIO: getPresignedObjectUrl(expiry)
+   - MinIO: `MinioClientFactory` 统一创建上传 client 与签名 client，签名 URL 使用 `private-endpoint`
    - 本地: MD5(uri + timestamp + secretKey) 自研签名
 3. 本地存储下载: LocalFileDownloadController 校验签名后流式返回
 ```
@@ -227,24 +231,29 @@ public interface FileApplicationService {
 vita:
   file:
     enabled: true
-    active: minio                          # local | minio
+    active: minio                          # local | minio，仅选择当前激活实现
     public-prefix: public
     private-prefix: private
     max-file-size: 10485760                # 10MB
     sign-expire-seconds: 300               # 签名有效期 5 分钟
     local:
       base-path: /data/vita/uploads        # 本地存储根目录 (active=local 时生效)
-      public-domain: https://oss.kangle.cloud/public
-      private-domain: https://oss.kangle.cloud/private
+      public-domain: https://files.kangle.local/public
+      private-domain: https://files.kangle.local/private
     minio:
-      endpoint: http://127.0.0.1:9000
-      access-key: minioadmin
-      secret-key: minioadmin
+      endpoint: http://10.144.144.2:9000
+      access-key: change-me-access-key
+      secret-key: change-me-secret-key
       bucket: vita-file
-      public-domain: https://oss.kangle.cloud/public
-      private-domain: https://oss.kangle.cloud/private
+      region: us-east-1
+      secure: false
+      auto-create-bucket: true
+      presigned-expire-seconds: 3600
+      path-style-access: true
+      public-endpoint: https://oss.kangle.cloud/public
+      private-endpoint: https://oss.kangle.cloud/private
     signature:
-      secret: ${FILE_SIGNATURE_SECRET:change-me}   # 本地模式签名密钥
+      secret: change-me-local-signature-secret     # 本地模式签名密钥
 ```
 
 ### 3.7 依赖关系
@@ -265,8 +274,8 @@ vita-file-spring-boot-starter -> vita-common
 1. `enabled=true` 时才激活
 2. `active` 必须为 `local` 或 `minio`
 3. `local` 模式下 `local.base-path`、`local.public-domain` 不能为空，且目录需可创建
-4. `minio` 模式下 `endpoint`、`access-key`、`secret-key`、`bucket`、`public-domain` 不能为空
-5. `signature.secret` 不能为默认值 `change-me`
+4. `minio` 模式下通过 `MinioStorageProperty` 解析当前 YML 配置，必填项为 `endpoint`、`access-key`、`secret-key`、`bucket`、`public-endpoint`
+5. `signature.secret` 需要显式配置，示例值仅用于样例文件
 6. `max-file-size > 0`
 7. `sign-expire-seconds > 0`
-8. 初始化 `RPermitExpirableSemaphore` 类似并发控制（可选，按需实现上传并发限制）
+8. `local` 和 `minio` 配置允许同时存在，仅根据 `active` 选择实际启用实现

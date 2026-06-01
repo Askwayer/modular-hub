@@ -4,10 +4,12 @@ import cn.hutool.core.text.CharSequenceUtil;
 import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
 import com.vita.file.property.FileProperty;
+import com.vita.file.support.FileUrlSupport;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
 import java.io.File;
 
 /**
@@ -17,11 +19,18 @@ import java.io.File;
 @ConditionalOnProperty(name = "vita.file.enabled", havingValue = "true", matchIfMissing = true)
 public class FileAutoConfiguration {
 
+    @Bean
+    public MinioClientFactory minioClientFactory(FileProperty fileProperty,
+                                                 FileUrlSupport fileUrlSupport) {
+        return new MinioClientFactory(fileProperty, fileUrlSupport);
+    }
+
     /**
      * 启动校验。
      */
     @Bean
-    public InitializingBean fileStartupValidator(FileProperty fileProperty) {
+    public InitializingBean fileStartupValidator(FileProperty fileProperty,
+                                                 MinioClientFactory minioClientFactory) {
         return () -> {
             String active = fileProperty.getActive();
             if (!"local".equals(active) && !"minio".equals(active)) {
@@ -54,26 +63,7 @@ public class FileAutoConfiguration {
 
             // minio 模式校验
             if ("minio".equals(active)) {
-                if (CharSequenceUtil.isBlank(fileProperty.getMinio().getEndpoint())) {
-                    throw new ServiceException(GlobalErrorCode.BAD_REQUEST.getCode(),
-                            "vita.file.minio.endpoint 未配置");
-                }
-                if (CharSequenceUtil.isBlank(fileProperty.getMinio().getAccessKey())) {
-                    throw new ServiceException(GlobalErrorCode.BAD_REQUEST.getCode(),
-                            "vita.file.minio.access-key 未配置");
-                }
-                if (CharSequenceUtil.isBlank(fileProperty.getMinio().getSecretKey())) {
-                    throw new ServiceException(GlobalErrorCode.BAD_REQUEST.getCode(),
-                            "vita.file.minio.secret-key 未配置");
-                }
-                if (CharSequenceUtil.isBlank(fileProperty.getMinio().getBucket())) {
-                    throw new ServiceException(GlobalErrorCode.BAD_REQUEST.getCode(),
-                            "vita.file.minio.bucket 未配置");
-                }
-                if (CharSequenceUtil.isBlank(fileProperty.getMinio().getPublicDomain())) {
-                    throw new ServiceException(GlobalErrorCode.BAD_REQUEST.getCode(),
-                            "vita.file.minio.public-domain 未配置");
-                }
+                minioClientFactory.resolveAndValidateConfig();
             }
 
             Long maxFileSize = fileProperty.getMaxFileSize();
