@@ -1,12 +1,10 @@
 package com.vita.file.storage;
 
 import io.minio.*;
-import io.minio.messages.ListPartsResult;
 import io.minio.messages.Part;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.InputStream;
-import java.util.Objects;
 
 /**
  * MinIO 客户端封装，用于访问受保护的底层方法。
@@ -14,7 +12,7 @@ import java.util.Objects;
 @Slf4j
 public class VitaMinioClient extends MinioClient {
 
-    protected VitaMinioClient(MinioClient client) {
+    public VitaMinioClient(MinioClient client) {
         super(client);
     }
 
