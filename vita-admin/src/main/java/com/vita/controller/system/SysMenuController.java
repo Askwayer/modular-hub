@@ -69,7 +69,7 @@ public class SysMenuController extends BaseController {
      * @param id 主键ID
      * @return 删除结果
      */
-    @DeleteMapping("/delete")
+    @GetMapping("/delete")
     @SaCheckPermission("system:menu:delete")
     public CommonResult<Boolean> delete(@RequestParam("id") Long id) {
         sysMenuService.delete(id);

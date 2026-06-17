@@ -1,10 +1,10 @@
 package com.vita.controller.system;
 
 import cn.dev33.satoken.annotation.SaCheckPermission;
+import com.vita.annotation.Log;
 import com.vita.core.CommonResult;
 import com.vita.core.controller.BaseController;
 import com.vita.core.page.PageResponse;
-import com.vita.annotation.Log;
 import com.vita.system.sysUser.dto.SysUserCreateDto;
 import com.vita.system.sysUser.dto.SysUserSearchDto;
 import com.vita.system.sysUser.dto.SysUserUpdateDto;
@@ -74,7 +74,7 @@ public class SysUserController extends BaseController {
      * @return 删除结果
      */
     @Log(module = "admin", businessType = "DELETE", saveResponseData = false)
-    @DeleteMapping("/delete" )
+    @GetMapping("/delete" )
     @SaCheckPermission("system:user:delete")
     public CommonResult<Boolean> delete(@RequestParam("id" ) Long id) {
         sysUserService.delete(id);

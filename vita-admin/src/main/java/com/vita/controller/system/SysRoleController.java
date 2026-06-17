@@ -2,14 +2,9 @@ package com.vita.controller.system;
 
 import cn.dev33.satoken.annotation.SaCheckPermission;
 import com.vita.core.CommonResult;
+import com.vita.core.controller.BaseController;
 import com.vita.core.page.PageResponse;
-import com.vita.system.sysRole.dto.SysRoleAuthPermissionDto;
-import com.vita.system.sysRole.dto.SysRoleAuthPermissionsDto;
-import com.vita.system.sysRole.dto.SysRoleAuthUserDto;
-import com.vita.system.sysRole.dto.SysRoleAuthUsersDto;
-import com.vita.system.sysRole.dto.SysRoleCreateDto;
-import com.vita.system.sysRole.dto.SysRoleSearchDto;
-import com.vita.system.sysRole.dto.SysRoleUpdateDto;
+import com.vita.system.sysRole.dto.*;
 import com.vita.system.sysRole.entity.SysRole;
 import com.vita.system.sysRole.service.ISysRoleService;
 import com.vita.system.sysRole.vo.SysRoleDetailVo;
@@ -21,8 +16,6 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-
-import com.vita.core.controller.BaseController;
 
 /**
  * @BelongsProject: vita
@@ -77,7 +70,7 @@ public class SysRoleController extends BaseController {
      * @param id 主键ID
      * @return 删除结果
      */
-    @DeleteMapping("/delete")
+    @GetMapping("/delete")
     @SaCheckPermission("system:role:delete")
     public CommonResult<Boolean> delete(@RequestParam("id") Long id) {
         sysRoleService.delete(id);
@@ -195,7 +188,7 @@ public class SysRoleController extends BaseController {
      * @param ids 角色ID列表
      * @return 删除结果
      */
-    @DeleteMapping("/deleteBatch")
+    @GetMapping("/deleteBatch")
     @SaCheckPermission("system:role:delete")
     public CommonResult<Boolean> deleteBatch(@RequestParam("ids") List<Long> ids) {
         sysRoleService.deleteBatch(ids);

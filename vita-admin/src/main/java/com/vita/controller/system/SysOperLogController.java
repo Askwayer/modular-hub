@@ -11,7 +11,10 @@ import com.vita.system.sysOperLog.vo.SysOperLogListVo;
 import com.vita.system.sysOperLog.vo.SysOperLogPageVo;
 import jakarta.validation.Valid;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
@@ -43,7 +46,7 @@ public class SysOperLogController extends BaseController {
      * @param id 主键ID
      * @return 删除结果
      */
-    @DeleteMapping("/delete")
+    @GetMapping("/delete")
     @SaCheckPermission("system:oper-log:delete")
     public CommonResult<Boolean> delete(@RequestParam("id") Long id) {
         sysOperLogService.delete(id);
