@@ -4,12 +4,11 @@ import cn.hutool.core.text.CharSequenceUtil;
 import cn.hutool.http.useragent.UserAgent;
 import cn.hutool.http.useragent.UserAgentUtil;
 import com.vita.log.model.RequestClientInfo;
+import com.vita.log.service.IpLocationService;
 import com.vita.utils.ServletUtils;
-import com.vita.utils.ip.AddressUtils;
 import com.vita.utils.ip.IpUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 
@@ -20,6 +19,12 @@ import java.time.LocalDateTime;
  */
 @Component
 public class RequestClientInfoResolver {
+
+    private final IpLocationService ipLocationService;
+
+    public RequestClientInfoResolver(IpLocationService ipLocationService) {
+        this.ipLocationService = ipLocationService;
+    }
 
     /**
      * 解析当前线程绑定请求的客户端信息。
@@ -45,7 +50,7 @@ public class RequestClientInfoResolver {
         requestClientInfo.setRequestTime(LocalDateTime.now());
         String ip = request == null ? "unknown" : IpUtils.getIpAddr(request);
         requestClientInfo.setIp(ip);
-        requestClientInfo.setLocation(StringUtils.hasText(ip) ? AddressUtils.getRealAddressByIP(ip) : AddressUtils.UNKNOWN);
+        requestClientInfo.setLocation(ipLocationService.resolveFast(ip));
 
         String userAgentValue = request == null ? null : request.getHeader("User-Agent");
         UserAgent userAgent = CharSequenceUtil.isBlank(userAgentValue) ? null : UserAgentUtil.parse(userAgentValue);

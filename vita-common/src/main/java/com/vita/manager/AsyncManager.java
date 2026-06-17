@@ -30,10 +30,18 @@ public class AsyncManager {
 
     private final Executor operLogTaskExecutor;
 
+    private final Executor loginAuditTaskExecutor;
+
+    private final Executor geoEnrichTaskExecutor;
+
     public AsyncManager(@Qualifier("scheduledExecutorService") ScheduledExecutorService scheduledExecutorService,
-                        @Qualifier("operLogTaskExecutor") Executor operLogTaskExecutor) {
+                        @Qualifier("operLogTaskExecutor") Executor operLogTaskExecutor,
+                        @Qualifier("loginAuditTaskExecutor") Executor loginAuditTaskExecutor,
+                        @Qualifier("geoEnrichTaskExecutor") Executor geoEnrichTaskExecutor) {
         this.scheduledExecutorService = scheduledExecutorService;
         this.operLogTaskExecutor = operLogTaskExecutor;
+        this.loginAuditTaskExecutor = loginAuditTaskExecutor;
+        this.geoEnrichTaskExecutor = geoEnrichTaskExecutor;
     }
 
     /**
@@ -98,24 +106,25 @@ public class AsyncManager {
      */
     private Executor resolveExecutor(SystemAsyncTaskExecutorType executorType) {
         return switch (executorType) {
-            case OPER_LOG -> operLogTaskExecutor;
+            case OPER_AUDIT -> operLogTaskExecutor;
+            case LOGIN_AUDIT -> loginAuditTaskExecutor;
+            case GEO_ENRICH -> geoEnrichTaskExecutor;
             case SCHEDULED -> scheduledExecutorService;
         };
     }
 
     /**
-     * 当线程池拒绝任务时，回退到调用线程直接执行。
+     * 当线程池拒绝任务时，记录告警并直接丢弃，避免反压主业务线程。
      *
      * @param task 系统异步任务
      * @param ex   拒绝执行异常
      */
     private void fallback(SystemAsyncTask task, RejectedExecutionException ex) {
         LOG.warn(
-                "系统异步任务提交失败，回退到调用线程执行, taskName={}, executorType={}",
+                "系统异步任务提交失败，已丢弃, taskName={}, executorType={}",
                 task.getTaskName(),
                 task.getExecutorType(),
                 ex
         );
-        task.getTask().run();
     }
 }

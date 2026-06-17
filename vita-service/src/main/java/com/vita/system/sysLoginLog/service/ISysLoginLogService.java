@@ -1,11 +1,11 @@
 package com.vita.system.sysLoginLog.service;
 
+import com.baomidou.mybatisplus.extension.service.IService;
 import com.vita.core.page.PageResponse;
 import com.vita.system.sysLoginLog.dto.SysLoginLogCreateDto;
 import com.vita.system.sysLoginLog.dto.SysLoginLogSearchDto;
 import com.vita.system.sysLoginLog.dto.SysLoginLogUpdateDto;
 import com.vita.system.sysLoginLog.entity.SysLoginLog;
-import com.baomidou.mybatisplus.extension.service.IService;
 import com.vita.system.sysLoginLog.vo.SysLoginLogDetailVo;
 import com.vita.system.sysLoginLog.vo.SysLoginLogListVo;
 import com.vita.system.sysLoginLog.vo.SysLoginLogPageVo;
@@ -36,6 +36,14 @@ public interface ISysLoginLogService extends IService<SysLoginLog> {
      * @param updateDto 更新请求对象
      */
     void update(SysLoginLogUpdateDto updateDto);
+
+    /**
+     * 仅更新登录地点。
+     *
+     * @param id 主键ID
+     * @param loginLocation 登录地点
+     */
+    void updateLoginLocation(Long id, String loginLocation);
 
     /**
      * 删除数据。

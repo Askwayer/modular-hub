@@ -13,6 +13,7 @@ public interface LoginAuditPersistence {
      * 持久化登录审计记录。
      *
      * @param record 登录审计记录
+     * @return 登录日志主键ID；未落库时返回 null
      */
-    void persist(LoginAuditRecord record);
+    Long persist(LoginAuditRecord record);
 }

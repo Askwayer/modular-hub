@@ -1,15 +1,13 @@
 package com.vita.system.sysLoginLog.support;
 
-import com.vita.constant.Constants;
+import cn.hutool.core.text.CharSequenceUtil;
 import com.vita.log.model.LoginAuditRecord;
 import com.vita.log.persistence.LoginAuditPersistence;
+import com.vita.log.persistence.LoginLocationPersistence;
 import com.vita.system.sysLoginLog.dto.SysLoginLogCreateDto;
 import com.vita.system.sysLoginLog.service.ISysLoginLogService;
-import com.vita.system.sysUser.service.ISysUserService;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Component;
-
-import java.util.Objects;
 
 /**
  * 登录审计持久化适配器，将 common 层登录审计快照转换为系统登录日志实体。
@@ -17,23 +15,20 @@ import java.util.Objects;
  * @author znk
  */
 @Component
-public class SysLoginLogPersistenceHandler implements LoginAuditPersistence {
+public class SysLoginLogPersistenceHandler implements LoginAuditPersistence, LoginLocationPersistence {
 
     @Resource
     private ISysLoginLogService sysLoginLogService;
 
-    @Resource
-    private ISysUserService sysUserService;
-
     /**
-     * 持久化登录审计记录，并在登录成功时同步更新用户登录信息。
+     * 持久化登录审计记录。
      *
      * @param record 登录审计记录
      */
     @Override
-    public void persist(LoginAuditRecord record) {
+    public Long persist(LoginAuditRecord record) {
         if (record == null) {
-            return;
+            return null;
         }
 
         SysLoginLogCreateDto createDto = new SysLoginLogCreateDto();
@@ -45,10 +40,14 @@ public class SysLoginLogPersistenceHandler implements LoginAuditPersistence {
         createDto.setStatus(record.getStatus());
         createDto.setMsg(record.getMsg());
         createDto.setLoginTime(record.getLoginTime());
-        sysLoginLogService.create(createDto);
+        return sysLoginLogService.create(createDto);
+    }
 
-        if (Objects.equals(record.getStatus(), Constants.SUCCESS) && record.getUserId() != null) {
-            sysUserService.updateLoginInfo(record.getUserId(), record.getLoginTime(), record.getIpaddr());
+    @Override
+    public void updateLoginLocation(Long logId, String location) {
+        if (logId == null || CharSequenceUtil.isBlank(location)) {
+            return;
         }
+        sysLoginLogService.updateLoginLocation(logId, location);
     }
 }

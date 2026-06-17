@@ -2,6 +2,7 @@ package com.vita.system.sysLoginLog.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.StrUtil;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
 import com.vita.core.page.PageResponse;
@@ -12,7 +13,6 @@ import com.vita.system.sysLoginLog.dto.SysLoginLogUpdateDto;
 import com.vita.system.sysLoginLog.entity.SysLoginLog;
 import com.vita.system.sysLoginLog.mapper.SysLoginLogMapper;
 import com.vita.system.sysLoginLog.service.ISysLoginLogService;
-import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.vita.system.sysLoginLog.vo.SysLoginLogDetailVo;
 import com.vita.system.sysLoginLog.vo.SysLoginLogListVo;
 import com.vita.system.sysLoginLog.vo.SysLoginLogPageVo;
@@ -66,6 +66,23 @@ public class SysLoginLogServiceImpl extends ServiceImpl<SysLoginLogMapper, SysLo
         getRequiredEntity(updateDto.getId());
         SysLoginLog data = new SysLoginLog();
         BeanUtils.copyProperties(updateDto, data);
+        sysLoginLogMapper.updateById(data);
+    }
+
+    /**
+     * 仅更新登录地点，供异步归属地补全链路使用。
+     *
+     * @param id 主键ID
+     * @param loginLocation 登录地点
+     */
+    @Override
+    public void updateLoginLocation(Long id, String loginLocation) {
+        if (id == null) {
+            throw new ServiceException(GlobalErrorCode.BAD_REQUEST);
+        }
+        SysLoginLog data = new SysLoginLog();
+        data.setId(id);
+        data.setLoginLocation(loginLocation);
         sysLoginLogMapper.updateById(data);
     }
 
