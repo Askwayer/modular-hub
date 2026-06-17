@@ -1,5 +1,6 @@
 package com.vita.controller.auth;
 
+import com.vita.annotation.RepeatSubmit;
 import com.vita.auth.dto.AuthLoginDto;
 import com.vita.auth.service.IAuthService;
 import com.vita.auth.vo.AuthInfoVo;
@@ -38,6 +39,7 @@ public class AuthController extends BaseController {
      * @param loginDto 登录请求参数
      * @return 登录响应结果
      */
+    @RepeatSubmit
     @PostMapping("/login")
     public CommonResult<AuthLoginVo> login(@RequestBody AuthLoginDto loginDto) {
         return CommonResult.success(authService.login(loginDto));
@@ -48,6 +50,7 @@ public class AuthController extends BaseController {
      *
      * @return 登出结果
      */
+    @RepeatSubmit
     @PostMapping("/logout")
     public CommonResult<Boolean> logout() {
         authService.logout();

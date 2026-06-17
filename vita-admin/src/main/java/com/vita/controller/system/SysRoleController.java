@@ -1,6 +1,7 @@
 package com.vita.controller.system;
 
 import cn.dev33.satoken.annotation.SaCheckPermission;
+import com.vita.annotation.RepeatSubmit;
 import com.vita.core.CommonResult;
 import com.vita.core.controller.BaseController;
 import com.vita.core.page.PageResponse;
@@ -45,6 +46,7 @@ public class SysRoleController extends BaseController {
      * @param createDto 创建请求对象
      * @return 新增记录ID
      */
+    @RepeatSubmit
     @PostMapping("/add")
     @SaCheckPermission("system:role:add")
     public CommonResult<Long> create(@RequestBody @Valid SysRoleCreateDto createDto) {
@@ -57,6 +59,7 @@ public class SysRoleController extends BaseController {
      * @param updateDto 更新请求对象
      * @return 更新结果
      */
+    @RepeatSubmit
     @PostMapping("/update")
     @SaCheckPermission("system:role:update")
     public CommonResult<Boolean> update(@RequestBody @Valid SysRoleUpdateDto updateDto) {
@@ -70,6 +73,7 @@ public class SysRoleController extends BaseController {
      * @param id 主键ID
      * @return 删除结果
      */
+    @RepeatSubmit
     @GetMapping("/delete")
     @SaCheckPermission("system:role:delete")
     public CommonResult<Boolean> delete(@RequestParam("id") Long id) {
@@ -188,6 +192,7 @@ public class SysRoleController extends BaseController {
      * @param ids 角色ID列表
      * @return 删除结果
      */
+    @RepeatSubmit
     @GetMapping("/deleteBatch")
     @SaCheckPermission("system:role:delete")
     public CommonResult<Boolean> deleteBatch(@RequestParam("ids") List<Long> ids) {
@@ -201,6 +206,7 @@ public class SysRoleController extends BaseController {
      * @param authUserDto 请求对象
      * @return 处理结果
      */
+    @RepeatSubmit
     @PostMapping("/cancelAuthUser")
     @SaCheckPermission("system:role:grant")
     public CommonResult<Boolean> cancelAuthUser(@RequestBody @Valid SysRoleAuthUserDto authUserDto) {
@@ -214,6 +220,7 @@ public class SysRoleController extends BaseController {
      * @param authUsersDto 请求对象
      * @return 处理结果
      */
+    @RepeatSubmit
     @PostMapping("/cancelAuthUsers")
     @SaCheckPermission("system:role:grant")
     public CommonResult<Boolean> cancelAuthUsers(@RequestBody @Valid SysRoleAuthUsersDto authUsersDto) {
@@ -227,6 +234,7 @@ public class SysRoleController extends BaseController {
      * @param authUsersDto 请求对象
      * @return 处理结果
      */
+    @RepeatSubmit
     @PostMapping("/authUsers")
     @SaCheckPermission("system:role:grant")
     public CommonResult<Boolean> authUsers(@RequestBody @Valid SysRoleAuthUsersDto authUsersDto) {
@@ -240,6 +248,7 @@ public class SysRoleController extends BaseController {
      * @param authPermissionDto 请求对象
      * @return 处理结果
      */
+    @RepeatSubmit
     @PostMapping("/cancelAuthPermission")
     @SaCheckPermission("system:role:grant")
     public CommonResult<Boolean> cancelAuthPermission(@RequestBody @Valid SysRoleAuthPermissionDto authPermissionDto) {
@@ -253,6 +262,7 @@ public class SysRoleController extends BaseController {
      * @param authPermissionsDto 请求对象
      * @return 处理结果
      */
+    @RepeatSubmit
     @PostMapping("/cancelAuthPermissions")
     @SaCheckPermission("system:role:grant")
     public CommonResult<Boolean> cancelAuthPermissions(@RequestBody @Valid SysRoleAuthPermissionsDto authPermissionsDto) {
@@ -266,6 +276,7 @@ public class SysRoleController extends BaseController {
      * @param authPermissionsDto 请求对象
      * @return 处理结果
      */
+    @RepeatSubmit
     @PostMapping("/authPermissions")
     @SaCheckPermission("system:role:grant")
     public CommonResult<Boolean> authPermissions(@RequestBody @Valid SysRoleAuthPermissionsDto authPermissionsDto) {

@@ -1,6 +1,7 @@
 package com.vita.controller.system;
 
 import cn.dev33.satoken.annotation.SaCheckPermission;
+import com.vita.annotation.RepeatSubmit;
 import com.vita.core.CommonResult;
 import com.vita.core.controller.BaseController;
 import com.vita.core.page.PageResponse;
@@ -45,6 +46,7 @@ public class SysDeptController extends BaseController {
      * @param createDto 创建请求对象
      * @return 新增记录ID
      */
+    @RepeatSubmit
     @PostMapping("/add")
     @SaCheckPermission("system:dept:add")
     public CommonResult<Long> create(@RequestBody @Valid SysDeptCreateDto createDto) {
@@ -57,6 +59,7 @@ public class SysDeptController extends BaseController {
      * @param updateDto 更新请求对象
      * @return 更新结果
      */
+    @RepeatSubmit
     @PostMapping("/update")
     @SaCheckPermission("system:dept:update")
     public CommonResult<Boolean> update(@RequestBody @Valid SysDeptUpdateDto updateDto) {
@@ -70,6 +73,7 @@ public class SysDeptController extends BaseController {
      * @param id 主键ID
      * @return 删除结果
      */
+    @RepeatSubmit
     @GetMapping("/delete")
     @SaCheckPermission("system:dept:delete")
     public CommonResult<Boolean> delete(@RequestParam("id") Long id) {
