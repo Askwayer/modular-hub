@@ -2,6 +2,7 @@ package com.vita.controller.system;
 
 import cn.dev33.satoken.annotation.SaCheckPermission;
 import com.vita.core.CommonResult;
+import com.vita.core.controller.BaseController;
 import com.vita.core.page.PageResponse;
 import com.vita.system.sysIpBlock.dto.SysIpBlockCreateDto;
 import com.vita.system.sysIpBlock.dto.SysIpBlockSearchDto;
@@ -15,8 +16,6 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-
-import com.vita.core.controller.BaseController;
 
 /**
  * @BelongsProject: vita
@@ -71,7 +70,7 @@ public class SysIpBlockController extends BaseController {
      * @param id 主键ID
      * @return 删除结果
      */
-    @DeleteMapping("/delete")
+    @GetMapping("/delete")
     @SaCheckPermission("system:ip-block:delete")
     public CommonResult<Boolean> delete(@RequestParam("id") Long id) {
         sysIpBlockService.delete(id);
