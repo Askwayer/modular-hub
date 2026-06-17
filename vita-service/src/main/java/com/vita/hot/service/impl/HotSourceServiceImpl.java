@@ -17,7 +17,7 @@ import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -26,6 +26,7 @@ import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -45,7 +46,7 @@ public class HotSourceServiceImpl implements IHotSourceService {
     private final RedisCache redisCache;
     private final RedissonClient redissonClient;
     private final HotEngineClient hotEngineClient;
-    private final ThreadPoolTaskExecutor threadPoolTaskExecutor;
+    private final Executor hotRefreshTaskExecutor;
 
     /**
      * 构造函数注入热榜相关依赖
@@ -58,12 +59,13 @@ public class HotSourceServiceImpl implements IHotSourceService {
     public HotSourceServiceImpl(HotProperty hotProperty,
                                 RedisCache redisCache,
                                 RedissonClient redissonClient,
-                                HotEngineClient hotEngineClient, ThreadPoolTaskExecutor threadPoolTaskExecutor) {
+                                HotEngineClient hotEngineClient,
+                                @Qualifier("hotRefreshTaskExecutor") Executor hotRefreshTaskExecutor) {
         this.hotProperty = hotProperty;
         this.redisCache = redisCache;
         this.redissonClient = redissonClient;
         this.hotEngineClient = hotEngineClient;
-        this.threadPoolTaskExecutor = threadPoolTaskExecutor;
+        this.hotRefreshTaskExecutor = hotRefreshTaskExecutor;
     }
 
 
@@ -153,7 +155,7 @@ public class HotSourceServiceImpl implements IHotSourceService {
             // 这里可以考虑并行刷新以提高效率，使用 CompletableFuture 来异步执行刷新操作
             List<CompletableFuture<HotSourceStatusVo>> futures = sourceCodes.stream().map(sourceCode -> CompletableFuture.supplyAsync(
                     () -> refreshSourceAndBuildStatus(sourceCode),
-                    threadPoolTaskExecutor
+                    hotRefreshTaskExecutor
             )).toList();
 
             return futures.stream()

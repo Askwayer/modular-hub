@@ -1,16 +1,15 @@
 package com.vita.config;
 
-import com.vita.utils.ThreadUtils;
+import com.vita.property.async.AsyncExecutorProperty;
+import com.vita.property.async.DefaultAsyncExecutorProperty;
+import com.vita.property.async.HotRefreshAsyncExecutorProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
-import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.RejectedExecutionHandler;
 import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * @BelongsProject: be-vita
@@ -22,128 +21,48 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 @Configuration
 public class ThreadPoolConfig {
-    // 核心线程池大小
-    private final int corePoolSize = 50;
-
-    // 线程池维护线程所允许的空闲时间
-    private int keepAliveSeconds = 300;
-
-    // 日志线程池相关配置
-    private static final int OPER_AUDIT_CORE_POOL_SIZE = 4;
-
-    private static final int OPER_AUDIT_MAX_POOL_SIZE = 16;
-
-    private static final int OPER_AUDIT_QUEUE_CAPACITY = 1000;
-
-    private static final int LOGIN_AUDIT_CORE_POOL_SIZE = 2;
-
-    private static final int LOGIN_AUDIT_MAX_POOL_SIZE = 8;
-
-    private static final int LOGIN_AUDIT_QUEUE_CAPACITY = 500;
-
-    private static final int GEO_ENRICH_CORE_POOL_SIZE = 2;
-
-    private static final int GEO_ENRICH_MAX_POOL_SIZE = 4;
-
-    private static final int GEO_ENRICH_QUEUE_CAPACITY = 200;
+    private static final DefaultAsyncExecutorProperty DEFAULT_EXECUTOR_PROPERTY = new DefaultAsyncExecutorProperty();
+    private static final HotRefreshAsyncExecutorProperty HOT_REFRESH_EXECUTOR_PROPERTY =
+            new HotRefreshAsyncExecutorProperty();
 
     /**
-     * 线程池任务执行器
+     * 非核心异步默认线程池，同时保留旧别名避免 Bean 名立即断裂。
      *
      * @return ThreadPoolTaskExecutor
      */
-    @Bean(name = "threadPoolTaskExecutor")
+    @Bean(name = {"defaultTaskExecutor", "threadPoolTaskExecutor"})
     @Primary
-    public ThreadPoolTaskExecutor taskExecutor() {
-        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        // 最大可创建的线程数
-        int maxPoolSize = 200;
-        executor.setMaxPoolSize(maxPoolSize);
-        executor.setCorePoolSize(corePoolSize);
-        // 队列最大长度
-        int queueCapacity = 1000;
-        executor.setQueueCapacity(queueCapacity);
-        executor.setKeepAliveSeconds(keepAliveSeconds);
-        // 线程池对拒绝任务(无线程可用)的处理策略
-        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.DiscardPolicy());
-        return executor;
+    public ThreadPoolTaskExecutor defaultTaskExecutor() {
+        return createExecutor(DEFAULT_EXECUTOR_PROPERTY, new ThreadPoolExecutor.DiscardPolicy());
     }
 
     /**
-     * 执行周期性或定时任务
+     * 热榜全量刷新专用线程池。
      */
-    @Bean(name = "scheduledExecutorService")
-    protected ScheduledExecutorService scheduledExecutorService() {
-        return new ScheduledThreadPoolExecutor(corePoolSize,
-                new ThreadFactory() {
-                    private final AtomicInteger count = new AtomicInteger(1);
-
-                    @Override
-                    public Thread newThread(Runnable r) {
-                        Thread t = new Thread(r);
-                        t.setName("schedule-pool-" + count.getAndIncrement());
-                        t.setDaemon(true);
-                        return t;
-                    }
-                },
-                new ThreadPoolExecutor.DiscardPolicy()) {
-            @Override
-            protected void afterExecute(Runnable r, Throwable t) {
-                super.afterExecute(r, t);
-                ThreadUtils.printException(r, t);
-            }
-        };
+    @Bean(name = "hotRefreshTaskExecutor")
+    public ThreadPoolTaskExecutor hotRefreshTaskExecutor() {
+        return createExecutor(HOT_REFRESH_EXECUTOR_PROPERTY, new ThreadPoolExecutor.CallerRunsPolicy());
     }
 
     /**
-     * 系统操作日志专用线程池。
+     * 创建线程池执行器实例。
+     *
+     * @param property 线程池配置对象
+     * @param rejectedExecutionHandler 拒绝策略处理器，当线程池无法接受新任务时执行
+     * @return 配置完成的 ThreadPoolTaskExecutor 实例
      */
-    @Bean(name = "operLogTaskExecutor")
-    public ThreadPoolTaskExecutor operLogTaskExecutor() {
+    private ThreadPoolTaskExecutor createExecutor(AsyncExecutorProperty property,
+                                                  RejectedExecutionHandler rejectedExecutionHandler) {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(OPER_AUDIT_CORE_POOL_SIZE);
-        executor.setMaxPoolSize(OPER_AUDIT_MAX_POOL_SIZE);
-        executor.setQueueCapacity(OPER_AUDIT_QUEUE_CAPACITY);
-        executor.setKeepAliveSeconds(keepAliveSeconds);
-        executor.setThreadNamePrefix("oper-log-");
+        executor.setCorePoolSize(property.getCorePoolSize());
+        executor.setMaxPoolSize(property.getMaxPoolSize());
+        executor.setQueueCapacity(property.getQueueCapacity());
+        executor.setKeepAliveSeconds(property.getKeepAliveSeconds());
+        executor.setThreadNamePrefix(property.getThreadNamePrefix());
+        // 配置优雅关闭：等待任务完成并设置终止超时时间
         executor.setWaitForTasksToCompleteOnShutdown(true);
-        executor.setAwaitTerminationSeconds(30);
-        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.DiscardPolicy());
+        executor.setAwaitTerminationSeconds(property.getAwaitTerminationSeconds());
+        executor.setRejectedExecutionHandler(rejectedExecutionHandler);
         return executor;
     }
-
-    /**
-     * 登录审计与登录信息更新线程池。
-     */
-    @Bean(name = "loginAuditTaskExecutor")
-    public ThreadPoolTaskExecutor loginAuditTaskExecutor() {
-        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(LOGIN_AUDIT_CORE_POOL_SIZE);
-        executor.setMaxPoolSize(LOGIN_AUDIT_MAX_POOL_SIZE);
-        executor.setQueueCapacity(LOGIN_AUDIT_QUEUE_CAPACITY);
-        executor.setKeepAliveSeconds(keepAliveSeconds);
-        executor.setThreadNamePrefix("login-audit-");
-        executor.setWaitForTasksToCompleteOnShutdown(true);
-        executor.setAwaitTerminationSeconds(30);
-        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.DiscardPolicy());
-        return executor;
-    }
-
-    /**
-     * 登录归属地补全线程池。
-     */
-    @Bean(name = "geoEnrichTaskExecutor")
-    public ThreadPoolTaskExecutor geoEnrichTaskExecutor() {
-        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(GEO_ENRICH_CORE_POOL_SIZE);
-        executor.setMaxPoolSize(GEO_ENRICH_MAX_POOL_SIZE);
-        executor.setQueueCapacity(GEO_ENRICH_QUEUE_CAPACITY);
-        executor.setKeepAliveSeconds(keepAliveSeconds);
-        executor.setThreadNamePrefix("geo-enrich-");
-        executor.setWaitForTasksToCompleteOnShutdown(true);
-        executor.setAwaitTerminationSeconds(30);
-        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.DiscardPolicy());
-        return executor;
-    }
-
 }

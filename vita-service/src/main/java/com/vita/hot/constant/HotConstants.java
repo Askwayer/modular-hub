@@ -54,11 +54,6 @@ public final class HotConstants {
      */
     public static final long DEFAULT_STALE_THRESHOLD_MINUTES = 20L;
 
-    /**
-     * 默认刷新并发数。
-     */
-    public static final int DEFAULT_REFRESH_PARALLELISM = 6;
-
     public static String buildSourceCacheKey(String sourceCode) {
         return HOT_CACHE_KEY_PREFIX + sourceCode;
     }

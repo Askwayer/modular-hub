@@ -19,11 +19,6 @@ import org.springframework.stereotype.Component;
 public class HotProperty {
 
     /**
-     * 刷新任务并行度
-     */
-    private Integer refreshParallelism = HotConstants.DEFAULT_REFRESH_PARALLELISM;
-
-    /**
      * 数据过时阈值（分钟）
      */
     private Long staleThresholdMinutes = HotConstants.DEFAULT_STALE_THRESHOLD_MINUTES;

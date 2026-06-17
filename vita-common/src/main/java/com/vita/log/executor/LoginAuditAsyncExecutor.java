@@ -1,18 +1,22 @@
 package com.vita.log.executor;
 
 import com.vita.constant.Constants;
+import com.vita.interceptor.RequestTraceInterceptor;
 import com.vita.log.model.LoginAuditRecord;
 import com.vita.log.model.RequestClientInfo;
 import com.vita.log.persistence.LoginAuditPersistence;
 import com.vita.log.persistence.LoginLocationPersistence;
 import com.vita.log.persistence.LoginUserInfoPersistence;
 import com.vita.log.service.IpLocationService;
-import com.vita.manager.AsyncManager;
-import com.vita.manager.factory.AsyncFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 import java.util.Objects;
+import java.util.concurrent.Executor;
 
 /**
  * 登录审计异步执行器，负责快照收口、持久化扩展点解析与统一任务投递。
@@ -22,7 +26,11 @@ import java.util.Objects;
 @Component
 public class LoginAuditAsyncExecutor {
 
-    private final AsyncManager asyncManager;
+    private static final Logger ACCESS_LOGGER = LoggerFactory.getLogger("sys-access");
+
+    private static final Logger LOG = LoggerFactory.getLogger(LoginAuditAsyncExecutor.class);
+
+    private final Executor defaultTaskExecutor;
 
     private final ObjectProvider<LoginAuditPersistence> loginAuditPersistenceProvider;
 
@@ -32,12 +40,12 @@ public class LoginAuditAsyncExecutor {
 
     private final IpLocationService ipLocationService;
 
-    public LoginAuditAsyncExecutor(AsyncManager asyncManager,
+    public LoginAuditAsyncExecutor(@Qualifier("defaultTaskExecutor") Executor defaultTaskExecutor,
                                    ObjectProvider<LoginAuditPersistence> loginAuditPersistenceProvider,
                                    ObjectProvider<LoginLocationPersistence> loginLocationPersistenceProvider,
                                    ObjectProvider<LoginUserInfoPersistence> loginUserInfoPersistenceProvider,
                                    IpLocationService ipLocationService) {
-        this.asyncManager = asyncManager;
+        this.defaultTaskExecutor = defaultTaskExecutor;
         this.loginAuditPersistenceProvider = loginAuditPersistenceProvider;
         this.loginLocationPersistenceProvider = loginLocationPersistenceProvider;
         this.loginUserInfoPersistenceProvider = loginUserInfoPersistenceProvider;
@@ -68,15 +76,41 @@ public class LoginAuditAsyncExecutor {
         LoginLocationPersistence loginLocationPersistence = loginLocationPersistenceProvider.getIfAvailable();
         LoginUserInfoPersistence loginUserInfoPersistence = loginUserInfoPersistenceProvider.getIfAvailable();
         LoginAuditRecord loginAuditRecord = buildRecord(userName, userId, requestClientInfo, status, message);
-        asyncManager.execute(AsyncFactory.recordLogin(
+        defaultTaskExecutor.execute(() -> persistLoginAudit(
                 requestId,
                 loginAuditRecord,
                 loginAuditPersistence,
-                (record, logId) -> {
-                    submitUserLoginInfoUpdate(requestId, record, loginUserInfoPersistence);
-                    submitLocationEnrichment(requestId, record, logId, loginLocationPersistence);
-                }
+                loginLocationPersistence,
+                loginUserInfoPersistence
         ));
+    }
+
+    private void persistLoginAudit(String requestId,
+                                   LoginAuditRecord loginAuditRecord,
+                                   LoginAuditPersistence loginAuditPersistence,
+                                   LoginLocationPersistence loginLocationPersistence,
+                                   LoginUserInfoPersistence loginUserInfoPersistence) {
+        try {
+            withRequestId(requestId);
+            ACCESS_LOGGER.info(
+                    "requestId={} event=login userName={} status={} ip={} location={} browser={} os={} msg={}",
+                    requestId,
+                    loginAuditRecord.getUserName(),
+                    loginAuditRecord.getStatus(),
+                    loginAuditRecord.getIpaddr(),
+                    loginAuditRecord.getLoginLocation(),
+                    loginAuditRecord.getBrowser(),
+                    loginAuditRecord.getOs(),
+                    loginAuditRecord.getMsg()
+            );
+            Long logId = loginAuditPersistence == null ? null : loginAuditPersistence.persist(loginAuditRecord);
+            submitUserLoginInfoUpdate(requestId, loginAuditRecord, loginUserInfoPersistence);
+            submitLocationEnrichment(requestId, loginAuditRecord, logId, loginLocationPersistence);
+        } catch (Exception ex) {
+            LOG.error("异步保存登录审计失败, requestId={}", requestId, ex);
+        } finally {
+            MDC.remove(RequestTraceInterceptor.REQUEST_ID_KEY);
+        }
     }
 
     private void submitUserLoginInfoUpdate(String requestId,
@@ -87,7 +121,20 @@ public class LoginAuditAsyncExecutor {
                 || !Objects.equals(loginAuditRecord.getStatus(), Constants.SUCCESS)) {
             return;
         }
-        asyncManager.execute(AsyncFactory.updateLoginInfo(requestId, loginAuditRecord, loginUserInfoPersistence));
+        defaultTaskExecutor.execute(() -> {
+            try {
+                withRequestId(requestId);
+                loginUserInfoPersistence.updateLoginInfo(
+                        loginAuditRecord.getUserId(),
+                        loginAuditRecord.getLoginTime(),
+                        loginAuditRecord.getIpaddr()
+                );
+            } catch (Exception ex) {
+                LOG.error("异步更新用户登录信息失败, requestId={}, userId={}", requestId, loginAuditRecord.getUserId(), ex);
+            } finally {
+                MDC.remove(RequestTraceInterceptor.REQUEST_ID_KEY);
+            }
+        });
     }
 
     private void submitLocationEnrichment(String requestId,
@@ -99,13 +146,19 @@ public class LoginAuditAsyncExecutor {
                 || !ipLocationService.needsAsyncEnrichment(loginAuditRecord.getIpaddr(), loginAuditRecord.getLoginLocation())) {
             return;
         }
-        asyncManager.execute(AsyncFactory.enrichLoginLocation(
-                requestId,
-                logId,
-                loginAuditRecord.getIpaddr(),
-                ipLocationService,
-                loginLocationPersistence
-        ));
+        defaultTaskExecutor.execute(() -> {
+            try {
+                withRequestId(requestId);
+                String location = ipLocationService.resolveAndCache(loginAuditRecord.getIpaddr());
+                if (location != null && !Objects.equals(location, loginAuditRecord.getLoginLocation())) {
+                    loginLocationPersistence.updateLoginLocation(logId, location);
+                }
+            } catch (Exception ex) {
+                LOG.error("异步补全登录归属地失败, requestId={}, logId={}, ip={}", requestId, logId, loginAuditRecord.getIpaddr(), ex);
+            } finally {
+                MDC.remove(RequestTraceInterceptor.REQUEST_ID_KEY);
+            }
+        });
     }
 
     /**
@@ -134,5 +187,11 @@ public class LoginAuditAsyncExecutor {
                 .msg(message)
                 .loginTime(requestClientInfo.getRequestTime())
                 .build();
+    }
+
+    private void withRequestId(String requestId) {
+        if (requestId != null) {
+            MDC.put(RequestTraceInterceptor.REQUEST_ID_KEY, requestId);
+        }
     }
 }

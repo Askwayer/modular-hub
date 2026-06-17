@@ -6,8 +6,6 @@ import com.vita.log.persistence.LoginAuditPersistence;
 import com.vita.log.persistence.LoginLocationPersistence;
 import com.vita.log.persistence.LoginUserInfoPersistence;
 import com.vita.log.service.IpLocationService;
-import com.vita.manager.AsyncManager;
-import com.vita.manager.task.SystemAsyncTask;
 import com.vita.utils.ip.AddressUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -18,15 +16,13 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 
 import java.time.LocalDateTime;
+import java.util.concurrent.Executor;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class LoginAuditAsyncExecutorTest {
-
-    @Mock
-    private AsyncManager asyncManager;
 
     @Mock
     private LoginAuditPersistence loginAuditPersistence;
@@ -42,20 +38,17 @@ class LoginAuditAsyncExecutorTest {
 
     private LoginAuditAsyncExecutor loginAuditAsyncExecutor;
 
+    private final Executor directExecutor = Runnable::run;
+
     @BeforeEach
     void setUp() {
         loginAuditAsyncExecutor = new LoginAuditAsyncExecutor(
-                asyncManager,
+                directExecutor,
                 provider(LoginAuditPersistence.class, loginAuditPersistence),
                 provider(LoginLocationPersistence.class, loginLocationPersistence),
                 provider(LoginUserInfoPersistence.class, loginUserInfoPersistence),
                 ipLocationService
         );
-        doAnswer(invocation -> {
-            SystemAsyncTask task = invocation.getArgument(0);
-            task.getTask().run();
-            return null;
-        }).when(asyncManager).execute(any(SystemAsyncTask.class));
     }
 
     @Test
@@ -76,7 +69,7 @@ class LoginAuditAsyncExecutorTest {
         verify(loginAuditPersistence).persist(any());
         verify(loginUserInfoPersistence).updateLoginInfo(1L, requestClientInfo.getRequestTime(), "8.8.8.8");
         verify(loginLocationPersistence).updateLoginLocation(101L, "California Mountain View");
-        verify(asyncManager, times(3)).execute(any(SystemAsyncTask.class));
+        verify(ipLocationService).resolveAndCache("8.8.8.8");
     }
 
     @Test
@@ -96,7 +89,6 @@ class LoginAuditAsyncExecutorTest {
         verify(loginAuditPersistence).persist(any());
         verify(loginUserInfoPersistence, never()).updateLoginInfo(any(), any(), any());
         verify(loginLocationPersistence, never()).updateLoginLocation(any(), any());
-        verify(asyncManager, times(1)).execute(any(SystemAsyncTask.class));
         verify(ipLocationService, never()).resolveAndCache(any());
     }
 
