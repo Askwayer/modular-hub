@@ -1,6 +1,7 @@
 package com.vita.controller.system;
 
 import cn.dev33.satoken.annotation.SaCheckPermission;
+import com.vita.annotation.RepeatSubmit;
 import com.vita.core.CommonResult;
 import com.vita.core.controller.BaseController;
 import com.vita.core.page.PageResponse;
@@ -46,6 +47,7 @@ public class SysLoginLogController extends BaseController {
      * @param id 主键ID
      * @return 删除结果
      */
+    @RepeatSubmit
     @GetMapping("/delete")
     @SaCheckPermission("system:login-log:delete")
     public CommonResult<Boolean> delete(@RequestParam("id") Long id) {

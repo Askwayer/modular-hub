@@ -1,6 +1,7 @@
 package com.vita.controller.system;
 
 import cn.dev33.satoken.annotation.SaCheckPermission;
+import com.vita.annotation.RepeatSubmit;
 import com.vita.common.core.model.TreeSelectModel;
 import com.vita.core.CommonResult;
 import com.vita.core.controller.BaseController;
@@ -44,6 +45,7 @@ public class SysMenuController extends BaseController {
      * @param createDto 创建请求对象
      * @return 新增记录ID
      */
+    @RepeatSubmit
     @PostMapping("/add")
     @SaCheckPermission("system:menu:add")
     public CommonResult<Long> create(@RequestBody @Valid SysMenuCreateDto createDto) {
@@ -56,6 +58,7 @@ public class SysMenuController extends BaseController {
      * @param updateDto 更新请求对象
      * @return 更新结果
      */
+    @RepeatSubmit
     @PostMapping("/update")
     @SaCheckPermission("system:menu:update")
     public CommonResult<Boolean> update(@RequestBody @Valid SysMenuUpdateDto updateDto) {
@@ -69,6 +72,7 @@ public class SysMenuController extends BaseController {
      * @param id 主键ID
      * @return 删除结果
      */
+    @RepeatSubmit
     @GetMapping("/delete")
     @SaCheckPermission("system:menu:delete")
     public CommonResult<Boolean> delete(@RequestParam("id") Long id) {

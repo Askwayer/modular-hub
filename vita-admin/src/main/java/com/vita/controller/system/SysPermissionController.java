@@ -1,6 +1,7 @@
 package com.vita.controller.system;
 
 import cn.dev33.satoken.annotation.SaCheckPermission;
+import com.vita.annotation.RepeatSubmit;
 import com.vita.core.CommonResult;
 import com.vita.core.controller.BaseController;
 import com.vita.core.page.PageResponse;
@@ -47,6 +48,7 @@ public class SysPermissionController extends BaseController {
      * @param createDto 创建请求对象
      * @return 新增记录ID
      */
+    @RepeatSubmit
     @PostMapping("/add")
     @SaCheckPermission("system:permission:add")
     public CommonResult<Long> create(@RequestBody @Valid SysPermissionCreateDto createDto) {
@@ -59,6 +61,7 @@ public class SysPermissionController extends BaseController {
      * @param updateDto 更新请求对象
      * @return 更新结果
      */
+    @RepeatSubmit
     @PostMapping("/update")
     @SaCheckPermission("system:permission:update")
     public CommonResult<Boolean> update(@RequestBody @Valid SysPermissionUpdateDto updateDto) {
@@ -72,6 +75,7 @@ public class SysPermissionController extends BaseController {
      * @param id 主键ID
      * @return 删除结果
      */
+    @RepeatSubmit
     @GetMapping("/delete")
     @SaCheckPermission("system:permission:delete")
     public CommonResult<Boolean> delete(@RequestParam("id") Long id) {
@@ -190,6 +194,7 @@ public class SysPermissionController extends BaseController {
      * @param ids 权限ID列表
      * @return 删除结果
      */
+    @RepeatSubmit
     @GetMapping("/deleteBatch")
     @SaCheckPermission("system:permission:delete")
     public CommonResult<Boolean> deleteBatch(@RequestParam("ids") List<Long> ids) {

@@ -1,6 +1,7 @@
 package com.vita.controller.hot;
 
 import cn.dev33.satoken.annotation.SaCheckPermission;
+import com.vita.annotation.RepeatSubmit;
 import com.vita.core.CommonResult;
 import com.vita.core.controller.BaseController;
 import com.vita.hot.service.IHotSourceService;
@@ -57,6 +58,7 @@ public class HotCacheController extends BaseController {
      *
      * @return 成功刷新的热榜源数量
      */
+    @RepeatSubmit
     @GetMapping("/registry/sources")
     @SaCheckPermission("system:hot-cache:refresh")
     public CommonResult<Long> refreshRegistry() {
@@ -71,6 +73,7 @@ public class HotCacheController extends BaseController {
      * @param sourceCode 热榜源代码标识，例如 "weibo", "zhihu" 等
      * @return 刷新后的热榜快照数据
      */
+    @RepeatSubmit
     @PostMapping("/refresh")
     @SaCheckPermission("system:hot-cache:refresh")
     public CommonResult<HotSourceSnapshotVo> refresh(@RequestParam("sourceCode") @NotBlank(message = "sourceCode不能为空") String sourceCode) {
@@ -83,6 +86,7 @@ public class HotCacheController extends BaseController {
      *
      * @return 所有热榜源的刷新状态列表
      */
+    @RepeatSubmit
     @PostMapping("/refreshAll")
     @SaCheckPermission("system:hot-cache:refresh")
     public CommonResult<List<HotSourceStatusVo>> refreshAll() {

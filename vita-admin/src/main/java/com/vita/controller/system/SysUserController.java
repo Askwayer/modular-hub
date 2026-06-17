@@ -2,6 +2,7 @@ package com.vita.controller.system;
 
 import cn.dev33.satoken.annotation.SaCheckPermission;
 import com.vita.annotation.Log;
+import com.vita.annotation.RepeatSubmit;
 import com.vita.core.CommonResult;
 import com.vita.core.controller.BaseController;
 import com.vita.core.page.PageResponse;
@@ -47,6 +48,7 @@ public class SysUserController extends BaseController {
      * @return 新增记录ID
      */
     @Log(module = "系统用户", businessType = "CREATE", saveResponseData = false)
+    @RepeatSubmit
     @PostMapping("/add" )
     @SaCheckPermission("system:user:add")
     public CommonResult<Long> create(@RequestBody @Valid SysUserCreateDto createDto) {
@@ -60,6 +62,7 @@ public class SysUserController extends BaseController {
      * @return 更新结果
      */
     @Log(module = "admin", businessType = "UPDATE", saveResponseData = false)
+    @RepeatSubmit
     @PostMapping("/update" )
     @SaCheckPermission("system:user:update")
     public CommonResult<Boolean> update(@RequestBody @Valid SysUserUpdateDto updateDto) {
@@ -74,6 +77,7 @@ public class SysUserController extends BaseController {
      * @return 删除结果
      */
     @Log(module = "admin", businessType = "DELETE", saveResponseData = false)
+    @RepeatSubmit
     @GetMapping("/delete" )
     @SaCheckPermission("system:user:delete")
     public CommonResult<Boolean> delete(@RequestParam("id" ) Long id) {

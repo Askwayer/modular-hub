@@ -1,5 +1,6 @@
 package com.vita.controller.publicapi;
 
+import com.vita.annotation.RepeatSubmit;
 import com.vita.core.CommonResult;
 import com.vita.core.controller.BaseController;
 import com.vita.hot.service.IHotSourceService;
@@ -33,6 +34,7 @@ public class HotRefreshPublicController extends BaseController {
      *
      * @return 刷新后的状态列表
      */
+    @RepeatSubmit
     @PostMapping("/refreshAll")
     public CommonResult<List<HotSourceStatusVo>> refreshAll() {
         return CommonResult.success(hotSourceService.refreshAllEnabledSourcesWithFallback());
