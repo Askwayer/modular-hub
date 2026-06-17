@@ -72,19 +72,40 @@
         </encoder>
     </appender>
 
+    <appender name="ASYNC_FILE_INFO" class="ch.qos.logback.classic.AsyncAppender">
+        <queueSize>2048</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <neverBlock>true</neverBlock>
+        <appender-ref ref="FILE_INFO"/>
+    </appender>
+
+    <appender name="ASYNC_FILE_ERROR" class="ch.qos.logback.classic.AsyncAppender">
+        <queueSize>1024</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <neverBlock>true</neverBlock>
+        <appender-ref ref="FILE_ERROR"/>
+    </appender>
+
+    <appender name="ASYNC_FILE_ACCESS" class="ch.qos.logback.classic.AsyncAppender">
+        <queueSize>2048</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <neverBlock>true</neverBlock>
+        <appender-ref ref="FILE_ACCESS"/>
+    </appender>
+
     <!-- 项目包日志级别 -->
     <logger name="com.vita" level="INFO"/>
     <logger name="org.springframework" level="WARN"/>
 
     <!-- 访问 / 审计日志独立输出，避免重复写入 root -->
     <logger name="sys-access" level="INFO" additivity="false">
-        <appender-ref ref="FILE_ACCESS"/>
+        <appender-ref ref="ASYNC_FILE_ACCESS"/>
     </logger>
 
     <!-- 根日志 -->
     <root level="INFO">
         <appender-ref ref="CONSOLE"/>
-        <appender-ref ref="FILE_INFO"/>
-        <appender-ref ref="FILE_ERROR"/>
+        <appender-ref ref="ASYNC_FILE_INFO"/>
+        <appender-ref ref="ASYNC_FILE_ERROR"/>
     </root>
 </configuration>

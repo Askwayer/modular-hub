@@ -29,11 +29,23 @@ public class ThreadPoolConfig {
     private int keepAliveSeconds = 300;
 
     // 日志线程池相关配置
-    private static final int OPER_LOG_CORE_POOL_SIZE = 4;
+    private static final int OPER_AUDIT_CORE_POOL_SIZE = 4;
 
-    private static final int OPER_LOG_MAX_POOL_SIZE = 16;
+    private static final int OPER_AUDIT_MAX_POOL_SIZE = 16;
 
-    private static final int OPER_LOG_QUEUE_CAPACITY = 500;
+    private static final int OPER_AUDIT_QUEUE_CAPACITY = 1000;
+
+    private static final int LOGIN_AUDIT_CORE_POOL_SIZE = 2;
+
+    private static final int LOGIN_AUDIT_MAX_POOL_SIZE = 8;
+
+    private static final int LOGIN_AUDIT_QUEUE_CAPACITY = 500;
+
+    private static final int GEO_ENRICH_CORE_POOL_SIZE = 2;
+
+    private static final int GEO_ENRICH_MAX_POOL_SIZE = 4;
+
+    private static final int GEO_ENRICH_QUEUE_CAPACITY = 200;
 
     /**
      * 线程池任务执行器
@@ -89,14 +101,48 @@ public class ThreadPoolConfig {
     @Bean(name = "operLogTaskExecutor")
     public ThreadPoolTaskExecutor operLogTaskExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(OPER_LOG_CORE_POOL_SIZE);
-        executor.setMaxPoolSize(OPER_LOG_MAX_POOL_SIZE);
-        executor.setQueueCapacity(OPER_LOG_QUEUE_CAPACITY);
+        executor.setCorePoolSize(OPER_AUDIT_CORE_POOL_SIZE);
+        executor.setMaxPoolSize(OPER_AUDIT_MAX_POOL_SIZE);
+        executor.setQueueCapacity(OPER_AUDIT_QUEUE_CAPACITY);
         executor.setKeepAliveSeconds(keepAliveSeconds);
         executor.setThreadNamePrefix("oper-log-");
         executor.setWaitForTasksToCompleteOnShutdown(true);
         executor.setAwaitTerminationSeconds(30);
-        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.DiscardPolicy());
+        return executor;
+    }
+
+    /**
+     * 登录审计与登录信息更新线程池。
+     */
+    @Bean(name = "loginAuditTaskExecutor")
+    public ThreadPoolTaskExecutor loginAuditTaskExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(LOGIN_AUDIT_CORE_POOL_SIZE);
+        executor.setMaxPoolSize(LOGIN_AUDIT_MAX_POOL_SIZE);
+        executor.setQueueCapacity(LOGIN_AUDIT_QUEUE_CAPACITY);
+        executor.setKeepAliveSeconds(keepAliveSeconds);
+        executor.setThreadNamePrefix("login-audit-");
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(30);
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.DiscardPolicy());
+        return executor;
+    }
+
+    /**
+     * 登录归属地补全线程池。
+     */
+    @Bean(name = "geoEnrichTaskExecutor")
+    public ThreadPoolTaskExecutor geoEnrichTaskExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(GEO_ENRICH_CORE_POOL_SIZE);
+        executor.setMaxPoolSize(GEO_ENRICH_MAX_POOL_SIZE);
+        executor.setQueueCapacity(GEO_ENRICH_QUEUE_CAPACITY);
+        executor.setKeepAliveSeconds(keepAliveSeconds);
+        executor.setThreadNamePrefix("geo-enrich-");
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(30);
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.DiscardPolicy());
         return executor;
     }
 

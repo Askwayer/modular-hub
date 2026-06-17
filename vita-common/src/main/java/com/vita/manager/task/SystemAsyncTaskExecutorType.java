@@ -9,7 +9,17 @@ public enum SystemAsyncTaskExecutorType {
     /**
      * 系统操作日志专用执行器。
      */
-    OPER_LOG,
+    OPER_AUDIT,
+
+    /**
+     * 登录审计与登录信息更新执行器。
+     */
+    LOGIN_AUDIT,
+
+    /**
+     * 登录地理位置补全执行器。
+     */
+    GEO_ENRICH,
 
     /**
      * 通用调度执行器。

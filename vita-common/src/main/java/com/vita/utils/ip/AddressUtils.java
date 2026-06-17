@@ -30,23 +30,28 @@ public class AddressUtils {
     }
 
     public static String getRealAddressByIP(String ip) {
+        return getRealAddressByIP(ip, 3000);
+    }
+
+    public static String getRealAddressByIP(String ip, int timeoutMillis) {
         // 内网不查询
         if (IpUtils.internalIp(ip)) {
             return "内网IP";
         }
         if (VitaProperty.isAddressEnabled()) {
             try {
-                String rspStr = HttpUtil.get(IP_URL + "?ip=" + ip + "&json=true");
+                String rspStr = HttpUtil.get(IP_URL + "?ip=" + ip + "&json=true", timeoutMillis);
                 if (CharSequenceUtil.isEmpty(rspStr)) {
-                    log.error("获取地理位置异常 {}", ip);
+                    log.warn("获取地理位置为空, ip={}", ip);
                     return UNKNOWN;
                 }
                 JSONObject obj = JSON.parseObject(rspStr);
                 String region = obj.getString("pro");
                 String city = obj.getString("city");
-                return String.format("%s %s", region, city);
+                String location = String.format("%s %s", CharSequenceUtil.blankToDefault(region, ""), CharSequenceUtil.blankToDefault(city, "")).trim();
+                return CharSequenceUtil.isBlank(location) ? UNKNOWN : location;
             } catch (Exception e) {
-                log.error("获取地理位置异常 {}", ip);
+                log.warn("获取地理位置异常, ip={}", ip, e);
             }
         }
         return UNKNOWN;
