@@ -37,5 +37,11 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- 工作流warm-flow模块 -->
+        <dependency>
+            <groupId>org.dromara.warm</groupId>
+            <artifactId>warm-flow-mybatis-plus-sb3-starter</artifactId>
+        </dependency>
+
     </dependencies>
 </project>
