@@ -2,7 +2,7 @@
 
 ## 1. 目标
 
-- 在 `vita-service` 内引入 Warm-Flow 后端能力。
+- 在 `vita-workflow` 内引入 Warm-Flow 后端能力。
 - 在 `vita-admin` 暴露 Warm-Flow 设计器静态资源与内置接口。
 - 复用 be-vita 现有 `Sa-Token` 登录态与 `Authorization: Bearer <token>` 认证链路。
 - 一期不接审批闭环、不新增本地 workflow 业务 API、不落官方工作流表 SQL。
@@ -13,21 +13,22 @@
   - 统一维护 `warm-flow.version=1.8.8`
   - 统一维护 `warm-flow-mybatis-plus-sb3-starter`
   - 统一维护 `warm-flow-plugin-ui-sb-web`
-- `vita-service/pom.xml`
-  - 仅保留 `warm-flow-mybatis-plus-sb3-starter`
+- `vita-workflow/pom.xml`
+  - 仅保留 `vita-common`、`warm-flow-mybatis-plus-sb3-starter`、`spring-boot-starter-test`
 - `vita-admin/pom.xml`
+  - 新增 `vita-workflow`
   - 新增 `warm-flow-plugin-ui-sb-web`
 
 这样可以保证：
 
 - `vita-openapi`、`vita-scheduler` 不会通过 `vita-service` 被动暴露设计器资源。
-- `vita-admin` 作为管理端启动模块，独占设计器 UI 入口。
+- `vita-admin` 作为管理端启动模块，独占设计器 UI 入口并显式装配 workflow 能力。
 
 ## 3. 配置与认证
 
 ### 3.1 配置文件
 
-`vita-admin/src/main/resources/application.yml` 通过 `spring.config.import` 引入 `application-workflow.yml`。
+`vita-admin/src/main/resources/application.yml` 通过 `spring.config.import` 引入 classpath 中由 `vita-workflow` 提供的 `application-workflow.yml`。
 
 `application-workflow.yml` 固定配置：
 
@@ -56,7 +57,7 @@ vita:
 
 ## 4. workflow 包结构
 
-一期最小骨架落在 `vita-service/src/main/java/com/vita/workflow/`：
+一期最小骨架落在 `vita-workflow/src/main/java/com/vita/workflow/`：
 
 ```text
 com.vita.workflow

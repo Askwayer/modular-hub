@@ -42,6 +42,7 @@
         <module>vita-admin</module>
         <module>vita-scheduler</module>
         <module>vita-openapi</module>
+        <module>vita-workflow</module>
     </modules>
 
     <dependencyManagement>
@@ -179,6 +180,13 @@
             <dependency>
                 <groupId>com.vita</groupId>
                 <artifactId>vita-service</artifactId>
+                <version>${vita.version}</version>
+            </dependency>
+
+            <!-- 工作流基础设施模块 -->
+            <dependency>
+                <groupId>com.vita</groupId>
+                <artifactId>vita-workflow</artifactId>
                 <version>${vita.version}</version>
             </dependency>
 
