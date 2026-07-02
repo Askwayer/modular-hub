@@ -20,6 +20,7 @@ spring:
     import:
       - optional:classpath:application-file-${spring.profiles.active}.yml
       - optional:classpath:application-captcha.yml
+      - optional:classpath:application-workflow.yml
 
   # 数据库连接
   datasource:

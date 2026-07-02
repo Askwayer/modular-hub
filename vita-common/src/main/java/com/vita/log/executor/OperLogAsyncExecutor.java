@@ -1,12 +1,17 @@
 package com.vita.log.executor;
 
+import com.vita.interceptor.RequestTraceInterceptor;
 import com.vita.log.model.OperLogRecord;
 import com.vita.log.persistence.OperLogPersistence;
-import com.vita.manager.AsyncManager;
-import com.vita.manager.factory.AsyncFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
+
+import java.util.concurrent.Executor;
 
 /**
  * 系统操作日志场景执行器，负责日志快照收口、依赖解析与统一任务投递。
@@ -16,13 +21,17 @@ import org.springframework.stereotype.Component;
 @Component
 public class OperLogAsyncExecutor {
 
-    private final AsyncManager asyncManager;
+    private static final Logger ACCESS_LOGGER = LoggerFactory.getLogger("sys-access");
+
+    private static final Logger LOG = LoggerFactory.getLogger(OperLogAsyncExecutor.class);
+
+    private final Executor defaultTaskExecutor;
 
     private final ObjectProvider<OperLogPersistence> operLogPersistenceProvider;
 
-    public OperLogAsyncExecutor(AsyncManager asyncManager,
+    public OperLogAsyncExecutor(@Qualifier("defaultTaskExecutor") Executor defaultTaskExecutor,
                                 ObjectProvider<OperLogPersistence> operLogPersistenceProvider) {
-        this.asyncManager = asyncManager;
+        this.defaultTaskExecutor = defaultTaskExecutor;
         this.operLogPersistenceProvider = operLogPersistenceProvider;
     }
 
@@ -38,7 +47,33 @@ public class OperLogAsyncExecutor {
         }
 
         OperLogPersistence operLogPersistence = operLogPersistenceProvider.getIfAvailable();
-        asyncManager.execute(AsyncFactory.recordOper(requestId, snapshot(record), operLogPersistence));
+        OperLogRecord snapshot = snapshot(record);
+        defaultTaskExecutor.execute(() -> {
+            try {
+                withRequestId(requestId);
+                ACCESS_LOGGER.info(
+                        "requestId={} module={} businessType={} status={} requestMethod={} operUrl={} operIp={} operUserId={} operName={} costTime={} errorMsg={}",
+                        requestId,
+                        snapshot.getModule(),
+                        snapshot.getBusinessType(),
+                        snapshot.getStatus(),
+                        snapshot.getRequestMethod(),
+                        snapshot.getOperUrl(),
+                        snapshot.getOperIp(),
+                        snapshot.getOperUserId(),
+                        snapshot.getOperName(),
+                        snapshot.getCostTime(),
+                        snapshot.getErrorMsg()
+                );
+                if (operLogPersistence != null) {
+                    operLogPersistence.persist(snapshot);
+                }
+            } catch (Exception ex) {
+                LOG.error("异步保存系统操作日志失败, requestId={}", requestId, ex);
+            } finally {
+                MDC.remove(RequestTraceInterceptor.REQUEST_ID_KEY);
+            }
+        });
     }
 
     /**
@@ -51,5 +86,11 @@ public class OperLogAsyncExecutor {
         OperLogRecord target = new OperLogRecord();
         BeanUtils.copyProperties(source, target);
         return target;
+    }
+
+    private void withRequestId(String requestId) {
+        if (requestId != null) {
+            MDC.put(RequestTraceInterceptor.REQUEST_ID_KEY, requestId);
+        }
     }
 }

@@ -46,7 +46,6 @@ vita:
     # jwt秘钥
     jwt-secret-key: secret-key
   hot:
-    refresh-parallelism: 6
     stale-threshold-minutes: 20
     registry-cache-ttl-minutes: 1440
     daily-hot-api:
