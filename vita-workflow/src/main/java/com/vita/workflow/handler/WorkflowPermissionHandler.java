@@ -21,16 +21,13 @@ public class WorkflowPermissionHandler implements PermissionHandler {
         this.workflowLoginUserSupport = workflowLoginUserSupport;
     }
 
-    /**
-     * 一期只返回当前登录用户标识，供流程办理人与校验使用。
-     */
     @Override
     public List<String> permissions() {
         return workflowLoginUserSupport.getCurrentPermissions();
     }
 
     /**
-     * 返回当前办理人唯一标识。
+     * 返回当前办理人原始用户 ID，供历史办理记录留痕使用。
      */
     @Override
     public String getHandler() {

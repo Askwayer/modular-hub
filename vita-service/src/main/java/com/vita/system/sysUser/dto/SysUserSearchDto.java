@@ -21,6 +21,12 @@ public class SysUserSearchDto extends PageRequest {
      */
     private Long deptId;
 
+
+    /**
+     * 用户名
+     */
+    private String userName;
+
     /**
      * 昵称
      */

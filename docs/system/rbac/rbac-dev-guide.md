@@ -218,6 +218,7 @@ List<RouterVo>           // 前端路由树
 - 去重
 - 管理端角色分页查询可按 `roleName`、`roleCode`、`status` 过滤
 - 角色编码 `SUPER_ADMIN` 作为框架保留值，不应允许在角色表中创建或修改成该编码
+- `SUB_ADMIN` 是物理角色，用于子管理员授权，可查看全部权限并创建工作流定义
 
 ### 5.2.1 角色管理补充约束
 
@@ -233,6 +234,7 @@ List<RouterVo>           // 前端路由树
 - 只查启用权限
 - 返回 `permission_code` 或 `auth_tag`
 - 若用户级超级管理员标记为 1，直接返回 `["**:**:**"]`
+- 子管理员通过 `SUB_ADMIN` 角色默认获得 `system:permission:view` 和 `system:workflow:import`
 
 权限模块本身建议补齐：
 
@@ -370,6 +372,7 @@ List<RouterVo>           // 前端路由树
 - `system:dept:view/add/update/delete`
 - `system:ip-block:view/add/update/delete`
 - `system:hot-cache:view/refresh`
+- `system:workflow:import`
 - `system:oper-log:view/delete`
 - `system:login-log:view/delete`
 
@@ -384,6 +387,8 @@ List<RouterVo>           // 前端路由树
 - `GET /system/hot/cache/status` -> `system:hot-cache:view`
 - `POST /system/hot/cache/refresh` -> `system:hot-cache:refresh`
 - `POST /system/hot/cache/refreshAll` -> `system:hot-cache:refresh`
+- `POST /system/workflow/importJson` -> `system:workflow:import`
+- `POST /system/workflow/reimburseApproval/create` -> `system:workflow:import`
 
 ---
 

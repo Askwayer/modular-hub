@@ -31,7 +31,10 @@ VALUES (1, '超级管理员角色', 'SUPER_ADMIN_ROLE', 1, 1, 'ALL', 1,
         1, 'system', 0, '用于初始化菜单与权限，超级管理员语义仍以用户标记为准'),
        (2, '普通用户角色', 'COMMON_USER', 2, 1, 'SELF', 1,
         0, 0, '2026-04-02 00:00:00', 1, 'system', '2026-04-02 00:00:00',
-        1, 'system', 0, '普通用户默认角色');
+        1, 'system', 0, '普通用户默认角色'),
+       (3, '子管理员', 'SUB_ADMIN', 3, 1, 'SELF', 0,
+        0, 0, '2026-07-07 00:00:00', 1, 'system', '2026-07-07 00:00:00',
+        1, 'system', 0, '可查看全部权限并创建工作流定义');
 
 -- ----------------------------
 -- Records of sys_menu
@@ -189,7 +192,11 @@ VALUES (2001, '用户管理查看', 'system:user:view', 'MENU_ACTION', 1001, NUL
        (2031, '热搜缓存刷新', 'system:hot-cache:refresh', 'MENU_ACTION', NULL, 'POST',
         '/system/hot/cache/refresh,/system/hot/cache/refreshAll', 'system:hot-cache:refresh', 92, 1, 1, 0, 0,
         '2026-04-02 00:00:00', 1, 'system', '2026-04-02 00:00:00', 1, 'system',
-        0, '涵盖单源刷新与全量刷新');
+        0, '涵盖单源刷新与全量刷新'),
+       (2032, '工作流定义导入', 'system:workflow:import', 'MENU_ACTION', NULL, 'POST',
+        '/system/workflow/importJson', 'system:workflow:import', 101, 1, 1, 0, 0,
+        '2026-07-03 00:00:00', 1, 'system', '2026-07-03 00:00:00', 1, 'system',
+        0, '导入 Warm-Flow 流程定义 JSON');
 
 -- ----------------------------
 -- Records of sys_user_role
@@ -226,7 +233,7 @@ VALUES (4001, 1, 1000, 0, 0, '2026-04-02 00:00:00', 1,
 
 -- ----------------------------
 -- Records of sys_role_permission
--- 超级管理员角色关联全量权限，普通用户角色仅保留查看权限
+-- 超级管理员角色关联全量权限，普通用户角色仅保留查看权限，子管理员保留权限查看和工作流创建权限
 -- ----------------------------
 INSERT INTO `sys_role_permission` (`id`, `role_id`, `permission_id`, `is_deleted`, `tenant_id`, `create_time`,
                                    `create_by_id`, `create_by`, `update_time`, `update_by_id`, `update_by`, `version`)
@@ -299,7 +306,13 @@ VALUES (5001, 1, 2001, 0, 0, '2026-04-02 00:00:00',
        (5034, 1, 2031, 0, 0, '2026-04-02 00:00:00',
         1, 'system', '2026-04-02 00:00:00', 1, 'system', 0),
        (5035, 2, 2030, 0, 0, '2026-04-02 00:00:00',
-        1, 'system', '2026-04-02 00:00:00', 1, 'system', 0);
+        1, 'system', '2026-04-02 00:00:00', 1, 'system', 0),
+       (5036, 1, 2032, 0, 0, '2026-07-03 00:00:00',
+        1, 'system', '2026-07-03 00:00:00', 1, 'system', 0),
+       (5037, 3, 2014, 0, 0, '2026-07-07 00:00:00',
+        1, 'system', '2026-07-07 00:00:00', 1, 'system', 0),
+       (5038, 3, 2032, 0, 0, '2026-07-07 00:00:00',
+        1, 'system', '2026-07-07 00:00:00', 1, 'system', 0);
 
 SET
 FOREIGN_KEY_CHECKS = 1;

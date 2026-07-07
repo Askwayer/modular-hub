@@ -1,10 +1,14 @@
 package com.vita.workflow.support;
 
+import cn.dev33.satoken.stp.StpUtil;
 import com.vita.core.context.LoginUserInfoModelContext;
+import com.vita.workflow.constant.WorkflowConstants;
 import org.springframework.stereotype.Component;
 
-import java.util.Collections;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * @BelongsProject: be-vita
@@ -29,15 +33,37 @@ public class WorkflowLoginUserSupport {
 
     /**
      * 获取当前办理人权限集合。
-     * 一期仅支持直接用户标识。
+     * 同时返回用户标识与角色标识，供 Warm-Flow 校验节点办理权限。
      *
      * @return 权限集合
      */
     public List<String> getCurrentPermissions() {
-        String handler = getCurrentHandler();
-        if (handler == null) {
-            return Collections.emptyList();
+        Long userId = LoginUserInfoModelContext.getLoginUserId();
+        if (userId == null) {
+            return List.of();
         }
-        return Collections.singletonList(handler);
+        Set<String> permissions = new LinkedHashSet<>();
+        permissions.add(WorkflowConstants.buildUserPermission(userId));
+        for (String roleCode : getCurrentRoleCodes()) {
+            String rolePermission = WorkflowConstants.buildRolePermission(roleCode);
+            if (rolePermission != null) {
+                permissions.add(rolePermission);
+            }
+        }
+        return new ArrayList<>(permissions);
+    }
+
+    /**
+     * 获取当前登录用户的角色编码集合。
+     *
+     * @return 角色编码集合
+     */
+    public List<String> getCurrentRoleCodes() {
+        try {
+            List<String> roleCodes = StpUtil.getRoleList();
+            return roleCodes == null ? List.of() : roleCodes;
+        } catch (Exception ex) {
+            return List.of();
+        }
     }
 }

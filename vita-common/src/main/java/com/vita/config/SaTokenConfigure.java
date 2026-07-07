@@ -41,11 +41,8 @@ public class SaTokenConfigure implements WebMvcConfigurer {
     @Resource
     private RequestTraceInterceptor requestTraceInterceptor;
 
-    private final AuthProperty authProperty;
-
-    public SaTokenConfigure(AuthProperty authProperty) {
-        this.authProperty = authProperty;
-    }
+    @Resource
+    private AuthProperty authProperty;
 
     /**
      * CORS 跨域处理策略

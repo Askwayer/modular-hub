@@ -17,7 +17,7 @@
     </properties>
 
     <dependencies>
-        <!-- 公共基础模块（包含登录上下文与基础配置） -->
+        <!-- 公共基础模块 -->
         <dependency>
             <groupId>com.vita</groupId>
             <artifactId>vita-common</artifactId>
@@ -27,6 +27,12 @@
         <dependency>
             <groupId>org.dromara.warm</groupId>
             <artifactId>warm-flow-mybatis-plus-sb3-starter</artifactId>
+        </dependency>
+
+        <!-- Warm-Flow 设计器 SPI，提供办理人选择扩展接口 -->
+        <dependency>
+            <groupId>org.dromara.warm</groupId>
+            <artifactId>warm-flow-plugin-ui-core</artifactId>
         </dependency>
 
         <!-- Spring Boot 测试框架 -->

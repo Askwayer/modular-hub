@@ -40,6 +40,11 @@ public class AuthConstants {
     public static final String SUPER_ADMIN_ROLE_CODE = "SUPER_ADMIN";
 
     /**
+     * 子管理员物理角色码。
+     */
+    public static final String SUB_ADMIN_ROLE_CODE = "SUB_ADMIN";
+
+    /**
      * 全量权限通配符。
      */
     public static final String ALL_PERMISSION_CODE = "**:**:**";

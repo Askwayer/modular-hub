@@ -168,6 +168,11 @@
                 <artifactId>warm-flow-plugin-ui-sb-web</artifactId>
                 <version>${warm-flow.version}</version>
             </dependency>
+            <dependency>
+                <groupId>org.dromara.warm</groupId>
+                <artifactId>warm-flow-plugin-ui-core</artifactId>
+                <version>${warm-flow.version}</version>
+            </dependency>
 
             <!-- 公共基础模块 -->
             <dependency>

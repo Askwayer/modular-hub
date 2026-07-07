@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -42,6 +43,20 @@ public class ControllerExceptionHandler {
         String resolvedMessage = resolveValidationMessage(message);
         LOG.warn("参数校验失败：{}" , resolvedMessage);
         return CommonResult.error(resolvedMessage);
+    }
+
+    /**
+     * JSON 请求体反序列化异常统一处理。
+     *
+     * @param e 异常
+     * @return 返回结果
+     */
+    @ExceptionHandler(value = HttpMessageNotReadableException.class)
+    @ResponseBody
+    public CommonResult validExceptionHandler(HttpMessageNotReadableException e) {
+        String resolvedMessage = resolveValidationMessage("请求体不是合法的 JSON");
+        LOG.warn("请求体解析失败：{}" , resolvedMessage);
+        return CommonResult.error(GlobalErrorCode.BAD_REQUEST.getCode(), resolvedMessage);
     }
 
     /**
