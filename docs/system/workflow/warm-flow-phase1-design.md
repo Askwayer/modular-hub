@@ -15,7 +15,8 @@
   - 统一维护 `warm-flow-plugin-ui-sb-web`
   - 统一维护 `warm-flow-plugin-ui-core`
 - `vita-workflow/pom.xml`
-  - 保留 `vita-common`、`warm-flow-mybatis-plus-sb3-starter`、`warm-flow-plugin-ui-core`、`spring-boot-starter-test`
+  - 依赖 `vita-service`
+  - 保留 `warm-flow-mybatis-plus-sb3-starter`、`warm-flow-plugin-ui-core`、`spring-boot-starter-test`
 - `vita-admin/pom.xml`
   - 新增 `vita-workflow`
   - 新增 `warm-flow-plugin-ui-sb-web`
@@ -24,6 +25,7 @@
 
 - `vita-openapi`、`vita-scheduler` 不会通过 `vita-service` 被动暴露设计器资源。
 - `vita-admin` 作为管理端启动模块，独占设计器 UI 入口并显式装配 workflow 能力。
+- 正式链路为 `vita-admin -> vita-workflow -> vita-service -> vita-common`。
 
 ## 3. 配置与认证
 
@@ -62,13 +64,16 @@ vita:
 
 ```text
 com.vita.workflow
+├── category/entity/WorkflowCategory.java
+├── category/mapper/WorkflowCategoryMapper.java
+├── category/service/WorkflowCategoryServiceImpl.java
 ├── config/WorkflowConfiguration.java
 ├── config/WorkflowWebConfiguration.java
 ├── constant/WorkflowConstants.java
 ├── service/IWorkflowDefinitionService.java
+├── service/handler/HandlerSelectServiceImpl.java
 ├── service/impl/WorkflowDefinitionServiceImpl.java
 ├── handler/WorkflowPermissionHandler.java
-├── service/handler/WorkflowUiHandlerSelectService.java
 └── support/WorkflowLoginUserSupport.java
 ```
 
@@ -76,18 +81,25 @@ com.vita.workflow
 
 - `WorkflowConfiguration`
   - 用 `@Bean` 注册 Warm-Flow `PermissionHandler`
+  - 应用上下文初始化完成后显式重绑 `FrameInvoker.setBeanFunction(...)` 与 `FrameInvoker.setCfgFunction(...)`
+  - 启动时输出 `HandlerSelectService`、`CategoryService`、`PermissionHandler`、`IWorkflowDefinitionService` 自检日志
 - `WorkflowWebConfiguration`
   - 拦截 `POST /warm-flow/save-json`
   - 只允许 `SUB_ADMIN` 或 `SUPER_ADMIN` 保存流程定义
 - `WorkflowPermissionHandler`
   - 复用 be-vita 登录上下文
   - `getHandler()` 返回当前用户 ID
-  - `permissions()` 返回 `user:<userId>` 与当前用户全部 `role:<roleCode>`
+  - `permissions()` 返回 `user:<userId>`、当前用户全部 `role:<roleCode>` 与当前部门 `dept:<deptId>`
 - `WorkflowLoginUserSupport`
   - 统一封装从 `LoginUserInfoModelContext` 和 `StpUtil` 读取当前登录人与角色的逻辑
-- `WorkflowUiHandlerSelectService`
+- `WorkflowCategoryServiceImpl`
+  - 实现 Warm-Flow 官方 `CategoryService`
+  - 从 `workflow_category` 查询流程分类树
+- `HandlerSelectServiceImpl`
+  - 位于 `vita-workflow`
   - 实现 Warm-Flow 官方 `HandlerSelectService`
-  - 当前只开放“角色”页签，为设计器提供固定角色项
+  - 通过 `vita-service` 的 `ISysUserService`、`ISysRoleService`、`ISysDeptService` 查询设计器办理人候选
+  - 设计器中只暴露虚拟超管 `role:SUPER_ADMIN`，不暴露物理角色 `SUPER_ADMIN_ROLE`
 - `IWorkflowDefinitionService` / `WorkflowDefinitionServiceImpl`
   - 提供本地 JSON 导入能力
   - 提供报销审批流程 V1 一键创建并发布能力
@@ -119,8 +131,8 @@ Warm-Flow 设计器内置保存接口：
 
 - 不注册 `DataFillHandler`
 - 不注册 `TenantHandler`
-- 不引入角色、部门办理人展开逻辑
-- 不新增新的 workflow 官方表初始化 SQL，继续使用 `sql/init/workflow.sql`
+- 不新增本地办理人选择 REST API，继续使用 Warm-Flow 内置 `/warm-flow/handler-*`
+- 不改变 Warm-Flow 官方 `flow_*` 表结构
 
 ## 6. DDL 规则说明
 
@@ -136,3 +148,16 @@ Warm-Flow 设计器内置保存接口：
   - `update_by`
   - `version`
   - `remark`
+
+当前自建扩展表：
+
+- `workflow_category`
+  - 供 Warm-Flow 设计器分类树使用
+  - 初始化分类：`FINANCE`、`REIMBURSE`、`HR`、`ADMIN`
+  - 升级脚本：`sql/upgrade/20260707_workflow_category_upgrade.sql`
+
+## 7. 模块边界
+
+- 允许 `vita-workflow -> vita-service`，用于复用系统用户、角色、部门等查询能力。
+- `vita-service` 不反向依赖 workflow，不新增 workflow 控制器、SPI、配置类或领域对象。
+- 工作流核心实现、Warm-Flow 桥接、设计器 SPI 均收口在 `vita-workflow`。

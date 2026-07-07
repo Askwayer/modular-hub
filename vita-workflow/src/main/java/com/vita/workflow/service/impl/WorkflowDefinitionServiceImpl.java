@@ -2,11 +2,9 @@ package com.vita.workflow.service.impl;
 
 import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
-import com.vita.workflow.constant.WorkflowConstants;
 import com.vita.workflow.service.IWorkflowDefinitionService;
 import org.dromara.warm.flow.core.FlowEngine;
 import org.dromara.warm.flow.core.dto.DefJson;
-import org.dromara.warm.flow.core.entity.Definition;
 import org.dromara.warm.flow.core.service.DefService;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
@@ -46,31 +44,6 @@ public class WorkflowDefinitionServiceImpl implements IWorkflowDefinitionService
         try {
             defService.importJson(defJsonStr);
             return true;
-        } catch (ServiceException ex) {
-            throw ex;
-        } catch (Exception ex) {
-            throw new ServiceException(GlobalErrorCode.BUSINESS_EXCEPTION.getCode(), buildImportErrorMessage(ex));
-        }
-    }
-
-    /**
-     * 创建并发布报销审批流程 V1。
-     *
-     * @return 流程定义 ID
-     */
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public Long createReimburseApproval() {
-        String defJsonStr = readDefinitionResource(WorkflowConstants.REIMBURSE_APPROVAL_V1_RESOURCE);
-        try {
-            Definition definition = defService.importJson(defJsonStr);
-            if (definition == null || definition.getId() == null) {
-                throw new ServiceException(GlobalErrorCode.BUSINESS_EXCEPTION.getCode(), "报销审批流程创建失败");
-            }
-            if (!defService.publish(definition.getId())) {
-                throw new ServiceException(GlobalErrorCode.BUSINESS_EXCEPTION.getCode(), "报销审批流程发布失败");
-            }
-            return definition.getId();
         } catch (ServiceException ex) {
             throw ex;
         } catch (Exception ex) {

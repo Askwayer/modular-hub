@@ -46,19 +46,6 @@ public class WorkflowController extends BaseController {
         return CommonResult.success(workflowDefinitionService.importJson(defJson));
     }
 
-    /**
-     * 创建并发布报销审批流程 V1。
-     *
-     * @return 流程定义 ID
-     */
-    @RepeatSubmit
-    @PostMapping("/reimburseApproval/create")
-    @SaCheckPermission(WorkflowConstants.WORKFLOW_IMPORT_PERMISSION)
-    public CommonResult<Long> createReimburseApproval() {
-        checkWorkflowCreatorRole();
-        return CommonResult.success(workflowDefinitionService.createReimburseApproval());
-    }
-
     private void checkWorkflowCreatorRole() {
         try {
             StpUtil.checkLogin();

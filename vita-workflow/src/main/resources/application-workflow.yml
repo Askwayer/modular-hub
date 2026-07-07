@@ -8,3 +8,4 @@ vita:
   auth:
     extra-exclude-paths:
       - /warm-flow-ui/**
+      - /warm-flow/**

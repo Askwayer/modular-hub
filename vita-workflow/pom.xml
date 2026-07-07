@@ -17,10 +17,10 @@
     </properties>
 
     <dependencies>
-        <!-- 公共基础模块 -->
+        <!-- 服务模块 -->
         <dependency>
             <groupId>com.vita</groupId>
-            <artifactId>vita-common</artifactId>
+            <artifactId>vita-service</artifactId>
         </dependency>
 
         <!-- Warm-Flow 后端基础能力 -->

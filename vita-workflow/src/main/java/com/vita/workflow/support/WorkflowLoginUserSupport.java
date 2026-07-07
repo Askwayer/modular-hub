@@ -2,6 +2,7 @@ package com.vita.workflow.support;
 
 import cn.dev33.satoken.stp.StpUtil;
 import com.vita.core.context.LoginUserInfoModelContext;
+import com.vita.core.model.LoginUserInfoModel;
 import com.vita.workflow.constant.WorkflowConstants;
 import org.springframework.stereotype.Component;
 
@@ -33,7 +34,7 @@ public class WorkflowLoginUserSupport {
 
     /**
      * 获取当前办理人权限集合。
-     * 同时返回用户标识与角色标识，供 Warm-Flow 校验节点办理权限。
+     * 同时返回用户、角色与当前部门标识，供 Warm-Flow 校验节点办理权限。
      *
      * @return 权限集合
      */
@@ -50,6 +51,10 @@ public class WorkflowLoginUserSupport {
                 permissions.add(rolePermission);
             }
         }
+        String deptPermission = WorkflowConstants.buildDeptPermission(getCurrentDeptId());
+        if (deptPermission != null) {
+            permissions.add(deptPermission);
+        }
         return new ArrayList<>(permissions);
     }
 
@@ -65,5 +70,15 @@ public class WorkflowLoginUserSupport {
         } catch (Exception ex) {
             return List.of();
         }
+    }
+
+    /**
+     * 获取当前登录用户部门 ID。
+     *
+     * @return 当前部门 ID
+     */
+    public Long getCurrentDeptId() {
+        LoginUserInfoModel loginUserInfo = LoginUserInfoModelContext.getLoginUserInfo();
+        return loginUserInfo == null ? null : loginUserInfo.getDeptId();
     }
 }

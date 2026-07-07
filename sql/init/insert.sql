@@ -26,7 +26,7 @@ VALUES (1, NULL, '超级管理员', 'super-admin', 'VFxoaF65+ZEmXPwhNr/ixA==', N
 INSERT INTO `sys_role` (`id`, `role_name`, `role_code`, `role_sort`, `status`, `data_scope_type`, `is_system`,
                         `is_deleted`, `tenant_id`, `create_time`, `create_by_id`, `create_by`, `update_time`,
                         `update_by_id`, `update_by`, `version`, `remark`)
-VALUES (1, '超级管理员角色', 'SUPER_ADMIN_ROLE', 1, 1, 'ALL', 1,
+VALUES (1, '超级管理员角色', 'SUPER_ADMIN', 1, 1, 'ALL', 1,
         0, 0, '2026-04-02 00:00:00', 1, 'system', '2026-04-02 00:00:00',
         1, 'system', 0, '用于初始化菜单与权限，超级管理员语义仍以用户标记为准'),
        (2, '普通用户角色', 'COMMON_USER', 2, 1, 'SELF', 1,
@@ -313,6 +313,25 @@ VALUES (5001, 1, 2001, 0, 0, '2026-04-02 00:00:00',
         1, 'system', '2026-07-07 00:00:00', 1, 'system', 0),
        (5038, 3, 2032, 0, 0, '2026-07-07 00:00:00',
         1, 'system', '2026-07-07 00:00:00', 1, 'system', 0);
+
+-- ----------------------------
+-- Records of workflow_category
+-- ----------------------------
+INSERT INTO `workflow_category` (`id`, `tenant_id`, `category_code`, `category_name`, `parent_code`, `sort_no`,
+                                 `status`, `create_time`, `update_time`, `is_deleted`, `create_by_id`, `create_by`,
+                                 `update_by_id`, `update_by`, `version`, `remark`)
+VALUES (7001, 0, 'FINANCE', '财务类', NULL, 10,
+        1, '2026-07-07 00:00:00', '2026-07-07 00:00:00', 0, 1, 'system',
+        1, 'system', 0, '工作流默认分类'),
+       (7002, 0, 'REIMBURSE', '报销审批', 'FINANCE', 11,
+        1, '2026-07-07 00:00:00', '2026-07-07 00:00:00', 0, 1, 'system',
+        1, 'system', 0, '报销审批流程分类'),
+       (7003, 0, 'HR', '人事类', NULL, 20,
+        1, '2026-07-07 00:00:00', '2026-07-07 00:00:00', 0, 1, 'system',
+        1, 'system', 0, '工作流默认分类'),
+       (7004, 0, 'ADMIN', '行政类', NULL, 30,
+        1, '2026-07-07 00:00:00', '2026-07-07 00:00:00', 0, 1, 'system',
+        1, 'system', 0, '工作流默认分类');
 
 SET
 FOREIGN_KEY_CHECKS = 1;

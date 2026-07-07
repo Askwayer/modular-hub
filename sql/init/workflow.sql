@@ -157,3 +157,30 @@ CREATE TABLE `flow_user`
     KEY `user_associated` (`associated`) USING BTREE
 ) ENGINE = InnoDB COMMENT ='流程用户表';
 
+-- ----------------------------
+-- be-vita workflow extension tables
+-- ----------------------------
+DROP TABLE IF EXISTS `workflow_category`;
+CREATE TABLE `workflow_category`
+(
+    `id`            bigint       NOT NULL COMMENT '分类ID',
+    `tenant_id`     bigint                DEFAULT NULL COMMENT '租户ID',
+    `category_code` varchar(64)  NOT NULL COMMENT '分类编码',
+    `category_name` varchar(100) NOT NULL COMMENT '分类名称',
+    `parent_code`   varchar(64)           DEFAULT NULL COMMENT '父分类编码',
+    `sort_no`       int          NOT NULL DEFAULT 0 COMMENT '排序',
+    `status`        tinyint      NOT NULL DEFAULT 1 COMMENT '状态 1启用 0禁用',
+    `create_time`   datetime     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '新增时间',
+    `update_time`   datetime              DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `is_deleted`    tinyint(1)            DEFAULT '0' COMMENT '是否删除(0-否,1-是)',
+    `create_by_id`  bigint                DEFAULT NULL COMMENT '新增用户ID',
+    `create_by`     varchar(50)           DEFAULT NULL COMMENT '新增用户名称',
+    `update_by_id`  bigint                DEFAULT NULL COMMENT '更新用户ID',
+    `update_by`     varchar(50)           DEFAULT NULL COMMENT '更新用户名称',
+    `version`       bigint                DEFAULT '0' COMMENT '乐观锁',
+    `remark`        varchar(500)          DEFAULT NULL COMMENT '备注',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_workflow_category_code` (`category_code`, `is_deleted`),
+    KEY `idx_workflow_category_parent` (`parent_code`),
+    KEY `idx_workflow_category_status_sort` (`status`, `sort_no`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT ='工作流分类表';

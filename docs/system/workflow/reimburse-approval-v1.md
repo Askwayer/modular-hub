@@ -3,6 +3,7 @@
 ## 1. 流程概览
 
 - 流程编码：`REIMBURSE_APPROVAL_V1`
+- 流程分类：`REIMBURSE`（展示名由 `workflow_category` 映射为“报销审批”）
 - 流程路径：员工发起 -> 部门主管审批 -> 财务审批 -> 综合管理部审批 -> 总经理审批 -> 完成
 - 本版仅交付 Warm-Flow 流程定义、角色准备、设计器选人协议和留档产物
 
@@ -26,6 +27,7 @@
 
 - 用户：`user:<userId>`
 - 角色：`role:<roleCode>`
+- 部门：`dept:<deptId>`
 
 运行期变量要求：
 
@@ -56,13 +58,11 @@
 
 ## 5. 设计器选人协议
 
-- V1 仅开放“角色”页签
-- 设计器只返回以下可选项：
-  - `role:FINANCE_APPROVER`
-  - `role:GENERAL_AFFAIRS_APPROVER`
-  - `role:GENERAL_MANAGER_APPROVER`
-  - `role:SUPER_ADMIN`
-- 不开放用户、部门页签
+- 设计器开放“用户 / 角色 / 部门”页签
+- 用户候选来自 `sys_user`
+- 角色候选来自 `sys_role`
+- 部门候选来自 `sys_dept`
+- `SUPER_ADMIN` 是虚拟角色，不作为物理角色写入 `sys_role`
 - 员工发起和部门主管节点统一通过变量表达式配置，不通过选择器选人
 
 ## 6. 角色准备
