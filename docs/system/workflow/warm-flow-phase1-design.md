@@ -68,12 +68,13 @@ com.vita.workflow
 ├── category/mapper/WorkflowCategoryMapper.java
 ├── category/service/WorkflowCategoryServiceImpl.java
 ├── config/WorkflowConfiguration.java
-├── config/WorkflowWebConfiguration.java
+├── config/WorkflowSaveJsonRequestBodyAdvice.java
 ├── constant/WorkflowConstants.java
 ├── service/IWorkflowDefinitionService.java
 ├── service/handler/HandlerSelectServiceImpl.java
 ├── service/impl/WorkflowDefinitionServiceImpl.java
 ├── handler/WorkflowPermissionHandler.java
+├── support/WorkflowDefinitionPermissionNormalizer.java
 └── support/WorkflowLoginUserSupport.java
 ```
 
@@ -83,13 +84,17 @@ com.vita.workflow
   - 用 `@Bean` 注册 Warm-Flow `PermissionHandler`
   - 应用上下文初始化完成后显式重绑 `FrameInvoker.setBeanFunction(...)` 与 `FrameInvoker.setCfgFunction(...)`
   - 启动时输出 `HandlerSelectService`、`CategoryService`、`PermissionHandler`、`IWorkflowDefinitionService` 自检日志
-- `WorkflowWebConfiguration`
-  - 拦截 `POST /warm-flow/save-json`
-  - 只允许 `SUB_ADMIN` 或 `SUPER_ADMIN` 保存流程定义
+- `WorkflowSaveJsonRequestBodyAdvice`
+  - 拦截 `POST /warm-flow/save-json` 的 `DefJson` 请求体
+  - 仅在流程定义首次保存时补齐人工节点默认 `role:SUPER_ADMIN`、`role:SUB_ADMIN`
 - `WorkflowPermissionHandler`
   - 复用 be-vita 登录上下文
   - `getHandler()` 返回当前用户 ID
   - `permissions()` 返回 `user:<userId>`、当前用户全部 `role:<roleCode>` 与当前部门 `dept:<deptId>`
+- `WorkflowDefinitionPermissionNormalizer`
+  - 只处理人工节点 `nodeType=1`
+  - 保留原有 `permissionFlag` 顺序，并在首次导入或首次保存时补齐缺失的 `role:SUPER_ADMIN`、`role:SUB_ADMIN`
+  - 兼容把历史 `role:SUPER_ADMIN_ROLE` 归一化为 `role:SUPER_ADMIN`
 - `WorkflowLoginUserSupport`
   - 统一封装从 `LoginUserInfoModelContext` 和 `StpUtil` 读取当前登录人与角色的逻辑
 - `WorkflowCategoryServiceImpl`
@@ -99,11 +104,12 @@ com.vita.workflow
   - 位于 `vita-workflow`
   - 实现 Warm-Flow 官方 `HandlerSelectService`
   - 通过 `vita-service` 的 `ISysUserService`、`ISysRoleService`、`ISysDeptService` 查询设计器办理人候选
-  - 设计器中只暴露虚拟超管 `role:SUPER_ADMIN`，不暴露物理角色 `SUPER_ADMIN_ROLE`
+  - 设计器中只暴露一条虚拟超管 `role:SUPER_ADMIN`，同时排除物理 `SUPER_ADMIN` 和历史 `SUPER_ADMIN_ROLE`
 - `IWorkflowDefinitionService` / `WorkflowDefinitionServiceImpl`
   - 提供本地 JSON 导入能力
   - 提供报销审批流程 V1 一键创建并发布能力
   - 对 `DefJson` 根节点字段做最小校验
+  - 导入前先归一化人工节点默认管理员角色
   - 统一调用 Warm-Flow `DefService.importJson(...)`
 
 ## 5. 本地接口与不做项
@@ -126,6 +132,7 @@ Warm-Flow 设计器内置保存接口：
 - `POST /warm-flow/save-json`
   - 不区分新增和编辑，统一视为流程定义保存动作
   - 只允许 `SUB_ADMIN` 或 `SUPER_ADMIN`
+  - 首次保存新流程时自动补齐人工节点默认 `role:SUPER_ADMIN`、`role:SUB_ADMIN`
 
 仍明确不做：
 

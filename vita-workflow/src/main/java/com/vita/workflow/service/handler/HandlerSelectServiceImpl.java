@@ -148,6 +148,7 @@ public class HandlerSelectServiceImpl implements HandlerSelectService {
     private HandlerSelectVo queryRoles(HandlerQuery query) {
         LambdaQueryWrapperX<SysRole> wrapper = new LambdaQueryWrapperX<>();
         wrapper.eq(SysRole::getStatus, CommonStatusEnum.ENABLED.getCode());
+        wrapper.neIfPresent(SysRole::getRoleCode, AuthConstants.SUPER_ADMIN_ROLE_CODE);
         wrapper.neIfPresent(SysRole::getRoleCode, WorkflowConstants.LEGACY_SUPER_ADMIN_ROLE_CODE);
         wrapper.likeIfPresent(SysRole::getRoleCode, query == null ? null : query.getHandlerCode());
         wrapper.likeIfPresent(SysRole::getRoleName, query == null ? null : query.getHandlerName());

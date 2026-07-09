@@ -3,6 +3,7 @@ package com.vita.workflow.service.impl;
 import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
 import com.vita.workflow.service.IWorkflowDefinitionService;
+import com.vita.workflow.support.WorkflowDefinitionPermissionNormalizer;
 import org.dromara.warm.flow.core.FlowEngine;
 import org.dromara.warm.flow.core.dto.DefJson;
 import org.dromara.warm.flow.core.service.DefService;
@@ -26,8 +27,12 @@ public class WorkflowDefinitionServiceImpl implements IWorkflowDefinitionService
 
     private final DefService defService;
 
-    public WorkflowDefinitionServiceImpl(DefService defService) {
+    private final WorkflowDefinitionPermissionNormalizer permissionNormalizer;
+
+    public WorkflowDefinitionServiceImpl(DefService defService,
+                                         WorkflowDefinitionPermissionNormalizer permissionNormalizer) {
         this.defService = defService;
+        this.permissionNormalizer = permissionNormalizer;
     }
 
     /**
@@ -40,7 +45,8 @@ public class WorkflowDefinitionServiceImpl implements IWorkflowDefinitionService
     @Transactional(rollbackFor = Exception.class)
     public boolean importJson(DefJson defJson) {
         validateDefJson(defJson);
-        String defJsonStr = serializeDefJson(defJson);
+        DefJson normalizedDefJson = permissionNormalizer.normalizeInitialNodePermissions(defJson);
+        String defJsonStr = serializeDefJson(normalizedDefJson);
         try {
             defService.importJson(defJsonStr);
             return true;

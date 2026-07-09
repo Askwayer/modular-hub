@@ -11,17 +11,18 @@
 
 | 节点名称 | 节点编码 | 办理人配置 |
 | --- | --- | --- |
-| 员工发起 | `submit_apply` | `${applicantPermission}` |
-| 部门主管审批 | `dept_leader_approve` | `${deptLeaderPermission}`、`role:SUPER_ADMIN` |
-| 财务审批 | `finance_approve` | `role:FINANCE_APPROVER`、`role:SUPER_ADMIN` |
-| 综合管理部审批 | `general_affairs_approve` | `role:GENERAL_AFFAIRS_APPROVER`、`role:SUPER_ADMIN` |
-| 总经理审批 | `general_manager_approve` | `role:GENERAL_MANAGER_APPROVER`、`role:SUPER_ADMIN` |
+| 员工发起 | `submit_apply` | `${applicantPermission}`、`role:SUPER_ADMIN`、`role:SUB_ADMIN` |
+| 部门主管审批 | `dept_leader_approve` | `${deptLeaderPermission}`、`role:SUPER_ADMIN`、`role:SUB_ADMIN` |
+| 财务审批 | `finance_approve` | `role:FINANCE_APPROVER`、`role:SUPER_ADMIN`、`role:SUB_ADMIN` |
+| 综合管理部审批 | `general_affairs_approve` | `role:GENERAL_AFFAIRS_APPROVER`、`role:SUPER_ADMIN`、`role:SUB_ADMIN` |
+| 总经理审批 | `general_manager_approve` | `role:GENERAL_MANAGER_APPROVER`、`role:SUPER_ADMIN`、`role:SUB_ADMIN` |
 | 完成 | `end` | 无 |
 
 说明：
 
 - `submit_apply` 保留为显式用户任务，不省略。
-- 超级管理员通过虚拟角色码 `SUPER_ADMIN` 并入每个审批节点办理人集合。
+- 首次导入和首次保存新流程时，所有人工节点默认补齐 `role:SUPER_ADMIN` 与 `role:SUB_ADMIN`。
+- 超级管理员通过虚拟角色码 `SUPER_ADMIN` 并入人工节点办理人集合。
 
 ## 3. 办理人协议
 
@@ -62,7 +63,7 @@
 - 用户候选来自 `sys_user`
 - 角色候选来自 `sys_role`
 - 部门候选来自 `sys_dept`
-- `SUPER_ADMIN` 是虚拟角色，不作为物理角色写入 `sys_role`
+- `SUPER_ADMIN` 在设计器里只展示一条虚拟角色项，不回显物理 `SUPER_ADMIN` 角色记录
 - 员工发起和部门主管节点统一通过变量表达式配置，不通过选择器选人
 
 ## 6. 角色准备
@@ -79,6 +80,7 @@
 
 - 不新增物理 `SUPER_ADMIN` 角色记录
 - `SUPER_ADMIN` 继续表示 be-vita 的超级管理员虚拟角色语义
+- `SUB_ADMIN` 继续使用 `sys_role` 中的物理角色记录
 
 ## 7. 产物清单
 

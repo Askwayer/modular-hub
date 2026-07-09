@@ -1,5 +1,9 @@
 package com.vita.workflow.constant;
 
+import com.vita.constant.AuthConstants;
+
+import java.util.List;
+
 /**
  * 工作流模块常量。
  *
@@ -11,6 +15,11 @@ public final class WorkflowConstants {
      * 工作流 JSON 导入权限码。
      */
     public static final String WORKFLOW_IMPORT_PERMISSION = "system:workflow:import";
+
+    /**
+     * Warm-Flow 保存流程定义路径。
+     */
+    public static final String WARM_FLOW_SAVE_JSON_PATH = "/warm-flow/save-json";
 
     /**
      * 办理人选择器中的用户页签名称。
@@ -38,6 +47,21 @@ public final class WorkflowConstants {
     public static final String ROLE_PERMISSION_PREFIX = "role:";
 
     /**
+     * 部门权限标识前缀。
+     */
+    public static final String DEPT_PERMISSION_PREFIX = "dept:";
+
+    /**
+     * 节点权限标识分隔符。
+     */
+    public static final String PERMISSION_FLAG_SEPARATOR = "@@";
+
+    /**
+     * 人工节点类型。
+     */
+    public static final int USER_TASK_NODE_TYPE = 1;
+
+    /**
      * 历史物理超管角色编码，仅用于兼容旧流程定义回显。
      */
     public static final String LEGACY_SUPER_ADMIN_ROLE_CODE = "SUPER_ADMIN_ROLE";
@@ -48,9 +72,17 @@ public final class WorkflowConstants {
     public static final String SUPER_ADMIN_HANDLER_NAME = "超级管理员";
 
     /**
-     * 部门权限标识前缀。
+     * 子管理员显示名称。
      */
-    public static final String DEPT_PERMISSION_PREFIX = "dept:";
+    public static final String SUB_ADMIN_HANDLER_NAME = "子管理员";
+
+    /**
+     * 默认补齐到人工节点的管理员角色权限标识。
+     */
+    public static final List<String> DEFAULT_ADMIN_ROLE_PERMISSIONS = List.of(
+            buildRolePermission(AuthConstants.SUPER_ADMIN_ROLE_CODE),
+            buildRolePermission(AuthConstants.SUB_ADMIN_ROLE_CODE)
+    );
 
     private WorkflowConstants() {
         // 工具类不允许实例化

@@ -90,9 +90,11 @@ public class SaTokenConfigure implements WebMvcConfigurer {
                     } catch (Exception e) {
                         throw new ServiceException(GlobalErrorCode.UNAUTHORIZED);
                     }
+                    SaRouter.match("/warm-flow-ui/**", r -> StpUtil.checkRoleOr("SUPER_ADMIN", "SUB_ADMIN"));
+                    SaRouter.match("/warm-flow/**", r -> StpUtil.checkRoleOr("SUPER_ADMIN", "SUB_ADMIN"));
                 }))
                 // 注册 Sa-Token 拦截器，校验规则为 StpUtil.checkLogin() 登录校验。
                 .addPathPatterns("/**")
-                .excludePathPatterns(excludePaths.toArray(new String[0]));
+                .excludePathPatterns(excludePaths);
     }
 }
