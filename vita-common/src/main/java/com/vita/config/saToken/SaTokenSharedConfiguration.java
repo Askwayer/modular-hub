@@ -1,4 +1,4 @@
-package com.vita.config;
+package com.vita.config.saToken;
 
 import cn.dev33.satoken.jwt.StpLogicJwtForSimple;
 import cn.dev33.satoken.stp.StpLogic;

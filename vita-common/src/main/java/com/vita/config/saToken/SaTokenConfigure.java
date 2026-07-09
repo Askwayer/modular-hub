@@ -1,11 +1,10 @@
-package com.vita.config;
+package com.vita.config.saToken;
 
 import cn.dev33.satoken.fun.strategy.SaCorsHandleFunction;
 import cn.dev33.satoken.interceptor.SaInterceptor;
 import cn.dev33.satoken.router.SaHttpMethod;
 import cn.dev33.satoken.router.SaRouter;
 import cn.dev33.satoken.stp.StpUtil;
-import cn.hutool.core.collection.CollUtil;
 import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
 import com.vita.interceptor.RequestTraceInterceptor;
@@ -31,12 +30,6 @@ import java.util.List;
 @Configuration
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
 public class SaTokenConfigure implements WebMvcConfigurer {
-
-    private static final List<String> DEFAULT_EXCLUDE_PATHS = List.of(
-            "/auth/login",
-            "/captcha/**",
-            "/public/**"
-    );
 
     @Resource
     private RequestTraceInterceptor requestTraceInterceptor;
@@ -77,10 +70,8 @@ public class SaTokenConfigure implements WebMvcConfigurer {
         registry.addInterceptor(requestTraceInterceptor)
                 .addPathPatterns("/**");
 
-        List<String> excludePaths = new ArrayList<>(DEFAULT_EXCLUDE_PATHS);
-        if (CollUtil.isNotEmpty(authProperty.getExtraExcludePaths())) {
-            excludePaths.addAll(authProperty.getExtraExcludePaths());
-        }
+        List<String> excludePaths = new ArrayList<>(authProperty.getExtraExcludePaths());
+
 
         // 注册 Sa-Token 拦截器，定义详细认证规则
         registry.addInterceptor(new SaInterceptor(handle -> {
@@ -90,8 +81,6 @@ public class SaTokenConfigure implements WebMvcConfigurer {
                     } catch (Exception e) {
                         throw new ServiceException(GlobalErrorCode.UNAUTHORIZED);
                     }
-                    SaRouter.match("/warm-flow-ui/**", r -> StpUtil.checkRoleOr("SUPER_ADMIN", "SUB_ADMIN"));
-                    SaRouter.match("/warm-flow/**", r -> StpUtil.checkRoleOr("SUPER_ADMIN", "SUB_ADMIN"));
                 }))
                 // 注册 Sa-Token 拦截器，校验规则为 StpUtil.checkLogin() 登录校验。
                 .addPathPatterns("/**")
