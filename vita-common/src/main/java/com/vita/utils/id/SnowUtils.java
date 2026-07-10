@@ -1,4 +1,4 @@
-package com.vita.id;
+package com.vita.utils.id;
 
 import cn.hutool.core.util.IdUtil;
 

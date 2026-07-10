@@ -1,4 +1,4 @@
-package com.vita.web;
+package com.vita.utils.web;
 
 import cn.hutool.core.convert.Convert;
 import cn.hutool.core.text.CharSequenceUtil;

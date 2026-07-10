@@ -2,7 +2,7 @@ package com.vita.log.service;
 
 import com.vita.core.property.VitaProperty;
 import com.vita.redis.RedisCache;
-import com.vita.web.ip.AddressUtils;
+import com.vita.utils.web.ip.AddressUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

@@ -1,6 +1,6 @@
 package com.vita.redis.property;
 
-import com.vita.spring.SpringUtils;
+import com.vita.utils.spring.SpringUtils;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;

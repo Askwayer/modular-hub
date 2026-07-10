@@ -1,7 +1,7 @@
-package com.vita.web.ip;
+package com.vita.utils.web.ip;
 
 import cn.hutool.core.text.CharSequenceUtil;
-import com.vita.web.ServletUtils;
+import com.vita.utils.web.ServletUtils;
 import jakarta.servlet.http.HttpServletRequest;
 
 import java.net.InetAddress;

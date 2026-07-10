@@ -1,4 +1,4 @@
-package com.vita.spring;
+package com.vita.utils.spring;
 
 import org.springframework.aop.framework.AopContext;
 import org.springframework.beans.BeansException;

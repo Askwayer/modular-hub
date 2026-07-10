@@ -5,8 +5,8 @@ import cn.hutool.http.useragent.UserAgent;
 import cn.hutool.http.useragent.UserAgentUtil;
 import com.vita.log.model.RequestClientInfo;
 import com.vita.log.service.IpLocationService;
-import com.vita.web.ServletUtils;
-import com.vita.web.ip.IpUtils;
+import com.vita.utils.web.ServletUtils;
+import com.vita.utils.web.ip.IpUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.stereotype.Component;
 

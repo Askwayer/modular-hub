@@ -1,4 +1,4 @@
-package com.vita.web.ip;
+package com.vita.utils.web.ip;
 
 import cn.hutool.core.text.CharSequenceUtil;
 import cn.hutool.http.HttpUtil;
