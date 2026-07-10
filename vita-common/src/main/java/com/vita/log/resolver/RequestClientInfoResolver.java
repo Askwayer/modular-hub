@@ -13,9 +13,12 @@ import org.springframework.stereotype.Component;
 import java.time.LocalDateTime;
 
 /**
- * 请求客户端信息解析器，负责从当前请求中提取 IP、归属地和终端信息。
- *
- * @author znk
+ * @BelongsProject: be-vita
+ * @BelongsPackage: com.vita.log.resolver
+ * @Author: znk
+ * @CreateTime: 2026-07-10  16:40:48
+ * @Description: 请求客户端信息解析器
+ * @Version: 1.0
  */
 @Component
 public class RequestClientInfoResolver {

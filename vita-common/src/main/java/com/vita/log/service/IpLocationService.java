@@ -13,9 +13,12 @@ import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 /**
- * IP 归属地服务，优先走缓存并将外部查询隔离到异步链路。
- *
- * @author znk
+ * @BelongsProject: be-vita
+ * @BelongsPackage: com.vita.log.service
+ * @Author: znk
+ * @CreateTime: 2026-07-10  16:40:48
+ * @Description: IP归属地服务
+ * @Version: 1.0
  */
 @Component
 public class IpLocationService {

@@ -1,11 +1,11 @@
 package com.vita.aspect;
 
+import com.vita.annotation.Log;
 import com.vita.core.context.LoginUserInfoModelContext;
 import com.vita.core.model.LoginUserInfoModel;
 import com.vita.interceptor.RequestTraceInterceptor;
 import com.vita.log.executor.OperLogAsyncExecutor;
 import com.vita.log.model.OperLogRecord;
-import com.vita.annotation.Log;
 import com.vita.utils.LogUtils;
 import com.vita.utils.ServletUtils;
 import com.vita.utils.ip.IpUtils;
@@ -25,7 +25,12 @@ import java.lang.reflect.Method;
 import java.time.LocalDateTime;
 
 /**
- * 系统审计日志切面，仅负责带有 {@link Log} 注解的方法日志采集与落库。
+ * @BelongsProject: be-vita
+ * @BelongsPackage: com.vita.aspect
+ * @Author: znk
+ * @CreateTime: 2026-07-10  16:40:48
+ * @Description: 系统操作日志切面
+ * @Version: 1.0
  */
 @Aspect
 @Component
@@ -41,14 +46,28 @@ public class LogAspect {
         this.operLogAsyncExecutor = operLogAsyncExecutor;
     }
 
+    /**
+     * 控制器切点。
+     */
     @Pointcut("execution(public * com.vita..controller..*Controller.*(..))")
     public void controllerPointcut() {
     }
 
+    /**
+     * 日志注解切点。
+     */
     @Pointcut("@annotation(com.vita.annotation.Log)")
     public void controllerLogPointcut() {
     }
 
+    /**
+     * 环绕采集操作日志信息。
+     *
+     * @param proceedingJoinPoint 切点信息
+     * @param log                 日志注解
+     * @return 目标方法返回结果
+     * @throws Throwable 目标方法抛出的异常
+     */
     @Around(value = "controllerPointcut() && @annotation(log)", argNames = "proceedingJoinPoint,log")
     public Object doAround(ProceedingJoinPoint proceedingJoinPoint, Log log) throws Throwable {
         long startTime = System.currentTimeMillis();
@@ -85,6 +104,9 @@ public class LogAspect {
         }
     }
 
+    /**
+     * 清理日志切面线程上下文。
+     */
     @After("controllerPointcut() && controllerLogPointcut()")
     public void clearThreadLocal() {
         TIME_THREADLOCAL.remove();

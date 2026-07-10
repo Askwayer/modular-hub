@@ -19,9 +19,12 @@ import java.util.Objects;
 import java.util.concurrent.Executor;
 
 /**
- * 登录审计异步执行器，负责快照收口、持久化扩展点解析与统一任务投递。
- *
- * @author znk
+ * @BelongsProject: be-vita
+ * @BelongsPackage: com.vita.log.executor
+ * @Author: znk
+ * @CreateTime: 2026-07-10  16:40:48
+ * @Description: 登录审计异步执行器
+ * @Version: 1.0
  */
 @Component
 public class LoginAuditAsyncExecutor {

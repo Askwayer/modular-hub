@@ -21,7 +21,7 @@ import java.util.List;
 
 /**
  * @BelongsProject: be-vita
- * @BelongsPackage: com.vita.config
+ * @BelongsPackage: com.vita.config.saToken
  * @Author: znk
  * @CreateTime: 2026-03-07  14:01:49
  * @Description: Sa-Token配置类

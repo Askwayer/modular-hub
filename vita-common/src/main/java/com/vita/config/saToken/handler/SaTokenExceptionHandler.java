@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 
 /**
- * @BelongsProject: be-vita-ai-codegen-rules.md
+ * @BelongsProject: be-vita
  * @BelongsPackage: com.vita.config.saToken.handler
  * @Author: znk
  * @CreateTime: 2026-07-09  16:20:13
@@ -27,6 +27,10 @@ public class SaTokenExceptionHandler {
 
     /**
      * 权限码异常
+     *
+     * @param e       异常
+     * @param request 请求参数
+     * @return 返回结果
      */
     @ExceptionHandler(NotPermissionException.class)
     public CommonResult<Void> handleNotPermissionException(NotPermissionException e, HttpServletRequest request) {
@@ -37,6 +41,10 @@ public class SaTokenExceptionHandler {
 
     /**
      * 角色权限异常
+     *
+     * @param e       异常
+     * @param request 请求参数
+     * @return 返回结果
      */
     @ExceptionHandler(NotRoleException.class)
     public CommonResult<Void> handleNotRoleException(NotRoleException e, HttpServletRequest request) {
@@ -47,6 +55,10 @@ public class SaTokenExceptionHandler {
 
     /**
      * 认证失败
+     *
+     * @param e       异常
+     * @param request 请求参数
+     * @return 返回结果
      */
     @ExceptionHandler(NotLoginException.class)
     public CommonResult<Void> handleNotLoginException(NotLoginException e, HttpServletRequest request) {

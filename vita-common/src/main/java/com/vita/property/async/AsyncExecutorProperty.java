@@ -5,9 +5,12 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 /**
- * 线程池默认参数模型。
- *
- * @author Codex
+ * @BelongsProject: be-vita
+ * @BelongsPackage: com.vita.property.async
+ * @Author: znk
+ * @CreateTime: 2026-07-10  16:40:48
+ * @Description: 异步线程池属性模型
+ * @Version: 1.0
  */
 @Getter
 @Setter

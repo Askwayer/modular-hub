@@ -19,12 +19,12 @@ import org.springframework.web.servlet.HandlerInterceptor;
 
 
 /**
- * @version 1.0
- * @BelongsProject: vita
- * @BelongsPackage: com.vita.log.model
- * @Author znk
- * @CreateTime 2026-03-12
- * @Description: 请求级上下文拦截器，负责 requestId 与登录用户上下文的准备和清理。
+ * @BelongsProject: be-vita
+ * @BelongsPackage: com.vita.interceptor
+ * @Author: znk
+ * @CreateTime: 2026-03-12  00:00:00
+ * @Description: 请求级上下文拦截器
+ * @Version: 1.0
  */
 @Component
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
@@ -41,14 +41,12 @@ public class RequestTraceInterceptor implements HandlerInterceptor {
     }
 
     /**
-     * 请求前处理器，在请求进入控制器方法之前调用，
-     * 负责准备请求级上下文，包括解析请求 ID 和登录用户信息，并将其存储在 MDC 和 LoginUserInfoModelContext 中，
-     * 以便后续业务逻辑使用。
+     * 预处理当前请求上下文。
      *
-     * @param request  current HTTP request
-     * @param response current HTTP response
-     * @param handler  chosen handler to execute, for type and/or instance evaluation
-     * @return true / false
+     * @param request  请求对象
+     * @param response 响应对象
+     * @param handler  处理器对象
+     * @return true 表示继续执行
      */
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
@@ -60,6 +58,14 @@ public class RequestTraceInterceptor implements HandlerInterceptor {
         return true;
     }
 
+    /**
+     * 清理当前请求上下文。
+     *
+     * @param request  请求对象
+     * @param response 响应对象
+     * @param handler  处理器对象
+     * @param ex       异常信息
+     */
     @Override
     public void afterCompletion(HttpServletRequest request,
                                 HttpServletResponse response,
@@ -69,9 +75,9 @@ public class RequestTraceInterceptor implements HandlerInterceptor {
     }
 
     /**
-     * 请求ID解析器，优先从请求头中获取，如果不存在则生成一个新的 UUID 作为请求 ID，并将其放入 MDC 中以便日志记录使用。
+     * 解析当前请求标识。
      *
-     * @param request 请求头
+     * @param request 请求对象
      * @return 请求 ID
      */
     private String resolveRequestId(HttpServletRequest request) {
@@ -83,10 +89,7 @@ public class RequestTraceInterceptor implements HandlerInterceptor {
     }
 
     /**
-     * <p>
-     * 登录用户上下文准备器，从 Sa-Token 会话中获取登录用户信息，
-     * 并将其存储在 LoginUserInfoModelContext 中，以便后续业务逻辑使用。
-     * </p>
+     * 准备当前线程的登录用户上下文。
      */
     private void populateLoginUserContext() {
         try {
@@ -157,10 +160,7 @@ public class RequestTraceInterceptor implements HandlerInterceptor {
     }
 
     /**
-     * <p>
-     * 请求上下文清理器，在请求处理完成后调用，负责清理 LoginUserInfoModelContext 中的登录用户信息
-     * 以及从 MDC 中移除请求 ID，以防止内存泄漏和上下文污染。
-     * </p>
+     * 清理线程中的请求上下文信息。
      */
     private void clearRequestContext() {
         LoginUserInfoModelContext.removeLoginUserInfo();

@@ -10,7 +10,7 @@ import java.util.List;
 /**
  * @BelongsProject: be-vita
  * @BelongsPackage: com.vita.property.auth
- * @Author: Codex
+ * @Author: znk
  * @CreateTime: 2026-07-02
  * @Description: 认证白名单扩展配置
  * @Version: 1.0

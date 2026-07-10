@@ -3,10 +3,12 @@ package com.vita.core.context;
 import com.vita.core.model.LoginUserInfoModel;
 
 /**
- * 登录用户上下文加载器。
- *
- * <p>用于在 Sa-Token Session 未命中登录用户快照时，
- * 根据当前登录 ID 重建登录用户信息并回填上下文。</p>
+ * @BelongsProject: be-vita
+ * @BelongsPackage: com.vita.core.context
+ * @Author: znk
+ * @CreateTime: 2026-07-10  16:40:48
+ * @Description: 登录用户上下文加载器
+ * @Version: 1.0
  */
 public interface LoginUserInfoContextLoader {
 
