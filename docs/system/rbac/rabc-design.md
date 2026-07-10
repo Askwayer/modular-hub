@@ -160,7 +160,7 @@ RBAC 查询应统一过滤以下条件：
 
 #### 基础登录用户快照
 
-当前 [LoginUserInfoModel](/Users/zhuningkang/Documents/git/github/vita/be-vita/vita-common/src/main/java/com/vita/core/model/LoginUserInfoModel.java) 继续保留，用于存放：
+当前 [LoginUserInfoModel](/Users/zhuningkang/Documents/git/github/vita/be-vita/vita-common/src/main/java/com/vita/auth/model/LoginUserInfoModel.java) 继续保留，用于存放：
 
 - 用户 ID
 - 用户名

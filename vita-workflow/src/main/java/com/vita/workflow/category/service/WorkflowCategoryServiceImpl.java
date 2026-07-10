@@ -1,7 +1,7 @@
 package com.vita.workflow.category.service;
 
-import com.vita.enums.CommonStatusEnum;
-import com.vita.mybatis.LambdaQueryWrapperX;
+import com.vita.core.enums.CommonStatusEnum;
+import com.vita.mybatis.wrapper.LambdaQueryWrapperX;
 import com.vita.workflow.category.entity.WorkflowCategory;
 import com.vita.workflow.category.mapper.WorkflowCategoryMapper;
 import org.dromara.warm.flow.core.dto.Tree;

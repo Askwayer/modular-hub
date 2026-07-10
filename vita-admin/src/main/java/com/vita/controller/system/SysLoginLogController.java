@@ -1,10 +1,10 @@
 package com.vita.controller.system;
 
 import cn.dev33.satoken.annotation.SaCheckPermission;
-import com.vita.annotation.RepeatSubmit;
 import com.vita.core.CommonResult;
 import com.vita.core.controller.BaseController;
 import com.vita.core.page.PageResponse;
+import com.vita.repeat.annotation.RepeatSubmit;
 import com.vita.system.sysLoginLog.dto.SysLoginLogSearchDto;
 import com.vita.system.sysLoginLog.service.ISysLoginLogService;
 import com.vita.system.sysLoginLog.vo.SysLoginLogDetailVo;

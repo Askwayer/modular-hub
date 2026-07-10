@@ -1,8 +1,8 @@
 package com.vita.mybatis.handler;
 
 import com.baomidou.mybatisplus.core.handlers.MetaObjectHandler;
-import com.vita.core.context.LoginUserInfoModelContext;
-import com.vita.core.model.LoginUserInfoModel;
+import com.vita.auth.context.LoginUserInfoModelContext;
+import com.vita.auth.model.LoginUserInfoModel;
 import org.apache.ibatis.reflection.MetaObject;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;

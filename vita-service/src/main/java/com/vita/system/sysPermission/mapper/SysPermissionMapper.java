@@ -1,7 +1,7 @@
 package com.vita.system.sysPermission.mapper;
 
-import com.vita.core.mapper.BaseMapperX;
-import com.vita.mybatis.LambdaQueryWrapperX;
+import com.vita.mybatis.mapper.BaseMapperX;
+import com.vita.mybatis.wrapper.LambdaQueryWrapperX;
 import com.vita.system.sysPermission.entity.SysPermission;
 import org.apache.ibatis.annotations.Mapper;
 

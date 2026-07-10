@@ -1,6 +1,6 @@
 package com.vita.system.associate.sysRoleDeptScope.mapper;
 
-import com.vita.core.mapper.BaseMapperX;
+import com.vita.mybatis.mapper.BaseMapperX;
 import com.vita.system.associate.sysRoleDeptScope.entity.SysRoleDeptScope;
 import org.apache.ibatis.annotations.Mapper;
 

@@ -1,6 +1,6 @@
 package com.vita.system.sysOperLog.mapper;
 
-import com.vita.core.mapper.BaseMapperX;
+import com.vita.mybatis.mapper.BaseMapperX;
 import com.vita.system.sysOperLog.entity.SysOperLog;
 import org.apache.ibatis.annotations.Mapper;
 

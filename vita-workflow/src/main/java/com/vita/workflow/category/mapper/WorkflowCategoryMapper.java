@@ -1,6 +1,6 @@
 package com.vita.workflow.category.mapper;
 
-import com.vita.core.mapper.BaseMapperX;
+import com.vita.mybatis.mapper.BaseMapperX;
 import com.vita.workflow.category.entity.WorkflowCategory;
 import org.apache.ibatis.annotations.Mapper;
 

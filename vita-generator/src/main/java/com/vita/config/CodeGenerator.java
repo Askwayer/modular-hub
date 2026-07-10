@@ -10,7 +10,7 @@ import com.baomidou.mybatisplus.generator.engine.VelocityTemplateEngine;
 import com.baomidou.mybatisplus.generator.model.ClassAnnotationAttributes;
 import com.vita.core.controller.BaseController;
 import com.vita.core.entity.BaseEntity;
-import com.vita.core.mapper.BaseMapperX;
+import com.vita.mybatis.mapper.BaseMapperX;
 import com.vita.utils.DbUtil;
 import org.apache.ibatis.annotations.Mapper;
 import org.slf4j.Logger;

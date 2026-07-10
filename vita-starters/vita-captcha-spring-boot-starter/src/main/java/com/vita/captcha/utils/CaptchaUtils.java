@@ -4,7 +4,7 @@ import cn.hutool.core.text.CharSequenceUtil;
 import com.vita.captcha.common.enums.CaptchaTypeEnum;
 import com.vita.captcha.config.property.CaptchaProperty;
 import com.vita.core.exception.ServiceException;
-import com.vita.utils.AesUtils;
+import com.vita.crypto.AesUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

@@ -1,6 +1,6 @@
 package com.vita.workflow.constant;
 
-import com.vita.constant.AuthConstants;
+import com.vita.auth.constant.AuthConstants;
 
 import java.util.List;
 

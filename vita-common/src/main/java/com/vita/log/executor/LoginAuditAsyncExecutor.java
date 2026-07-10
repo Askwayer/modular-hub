@@ -1,7 +1,7 @@
 package com.vita.log.executor;
 
-import com.vita.constant.Constants;
-import com.vita.interceptor.RequestTraceInterceptor;
+import com.vita.core.constant.Constants;
+import com.vita.log.interceptor.RequestTraceInterceptor;
 import com.vita.log.model.LoginAuditRecord;
 import com.vita.log.model.RequestClientInfo;
 import com.vita.log.persistence.LoginAuditPersistence;

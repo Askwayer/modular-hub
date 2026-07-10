@@ -1,10 +1,10 @@
 package com.vita.log.service;
 
 import cn.hutool.core.text.CharSequenceUtil;
-import com.vita.core.RedisCache;
-import com.vita.property.VitaProperty;
-import com.vita.utils.ip.AddressUtils;
-import com.vita.utils.ip.IpUtils;
+import com.vita.core.property.VitaProperty;
+import com.vita.redis.RedisCache;
+import com.vita.web.ip.AddressUtils;
+import com.vita.web.ip.IpUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;

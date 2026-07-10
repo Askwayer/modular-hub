@@ -3,7 +3,7 @@
 -- 默认账号：
 -- 1. admin / admin@123456
 -- 2. common / common@123456
--- 密码已按 com.vita.utils.Sm4Utils.encryptToBase64 预加密
+-- 密码已按 com.vita.crypto.Sm4Utils.encryptToBase64 预加密
 -- ----------------------------
 INSERT INTO `sys_user` (`id`, `dept_id`, `nick_name`, `user_name`, `password`, `mobile`, `email`, `avatar_url`,
                         `gender`,

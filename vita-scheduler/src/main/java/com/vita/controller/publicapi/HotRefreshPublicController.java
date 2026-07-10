@@ -1,10 +1,10 @@
 package com.vita.controller.publicapi;
 
-import com.vita.annotation.RepeatSubmit;
 import com.vita.core.CommonResult;
 import com.vita.core.controller.BaseController;
 import com.vita.hot.service.IHotSourceService;
 import com.vita.hot.vo.HotSourceStatusVo;
+import com.vita.repeat.annotation.RepeatSubmit;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;

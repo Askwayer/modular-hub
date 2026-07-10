@@ -1,8 +1,8 @@
 package com.vita.workflow.support;
 
 import cn.dev33.satoken.stp.StpUtil;
-import com.vita.core.context.LoginUserInfoModelContext;
-import com.vita.core.model.LoginUserInfoModel;
+import com.vita.auth.context.LoginUserInfoModelContext;
+import com.vita.auth.model.LoginUserInfoModel;
 import com.vita.workflow.constant.WorkflowConstants;
 import org.springframework.stereotype.Component;
 

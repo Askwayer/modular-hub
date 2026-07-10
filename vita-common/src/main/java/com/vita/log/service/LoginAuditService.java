@@ -1,7 +1,7 @@
 package com.vita.log.service;
 
-import com.vita.interceptor.RequestTraceInterceptor;
 import com.vita.log.executor.LoginAuditAsyncExecutor;
+import com.vita.log.interceptor.RequestTraceInterceptor;
 import com.vita.log.model.RequestClientInfo;
 import org.slf4j.MDC;
 import org.springframework.stereotype.Component;

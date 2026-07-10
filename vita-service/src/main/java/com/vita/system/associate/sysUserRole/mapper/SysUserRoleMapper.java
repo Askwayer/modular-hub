@@ -1,6 +1,6 @@
 package com.vita.system.associate.sysUserRole.mapper;
 
-import com.vita.core.mapper.BaseMapperX;
+import com.vita.mybatis.mapper.BaseMapperX;
 import com.vita.system.associate.sysUserRole.entity.SysUserRole;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;

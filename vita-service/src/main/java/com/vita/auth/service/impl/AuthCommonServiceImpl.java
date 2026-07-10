@@ -1,9 +1,9 @@
 package com.vita.auth.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
+import com.vita.auth.constant.AuthConstants;
 import com.vita.auth.service.IAuthCommonService;
-import com.vita.constant.AuthConstants;
-import com.vita.enums.CommonStatusEnum;
+import com.vita.core.enums.CommonStatusEnum;
 import com.vita.system.associate.sysRolePermission.service.ISysRolePermissionService;
 import com.vita.system.associate.sysUserRole.service.ISysUserRoleService;
 import com.vita.system.sysPermission.service.ISysPermissionService;

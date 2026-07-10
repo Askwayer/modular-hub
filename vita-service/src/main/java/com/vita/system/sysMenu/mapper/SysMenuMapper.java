@@ -1,6 +1,6 @@
 package com.vita.system.sysMenu.mapper;
 
-import com.vita.core.mapper.BaseMapperX;
+import com.vita.mybatis.mapper.BaseMapperX;
 import com.vita.system.sysMenu.entity.SysMenu;
 import org.apache.ibatis.annotations.Mapper;
 

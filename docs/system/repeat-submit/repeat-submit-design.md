@@ -42,9 +42,9 @@ Redis key：
 
 ## 已复用的基础能力
 
-- `com.vita.core.context.LoginUserInfoModelContext`
-- `com.vita.core.RedisCache#setIfAbsent(...)`
-- `com.vita.utils.ip.IpUtils`
+- `com.vita.auth.context.LoginUserInfoModelContext`
+- `com.vita.redis.RedisCache#setIfAbsent(...)`
+- `com.vita.web.ip.IpUtils`
 - `com.vita.core.exception.GlobalErrorCode.REPEATED_REQUESTS`
 
 ## 验证

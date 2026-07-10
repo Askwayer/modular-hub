@@ -1,6 +1,6 @@
 package com.vita.system.sysDept.mapper;
 
-import com.vita.core.mapper.BaseMapperX;
+import com.vita.mybatis.mapper.BaseMapperX;
 import com.vita.system.sysDept.entity.SysDept;
 import org.apache.ibatis.annotations.Mapper;
 

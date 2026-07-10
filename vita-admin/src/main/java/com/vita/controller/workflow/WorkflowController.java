@@ -2,12 +2,12 @@ package com.vita.controller.workflow;
 
 import cn.dev33.satoken.annotation.SaCheckPermission;
 import cn.dev33.satoken.stp.StpUtil;
-import com.vita.annotation.RepeatSubmit;
-import com.vita.constant.AuthConstants;
+import com.vita.auth.constant.AuthConstants;
 import com.vita.core.CommonResult;
 import com.vita.core.controller.BaseController;
 import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
+import com.vita.repeat.annotation.RepeatSubmit;
 import com.vita.workflow.constant.WorkflowConstants;
 import com.vita.workflow.service.IWorkflowDefinitionService;
 import org.dromara.warm.flow.core.dto.DefJson;

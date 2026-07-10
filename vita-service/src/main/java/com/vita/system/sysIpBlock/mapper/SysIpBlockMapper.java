@@ -1,6 +1,6 @@
 package com.vita.system.sysIpBlock.mapper;
 
-import com.vita.core.mapper.BaseMapperX;
+import com.vita.mybatis.mapper.BaseMapperX;
 import com.vita.system.sysIpBlock.entity.SysIpBlock;
 import org.apache.ibatis.annotations.Mapper;
 

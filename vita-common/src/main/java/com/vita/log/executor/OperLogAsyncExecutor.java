@@ -1,6 +1,6 @@
 package com.vita.log.executor;
 
-import com.vita.interceptor.RequestTraceInterceptor;
+import com.vita.log.interceptor.RequestTraceInterceptor;
 import com.vita.log.model.OperLogRecord;
 import com.vita.log.persistence.OperLogPersistence;
 import org.slf4j.Logger;

@@ -2,9 +2,9 @@ package com.vita.auth.service.impl;
 
 import cn.dev33.satoken.SaManager;
 import cn.dev33.satoken.stp.StpUtil;
+import com.vita.auth.constant.AuthConstants;
+import com.vita.auth.model.LoginUserInfoModel;
 import com.vita.auth.service.IAuthTokenService;
-import com.vita.constant.AuthConstants;
-import com.vita.core.model.LoginUserInfoModel;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
