@@ -1,4 +1,4 @@
-package com.vita.workflow.category.entity;
+package com.vita.workflow.domain.category.entity;
 
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;

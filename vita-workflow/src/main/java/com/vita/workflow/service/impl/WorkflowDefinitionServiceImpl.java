@@ -81,6 +81,12 @@ public class WorkflowDefinitionServiceImpl implements IWorkflowDefinitionService
         return FlowEngine.jsonConvert.objToStr(defJson);
     }
 
+    /**
+     * 构建导入错误消息。
+     *
+     * @param ex 异常对象
+     * @return 错误消息字符串
+     */
     private String buildImportErrorMessage(Exception ex) {
         String message = ex.getMessage();
         if (!StringUtils.hasText(message)) {
@@ -89,6 +95,12 @@ public class WorkflowDefinitionServiceImpl implements IWorkflowDefinitionService
         return "工作流JSON导入失败：" + message;
     }
 
+    /**
+     * 从类路径资源中读取流程定义 JSON。
+     *
+     * @param resourcePath 资源路径
+     * @return 流程定义 JSON 字符串
+     */
     private String readDefinitionResource(String resourcePath) {
         ClassPathResource resource = new ClassPathResource(resourcePath);
         try (InputStream inputStream = resource.getInputStream()) {

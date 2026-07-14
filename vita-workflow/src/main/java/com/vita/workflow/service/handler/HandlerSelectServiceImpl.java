@@ -3,7 +3,6 @@ package com.vita.workflow.service.handler;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.map.MapUtil;
 import cn.hutool.core.text.CharSequenceUtil;
-import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.vita.auth.constant.AuthConstants;
@@ -144,8 +143,8 @@ public class HandlerSelectServiceImpl implements HandlerSelectService {
     /**
      * 查询角色列表
      *
-     * @param query
-     * @return
+     * @param query 查询条件
+     * @return 角色列表
      */
     private HandlerSelectVo queryRoles(HandlerQuery query) {
         LambdaQueryWrapperX<SysRole> wrapper = new LambdaQueryWrapperX<>();
@@ -174,8 +173,8 @@ public class HandlerSelectServiceImpl implements HandlerSelectService {
     /**
      * 查询部门列表
      *
-     * @param query
-     * @return
+     * @param query 查询条件
+     * @return 部门列表
      */
     private HandlerSelectVo queryDepts(HandlerQuery query) {
         LambdaQueryWrapperX<SysDept> wrapper = new LambdaQueryWrapperX<>();
@@ -188,7 +187,7 @@ public class HandlerSelectServiceImpl implements HandlerSelectService {
         List<HandlerAuth> handlerAuths = page.getRecords().stream()
                 .map(dept -> new HandlerAuth()
                         .setStorageId(WorkflowConstants.buildDeptPermission(dept.getId()))
-                        .setHandlerCode(StrUtil.isNotBlank(dept.getDeptCode())
+                        .setHandlerCode(CharSequenceUtil.isNotBlank(dept.getDeptCode())
                                 ? dept.getDeptCode()
                                 : String.valueOf(dept.getId()))
                         .setHandlerName(dept.getDeptName())
@@ -200,8 +199,8 @@ public class HandlerSelectServiceImpl implements HandlerSelectService {
     /**
      * 查询用户列表
      *
-     * @param query
-     * @return
+     * @param query 查询条件
+     * @return 用户列表
      */
     private HandlerSelectVo queryUsers(HandlerQuery query) {
         Map<Long, String> deptNameMap = queryDeptNameMap(null);
@@ -251,7 +250,7 @@ public class HandlerSelectServiceImpl implements HandlerSelectService {
      * @return 办理人类型
      */
     private String resolveHandlerType(HandlerQuery query) {
-        if (query == null || StrUtil.isBlank(query.getHandlerType())) {
+        if (query == null || CharSequenceUtil.isBlank(query.getHandlerType())) {
             return WorkflowConstants.ROLE_HANDLER_TYPE;
         }
         return query.getHandlerType();
@@ -312,17 +311,17 @@ public class HandlerSelectServiceImpl implements HandlerSelectService {
     /**
      * 解析办理人反馈名称
      *
-     * @param storageId
-     * @param userNameMap
-     * @param roleNameMap
-     * @param deptNameMap
-     * @return
+     * @param storageId   存储ID
+     * @param userNameMap 用户名称映射表
+     * @param roleNameMap 角色名称映射表
+     * @param deptNameMap 部门名称映射表
+     * @return 办理人反馈名称
      */
     private String resolveFeedbackName(String storageId,
                                        Map<Long, String> userNameMap,
                                        Map<String, String> roleNameMap,
                                        Map<Long, String> deptNameMap) {
-        if (StrUtil.isBlank(storageId)) {
+        if (CharSequenceUtil.isBlank(storageId)) {
             return "";
         }
         if (storageId.startsWith(WorkflowConstants.USER_PERMISSION_PREFIX)) {
@@ -351,7 +350,7 @@ public class HandlerSelectServiceImpl implements HandlerSelectService {
      * @return 用户显示名称
      */
     private String resolveUserDisplayName(SysUser user) {
-        if (StrUtil.isNotBlank(user.getNickName())) {
+        if (CharSequenceUtil.isNotBlank(user.getNickName())) {
             return user.getNickName();
         }
         return user.getUserName();
@@ -389,7 +388,7 @@ public class HandlerSelectServiceImpl implements HandlerSelectService {
      * @return Long 类型值，解析失败则返回 null
      */
     private Long parseLong(String value) {
-        if (StrUtil.isBlank(value)) {
+        if (CharSequenceUtil.isBlank(value)) {
             return null;
         }
         try {
