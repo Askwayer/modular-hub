@@ -389,6 +389,13 @@ RBAC 查询应统一过滤以下条件：
 - 业务 controller 逐步接入 `@SaCheckPermission`
 - 需要时新增“当前用户菜单树”接口
 
+### 9.4 工作流权限边界
+
+- `/warm-flow-ui/config` 与设计器静态资源只承担页面加载，不做 RBAC 权限码校验。
+- `/warm-flow/**` 复用 Sa-Token 登录态，普通登录用户可进入；具体节点办理资格由 Warm-Flow `PermissionHandler` 判定。
+- `/system/workflow/**` 属于管理接口，必须同时使用 `@SaCheckPermission` 和 `SUB_ADMIN` / `SUPER_ADMIN` 角色校验。
+- Sa-Token 专用异常处理器优先于通用异常处理器，确保未登录和无权限分别返回 401、403 业务码。
+
 ---
 
 ## 10. 风险与注意事项

@@ -4,6 +4,7 @@ import com.vita.core.enums.CommonStatusEnum;
 import com.vita.mybatis.wrapper.LambdaQueryWrapperX;
 import com.vita.workflow.category.entity.WorkflowCategory;
 import com.vita.workflow.category.mapper.WorkflowCategoryMapper;
+import com.vita.workflow.config.ConditionalOnWorkflowEnabled;
 import org.dromara.warm.flow.core.dto.Tree;
 import org.dromara.warm.flow.ui.service.CategoryService;
 import org.springframework.stereotype.Service;
@@ -16,6 +17,7 @@ import java.util.List;
  * @author Codex
  */
 @Service
+@ConditionalOnWorkflowEnabled
 public class WorkflowCategoryServiceImpl implements CategoryService {
 
     private final WorkflowCategoryMapper workflowCategoryMapper;

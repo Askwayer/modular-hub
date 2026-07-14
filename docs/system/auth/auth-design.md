@@ -730,6 +730,19 @@ public Result<?> list() {
 
 ---
 
+## 13.1 工作流认证边界
+
+`vita.auth.extra-exclude-paths` 在 `vita-admin/src/main/resources/application.yml` 集中维护，profile 配置和 workflow 配置不得重复声明该列表。
+
+- 匿名访问：`/warm-flow-ui/index.html`、`/warm-flow-ui/css/**`、`/warm-flow-ui/js/**`、`/warm-flow-ui/ico/**`、`/warm-flow-ui/config`
+- 登录访问：全部 `/warm-flow/**`
+- 管理访问：`/system/workflow/**` 在登录基础上继续执行权限码与管理员角色校验
+- 禁止放行 `/warm-flow/**` 或 `/warm-flow-ui/**` 整体路径
+
+Sa-Token 注解鉴权在路由登录校验前执行。`SaTokenExceptionHandler` 必须保持高于通用异常处理器的优先级，确保 `NotLoginException`、`NotPermissionException` 和 `NotRoleException` 分别返回正确的 401/403 业务码，而不是被通用异常处理器转为 500。
+
+---
+
 ## 14. 后续扩展建议
 
 后续可逐步扩展以下能力：

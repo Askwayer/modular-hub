@@ -2,6 +2,7 @@ package com.vita.workflow.service.impl;
 
 import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
+import com.vita.workflow.config.ConditionalOnWorkflowEnabled;
 import com.vita.workflow.service.IWorkflowDefinitionService;
 import com.vita.workflow.support.WorkflowDefinitionPermissionNormalizer;
 import org.dromara.warm.flow.core.FlowEngine;
@@ -23,6 +24,7 @@ import java.nio.charset.StandardCharsets;
  * @author Codex
  */
 @Service
+@ConditionalOnWorkflowEnabled
 public class WorkflowDefinitionServiceImpl implements IWorkflowDefinitionService {
 
     private final DefService defService;

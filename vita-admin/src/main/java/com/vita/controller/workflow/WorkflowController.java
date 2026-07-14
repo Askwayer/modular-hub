@@ -8,6 +8,7 @@ import com.vita.core.controller.BaseController;
 import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
 import com.vita.repeat.annotation.RepeatSubmit;
+import com.vita.workflow.config.ConditionalOnWorkflowEnabled;
 import com.vita.workflow.constant.WorkflowConstants;
 import com.vita.workflow.service.IWorkflowDefinitionService;
 import org.dromara.warm.flow.core.dto.DefJson;
@@ -24,6 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/system/workflow")
+@ConditionalOnWorkflowEnabled
 public class WorkflowController extends BaseController {
 
     private final IWorkflowDefinitionService workflowDefinitionService;

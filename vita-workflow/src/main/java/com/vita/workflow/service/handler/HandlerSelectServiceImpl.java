@@ -15,6 +15,7 @@ import com.vita.system.sysRole.entity.SysRole;
 import com.vita.system.sysRole.service.ISysRoleService;
 import com.vita.system.sysUser.entity.SysUser;
 import com.vita.system.sysUser.service.ISysUserService;
+import com.vita.workflow.config.ConditionalOnWorkflowEnabled;
 import com.vita.workflow.constant.WorkflowConstants;
 import org.dromara.warm.flow.core.dto.Tree;
 import org.dromara.warm.flow.ui.dto.HandlerQuery;
@@ -34,6 +35,7 @@ import java.util.stream.Collectors;
  * @author Codex
  */
 @Component
+@ConditionalOnWorkflowEnabled
 public class HandlerSelectServiceImpl implements HandlerSelectService {
 
     private static final int DEFAULT_PAGE_NUM = 1;

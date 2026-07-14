@@ -8,6 +8,8 @@ import com.vita.core.CommonResult;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -21,6 +23,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  * @Version: 1.0
  */
 @RestControllerAdvice
+@Order(Ordered.HIGHEST_PRECEDENCE)
 public class SaTokenExceptionHandler {
 
     private static final Logger LOG = LoggerFactory.getLogger(SaTokenExceptionHandler.class);

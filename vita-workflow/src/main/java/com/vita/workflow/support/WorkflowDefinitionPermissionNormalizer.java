@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.vita.auth.constant.AuthConstants;
 import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
+import com.vita.workflow.config.ConditionalOnWorkflowEnabled;
 import com.vita.workflow.constant.WorkflowConstants;
 import org.dromara.warm.flow.core.dto.DefJson;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -24,6 +25,7 @@ import java.util.Set;
  * @author Codex
  */
 @Component
+@ConditionalOnWorkflowEnabled
 public class WorkflowDefinitionPermissionNormalizer {
 
     private static final String FLOW_DEFINITION_EXISTS_SQL = "SELECT COUNT(1) FROM flow_definition WHERE id = ?";

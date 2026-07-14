@@ -91,7 +91,7 @@
 
 - 流程定义使用 Warm-Flow `DefJson` 结构留档
 - 可通过 `POST /admin/api/system/workflow/importJson` 直接导入当前 JSON
-- 可通过 `POST /admin/api/system/workflow/reimburseApproval/create` 一键导入并发布报销审批流程 V1
 - 调用时携带 `Authorization: Bearer <token>`，并要求 `system:workflow:import` 权限和 `SUB_ADMIN` 或 `SUPER_ADMIN` 角色
+- 当前没有报销流程一键创建接口，导入不会自动发布；发布操作通过设计器完成
 - 创建前需要先执行 Warm-Flow 官方引擎表脚本 `sql/init/workflow.sql`
 - 若设计器导入后发生坐标微调，以设计器重新保存结果为准，不影响节点编码、办理人协议与退回规则

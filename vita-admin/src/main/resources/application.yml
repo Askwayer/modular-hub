@@ -1,4 +1,16 @@
 # Spring Boot 主配置文件
+vita:
+  auth:
+    extra-exclude-paths:
+      - /auth/login
+      - /captcha/**
+      - /public/**
+      - /warm-flow-ui/index.html
+      - /warm-flow-ui/css/**
+      - /warm-flow-ui/js/**
+      - /warm-flow-ui/ico/**
+      - /warm-flow-ui/config
+
 server:
   port: ${vita.http-port}
   servlet:

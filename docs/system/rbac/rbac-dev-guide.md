@@ -388,7 +388,13 @@ List<RouterVo>           // 前端路由树
 - `POST /system/hot/cache/refresh` -> `system:hot-cache:refresh`
 - `POST /system/hot/cache/refreshAll` -> `system:hot-cache:refresh`
 - `POST /system/workflow/importJson` -> `system:workflow:import`
-- `POST /system/workflow/reimburseApproval/create` -> `system:workflow:import`
+
+工作流补充边界：
+
+- `/warm-flow-ui/config` 和设计器静态资源允许匿名访问，不参与 RBAC 权限码判定
+- `/warm-flow/**` 统一要求登录，节点办理资格由 Warm-Flow `PermissionHandler` 判定
+- `/system/workflow/**` 是管理端接口，必须同时具备对应 `system:workflow:*` 权限和 `SUB_ADMIN` / `SUPER_ADMIN` 角色
+- 当前只实现 `/system/workflow/importJson`，不存在报销流程一键创建接口
 
 ---
 

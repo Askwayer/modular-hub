@@ -3,6 +3,7 @@ package com.vita.workflow.support;
 import cn.dev33.satoken.stp.StpUtil;
 import com.vita.auth.context.LoginUserInfoModelContext;
 import com.vita.auth.model.LoginUserInfoModel;
+import com.vita.workflow.config.ConditionalOnWorkflowEnabled;
 import com.vita.workflow.constant.WorkflowConstants;
 import org.springframework.stereotype.Component;
 
@@ -20,6 +21,7 @@ import java.util.Set;
  * @Version: 1.0
  */
 @Component
+@ConditionalOnWorkflowEnabled
 public class WorkflowLoginUserSupport {
 
     /**

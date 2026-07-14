@@ -1,7 +1,9 @@
 package com.vita.workflow.handler;
 
+import com.vita.workflow.config.ConditionalOnWorkflowEnabled;
 import com.vita.workflow.support.WorkflowLoginUserSupport;
 import org.dromara.warm.flow.core.handler.PermissionHandler;
+import org.springframework.stereotype.Component;
 
 import java.util.List;
 
@@ -13,6 +15,8 @@ import java.util.List;
  * @Description: Warm-Flow 办理人权限处理器
  * @Version: 1.0
  */
+@Component
+@ConditionalOnWorkflowEnabled
 public class WorkflowPermissionHandler implements PermissionHandler {
 
     private final WorkflowLoginUserSupport workflowLoginUserSupport;

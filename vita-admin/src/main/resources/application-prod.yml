@@ -52,10 +52,3 @@ vita:
       base-url: http://127.0.0.1:18000
       api-key: 4gqTA4cx5X*#I6QG
       timeout-ms: 8000
-
-  # 登录认证相关配置
-  auth:
-    extra-exclude-paths:
-      - /auth/login
-      - /captcha/**
-      - /public/**

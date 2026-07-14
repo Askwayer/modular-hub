@@ -20,6 +20,7 @@ import java.lang.reflect.Type;
  * @author Codex
  */
 @RestControllerAdvice
+@ConditionalOnWorkflowEnabled
 public class WorkflowSaveJsonRequestBodyAdvice extends RequestBodyAdviceAdapter {
 
     private final WorkflowDefinitionPermissionNormalizer permissionNormalizer;
