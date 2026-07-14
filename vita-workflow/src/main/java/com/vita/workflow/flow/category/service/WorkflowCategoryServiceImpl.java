@@ -1,10 +1,10 @@
-package com.vita.workflow.domain.category.service;
+package com.vita.workflow.flow.category.service;
 
 import com.vita.core.enums.CommonStatusEnum;
 import com.vita.mybatis.wrapper.LambdaQueryWrapperX;
 import com.vita.workflow.config.ConditionalOnWorkflowEnabled;
-import com.vita.workflow.domain.category.entity.WorkflowCategory;
-import com.vita.workflow.domain.category.mapper.WorkflowCategoryMapper;
+import com.vita.workflow.flow.category.entity.WorkflowCategory;
+import com.vita.workflow.flow.category.mapper.WorkflowCategoryMapper;
 import org.dromara.warm.flow.core.dto.Tree;
 import org.dromara.warm.flow.ui.service.CategoryService;
 import org.springframework.stereotype.Service;
