@@ -1,9 +1,6 @@
 package com.vita.workflow.api;
 
-import com.vita.workflow.api.command.WorkflowCancelCommand;
-import com.vita.workflow.api.command.WorkflowRejectCommand;
-import com.vita.workflow.api.command.WorkflowStartCommand;
-import com.vita.workflow.api.command.WorkflowTaskCommand;
+import com.vita.workflow.api.command.*;
 import com.vita.workflow.api.model.WorkflowInstanceSnapshot;
 import com.vita.workflow.api.model.WorkflowStartResult;
 
@@ -24,6 +21,14 @@ public interface WorkflowPort {
      * @return 启动结果
      */
     WorkflowStartResult start(WorkflowStartCommand command);
+
+    /**
+     * 创建流程实例并提交首个任务。
+     *
+     * @param command 提交命令
+     * @return 实例快照
+     */
+    WorkflowInstanceSnapshot startAndPass(WorkflowSubmitCommand command);
 
     /**
      * 通过当前任务。
@@ -50,7 +55,7 @@ public interface WorkflowPort {
     WorkflowInstanceSnapshot rejectTo(WorkflowRejectCommand command);
 
     /**
-     * 撤销流程实例。
+     * 在尚无审批人办理时撤回并终止流程实例。
      *
      * @param command 撤销命令
      * @return 实例快照
@@ -64,4 +69,13 @@ public interface WorkflowPort {
      * @return 实例快照
      */
     WorkflowInstanceSnapshot getByBusinessId(String businessId);
+
+    /**
+     * 判断用户是否为流程发起人或办理参与人。
+     *
+     * @param businessId 全局业务 ID
+     * @param userId 用户 ID
+     * @return true 有访问权限
+     */
+    boolean canAccess(String businessId, Long userId);
 }

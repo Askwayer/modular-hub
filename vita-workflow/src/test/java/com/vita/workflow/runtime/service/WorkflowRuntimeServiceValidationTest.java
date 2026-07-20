@@ -11,6 +11,7 @@ import com.vita.workflow.runtime.mapper.WorkflowRuntimeQueryMapper;
 import com.vita.workflow.runtime.service.impl.WorkflowRuntimeServiceImpl;
 import com.vita.workflow.runtime.support.WorkflowAfterCommitEventPublisher;
 import com.vita.workflow.runtime.support.WorkflowDistributedLock;
+import com.vita.workflow.runtime.vo.WorkflowHistoryVo;
 import com.vita.workflow.runtime.vo.WorkflowInstanceVo;
 import com.vita.workflow.runtime.vo.WorkflowTaskVo;
 import com.vita.workflow.support.WorkflowLoginUserSupport;
@@ -25,6 +26,7 @@ import org.springframework.transaction.support.DefaultTransactionStatus;
 
 import java.lang.reflect.Proxy;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -109,6 +111,32 @@ class WorkflowRuntimeServiceValidationTest {
         assertThatThrownBy(() -> service.cancel(command))
                 .isInstanceOf(ServiceException.class)
                 .hasMessageContaining("只有流程发起人");
+    }
+
+    @Test
+    void instanceWithApproverHistoryShouldNotBeWithdrawn() {
+        WorkflowInstanceVo instance = new WorkflowInstanceVo();
+        instance.setInstanceId(2L);
+        instance.setInitiatorId("100");
+        instance.setNodeType(1);
+
+        WorkflowHistoryVo applicantHistory = new WorkflowHistoryVo();
+        applicantHistory.setNodeType(1);
+        applicantHistory.setApproverId("100");
+        WorkflowHistoryVo approverHistory = new WorkflowHistoryVo();
+        approverHistory.setNodeType(1);
+        approverHistory.setApproverId("200");
+
+        Map<String, Object> responses = new HashMap<>();
+        responses.put("selectInstanceById", instance);
+        responses.put("selectHistoryByInstanceId", List.of(applicantHistory, approverHistory));
+        WorkflowRuntimeService service = service(responses);
+        WorkflowCancelCommand command = new WorkflowCancelCommand();
+        command.setInstanceId(2L);
+
+        assertThatThrownBy(() -> service.cancel(command))
+                .isInstanceOf(ServiceException.class)
+                .hasMessageContaining("已有审批人办理");
     }
 
     private WorkflowRuntimeService service(Map<String, Object> responses) {

@@ -8,6 +8,7 @@ import com.vita.workflow.api.WorkflowStartContextProvider;
 import com.vita.workflow.api.model.WorkflowStartContext;
 import com.vita.workflow.config.ConditionalOnWorkflowEnabled;
 import com.vita.workflow.constant.WorkflowConstants;
+import com.vita.workflow.reimbursement.constant.ReimbursementConstants;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
@@ -24,8 +25,6 @@ import java.util.Map;
 @ConditionalOnWorkflowEnabled
 public class ReimburseWorkflowStartContextProvider implements WorkflowStartContextProvider {
 
-    private static final String FLOW_CODE = "REIMBURSE_APPROVAL_V1";
-
     private final ISysDeptService sysDeptService;
 
     public ReimburseWorkflowStartContextProvider(ISysDeptService sysDeptService) {
@@ -34,7 +33,7 @@ public class ReimburseWorkflowStartContextProvider implements WorkflowStartConte
 
     @Override
     public boolean supports(String flowCode) {
-        return FLOW_CODE.equals(flowCode);
+        return ReimbursementConstants.FLOW_CODE.equals(flowCode);
     }
 
     @Override

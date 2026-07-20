@@ -5,8 +5,8 @@
 - 流程编码：`REIMBURSE_APPROVAL_V1`
 - 流程分类：`REIMBURSE`（展示名由 `workflow_category` 映射为“报销审批”）
 - 流程路径：员工发起 -> 部门主管审批 -> 财务审批 -> 综合管理部审批 -> 总经理审批 -> 完成
-- 二阶段已接入通用运行时，以该定义验收创建、提交、逐级审批、退回和撤销
-- 本阶段仍不新增报销业务表，报销单详情由后续业务模块维护
+- 已接入 `workflow_reimbursement` 最小业务表，以该定义验收创建、提交、逐级审批、退回、状态同步和撤回
+- 业务状态为 `DRAFT`、`APPROVING`、`RETURNED`、`APPROVED`、`CANCELLED`
 
 ## 2. 节点编码
 
@@ -71,7 +71,7 @@
 
 升级脚本：`sql/upgrade/vita_workflow_upgrade.sql`
 
-该脚本会重建 `workflow_category` 并清空已有自定义分类；审批角色、工作流权限和管理员授权按业务编码幂等补齐。
+该脚本会重建 `workflow_category` 并清空已有自定义分类；`workflow_reimbursement` 只在缺失时创建，已有报销单不会被删除；审批角色、工作流权限和管理员授权按业务编码幂等补齐。
 
 初始化三类物理角色：
 
@@ -101,28 +101,30 @@
 - `warm_flow_upgrade.sql` 会永久清空全部流程定义、实例、任务、历史和表单数据
 - 若设计器导入后发生坐标微调，以设计器重新保存结果为准，不影响节点编码、办理人协议与退回规则
 
-## 8. 二阶段运行时调用
+## 8. 报销业务接口
 
-先创建待提交实例：
+先创建草稿：
 
 ```http
-POST /admin/api/workflow/instances/start
+POST /admin/api/workflow/reimbursements
 Authorization: Bearer <token>
 Content-Type: application/json
 
 {
-  "flowCode": "REIMBURSE_APPROVAL_V1",
-  "businessId": "REIMBURSE:20260720:10001",
-  "variables": {}
+  "title": "七月客户拜访差旅报销",
+  "expenseType": "TRAVEL",
+  "expenseDate": "2026-07-20",
+  "totalAmount": 1280.50,
+  "reason": "客户现场沟通差旅费用"
 }
 ```
 
-`businessId` 全局唯一且不可复用。服务端根据当前登录用户生成 `applicantPermission`，并按 `sys_user.dept_id -> sys_dept.leader_user_id` 生成 `deptLeaderPermission`；客户端同名值会被覆盖。部门或部门负责人缺失时，发起直接返回业务错误。
+草稿创建后由服务端生成 `businessId=REIMBURSE:<报销单ID>`。`DRAFT` 和 `RETURNED` 可通过 `PUT /admin/api/workflow/reimbursements/{id}` 修改，其余状态只读。
 
-创建成功后返回首个 `taskId`，实例处于 `TOBESUBMIT`，不会自动提交。员工调用以下接口完成提交：
+首次提交在同一事务中创建实例并办理员工首任务：
 
 ```http
-POST /admin/api/workflow/tasks/{taskId}/pass
+POST /admin/api/workflow/reimbursements/{id}/submit
 Authorization: Bearer <token>
 Content-Type: application/json
 
@@ -132,6 +134,16 @@ Content-Type: application/json
 }
 ```
 
-后续审批人从 `GET /admin/api/workflow/tasks/pending` 获取本人待办并使用同一 `pass` 接口办理。退回上一人工节点使用 `reject-last`；退回申请人使用 `reject-to`，`targetNodeCode` 为 `submit_apply`，且当前节点必须配置允许该节点。
+服务端根据当前登录用户生成 `applicantPermission`，并按 `sys_user.dept_id -> sys_dept.leader_user_id` 生成 `deptLeaderPermission`；客户端同名值会被覆盖。部门或部门负责人缺失时，提交直接返回业务错误。
 
-发起人可对未结束实例调用 `POST /admin/api/workflow/instances/{instanceId}/cancel` 撤销。撤销通过 Warm-Flow `TaskService.revoke` 回到首个业务节点，不删除实例；返回的新任务可再次提交。
+后续审批人从 `GET /admin/api/workflow/tasks/pending` 获取本人待办并调用通用 `pass` 接口。退回申请人后报销单进入 `RETURNED`，申请人修改后再次调用报销 `submit`，只办理现有申请节点任务。
+
+申请人可在尚无审批人办理时调用 `POST /admin/api/workflow/reimbursements/{id}/withdraw`。撤回使用 `TaskService.terminationByInsId` 终止实例并清空待办，报销单进入 `CANCELLED` 终态，不允许修改或重提；重新申请必须新建报销单。
+
+查询接口：
+
+- `GET /admin/api/workflow/reimbursements/mine`：我的报销分页
+- `GET /admin/api/workflow/reimbursements/{id}`：申请人或流程参与人查看详情
+- `GET /admin/api/system/workflow/reimbursements/page`：管理员全局分页
+- `GET /admin/api/system/workflow/reimbursements/{id}`：管理员详情
+- `POST /admin/api/system/workflow/reimbursements/resync?businessId=...`：管理员状态补偿

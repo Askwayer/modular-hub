@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
@@ -45,17 +46,18 @@ class WorkflowRuntimeBoundaryTest {
     @Test
     void joinShouldOnlyExistInWorkflowReadOnlyMapper() throws IOException {
         Path repository = resolveRepositoryRoot();
-        try (var paths = Files.walk(repository)) {
-            List<Path> joinFiles = paths
-                    .filter(Files::isRegularFile)
-                    .filter(path -> path.toString().endsWith(".xml") || path.toString().endsWith(".sql"))
-                    .filter(path -> !path.toString().contains("/target/"))
-                    .filter(this::containsJoin)
-                    .toList();
-
-            assertThat(joinFiles).allMatch(path -> repository.relativize(path).toString()
-                    .equals("vita-workflow/src/main/resources/mapper/workflow/WorkflowRuntimeQueryMapper.xml"));
+        List<Path> joinFiles = new ArrayList<>();
+        for (Path scanRoot : sourceAndSqlRoots(repository)) {
+            try (var paths = Files.walk(scanRoot)) {
+                paths.filter(Files::isRegularFile)
+                        .filter(path -> path.toString().endsWith(".xml") || path.toString().endsWith(".sql"))
+                        .filter(this::containsJoin)
+                        .forEach(joinFiles::add);
+            }
         }
+
+        assertThat(joinFiles).allMatch(path -> repository.relativize(path).toString()
+                .equals("vita-workflow/src/main/resources/mapper/workflow/WorkflowRuntimeQueryMapper.xml"));
 
         String mapperXml = Files.readString(repository.resolve(
                 "vita-workflow/src/main/resources/mapper/workflow/WorkflowRuntimeQueryMapper.xml"));
@@ -102,8 +104,13 @@ class WorkflowRuntimeBoundaryTest {
                         "system:workflow:import",
                         "system:workflow:definition:view",
                         "system:workflow:definition:manage",
-                        "system:workflow:instance:view"
+                        "system:workflow:instance:view",
+                        "CREATE TABLE IF NOT EXISTS `workflow_reimbursement`",
+                        "system:workflow:reimbursement:view",
+                        "system:workflow:reimbursement:resync"
                 );
+        assertThat(vitaWorkflowSql).doesNotContain("DROP TABLE IF EXISTS `workflow_reimbursement`");
+        assertThat(initSql).contains("CREATE TABLE `workflow_reimbursement`");
 
         try (var paths = Files.list(repository.resolve("sql/upgrade"))) {
             List<String> workflowScripts = paths
@@ -116,6 +123,16 @@ class WorkflowRuntimeBoundaryTest {
         }
     }
 
+    @Test
+    void workflowWithdrawalShouldTerminateInstanceAndProtectHandlerVariables() throws IOException {
+        String runtimeService = Files.readString(resolveRepositoryRoot().resolve(
+                "vita-workflow/src/main/java/com/vita/workflow/runtime/service/impl/WorkflowRuntimeServiceImpl.java"));
+
+        assertThat(runtimeService)
+                .contains("taskService.terminationByInsId", "PROTECTED_TASK_VARIABLES")
+                .doesNotContain("taskService.revoke(");
+    }
+
     private boolean containsJoin(Path path) {
         try {
             String normalized = Files.readString(path).toLowerCase(Locale.ROOT)
@@ -124,6 +141,19 @@ class WorkflowRuntimeBoundaryTest {
         } catch (IOException ex) {
             throw new IllegalStateException("读取文件失败：" + path, ex);
         }
+    }
+
+    private List<Path> sourceAndSqlRoots(Path repository) throws IOException {
+        List<Path> roots = new ArrayList<>();
+        try (var paths = Files.list(repository)) {
+            paths.filter(Files::isDirectory)
+                    .filter(path -> path.getFileName().toString().startsWith("vita-"))
+                    .map(path -> path.resolve("src"))
+                    .filter(Files::isDirectory)
+                    .forEach(roots::add);
+        }
+        roots.add(repository.resolve("sql"));
+        return roots;
     }
 
     private Path resolveRepositoryRoot() {

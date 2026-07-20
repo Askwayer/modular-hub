@@ -46,7 +46,8 @@ warm-flow:
 | `/warm-flow-ui/js/**` | 允许 | 允许 | 静态资源 |
 | `/warm-flow-ui/ico/**` | 允许 | 允许 | 静态资源 |
 | `/warm-flow-ui/config` | 允许 | 允许 | 设计器读取 token 配置 |
-| `/warm-flow/**` | 拒绝 | 允许 | 统一执行 `StpUtil.checkLogin()`；节点办理权限由 `PermissionHandler` 校验 |
+| Warm-Flow 表单和办理业务接口 | 拒绝 | 允许 | 仅开放 `published-form`、`form-content/**`、`execute/load/**`、`execute/hisLoad/**`、`execute/handle` |
+| 其余 `/warm-flow/**` | 拒绝 | 条件允许 | 仅 `SUB_ADMIN` / `SUPER_ADMIN` 可访问设计和管理接口 |
 | `/system/workflow/**` | 拒绝 | 条件允许 | 必须同时满足接口权限码和 `SUB_ADMIN` / `SUPER_ADMIN` 角色 |
 
 禁止将 `/warm-flow/**` 或 `/warm-flow-ui/**` 整体加入 `vita.auth.extra-exclude-paths`。
@@ -74,7 +75,7 @@ warm-flow:
 - 角色：`SUB_ADMIN` 或 `SUPER_ADMIN`
 - 行为：导入原始 Warm-Flow `DefJson`，不自动发布。
 
-Warm-Flow 内置 `/warm-flow/**` 包含流程设计、表单与 `execute/*` 接口，统一要求登录，但一期不把这些内置接口包装成 be-vita 业务工作流 API。
+Warm-Flow 内置 `/warm-flow/**` 同时包含业务办理和管理能力。普通用户只允许进入表单加载与办理所需接口，其余内置接口由管理员角色拦截。
 
 当前不存在 `/system/workflow/reimburseApproval/create`，文档和权限映射不得声明该接口。
 
@@ -91,9 +92,9 @@ Warm-Flow 内置 `/warm-flow/**` 包含流程设计、表单与 `execute/*` 接�
 - `flow_user`
 - `flow_form`
 
-be-vita 自建 `workflow_category` 继续遵循仓库审计字段规范。已有环境依次执行
+be-vita 自建 `workflow_category`、`workflow_reimbursement` 继续遵循仓库审计字段规范。已有环境依次执行
 `sql/upgrade/warm_flow_upgrade.sql` 和 `sql/upgrade/vita_workflow_upgrade.sql`。前者删除并重建全部 8 张
-Warm-Flow 引擎表，后者删除并重建 `workflow_category`；执行前必须备份需要保留的流程和分类数据。
+Warm-Flow 引擎表，后者删除并重建 `workflow_category`，但只在缺失时创建 `workflow_reimbursement`，不会删除已有报销单；执行前必须备份需要保留的流程和分类数据。
 
 ## 8. 第二阶段衔接
 
@@ -103,7 +104,7 @@ Warm-Flow 引擎表，后者删除并重建 `workflow_category`；执行前必�
 - `vita-workflow` 实现定义、实例、任务、访问控制、并发锁和提交后事件编排。
 - `/workflow/**` 提供普通登录用户运行时接口，service 层校验实例访问权和任务办理权。
 - `/system/workflow/**` 提供定义管理和实例只读监控，执行权限码与管理员角色双重校验。
-- 报销流程作为端到端验收定义接入，但仍不新增报销业务表、通知、委派、转办和会签能力。
+- 报销流程已接入最小业务表、提交后状态监听和管理员重同步补偿，不包含通知、委派、转办和会签能力。
 
 ## 9. 验收测试
 

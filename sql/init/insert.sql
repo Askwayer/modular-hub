@@ -208,7 +208,15 @@ VALUES (2001, '用户管理查看', 'system:user:view', 'MENU_ACTION', 1001, NUL
        (2035, '工作流实例查看', 'system:workflow:instance:view', 'MENU_ACTION', NULL, 'GET',
         '/system/workflow/instances/**', 'system:workflow:instance:view', 104, 1, 1, 0, 0,
         '2026-07-20 00:00:00', 1, 'system', '2026-07-20 00:00:00', 1, 'system',
-        0, '查看工作流实例和流转轨迹');
+        0, '查看工作流实例和流转轨迹'),
+       (2036, '报销工作流查看', 'system:workflow:reimbursement:view', 'MENU_ACTION', NULL, 'GET',
+        '/system/workflow/reimbursements/**', 'system:workflow:reimbursement:view', 105, 1, 1, 0, 0,
+        '2026-07-20 00:00:00', 1, 'system', '2026-07-20 00:00:00', 1, 'system',
+        0, '查看报销工作流列表和详情'),
+       (2037, '报销工作流状态重同步', 'system:workflow:reimbursement:resync', 'MENU_ACTION', NULL, 'POST',
+        '/system/workflow/reimbursements/resync', 'system:workflow:reimbursement:resync', 106, 1, 1, 0, 0,
+        '2026-07-20 00:00:00', 1, 'system', '2026-07-20 00:00:00', 1, 'system',
+        0, '根据流程实例补偿同步报销业务状态');
 
 -- ----------------------------
 -- Records of sys_user_role
@@ -336,6 +344,14 @@ VALUES (5001, 1, 2001, 0, 0, '2026-04-02 00:00:00',
        (5043, 3, 2034, 0, 0, '2026-07-20 00:00:00',
         1, 'system', '2026-07-20 00:00:00', 1, 'system', 0),
        (5044, 3, 2035, 0, 0, '2026-07-20 00:00:00',
+        1, 'system', '2026-07-20 00:00:00', 1, 'system', 0),
+       (5045, 1, 2036, 0, 0, '2026-07-20 00:00:00',
+        1, 'system', '2026-07-20 00:00:00', 1, 'system', 0),
+       (5046, 1, 2037, 0, 0, '2026-07-20 00:00:00',
+        1, 'system', '2026-07-20 00:00:00', 1, 'system', 0),
+       (5047, 3, 2036, 0, 0, '2026-07-20 00:00:00',
+        1, 'system', '2026-07-20 00:00:00', 1, 'system', 0),
+       (5048, 3, 2037, 0, 0, '2026-07-20 00:00:00',
         1, 'system', '2026-07-20 00:00:00', 1, 'system', 0);
 
 -- ----------------------------

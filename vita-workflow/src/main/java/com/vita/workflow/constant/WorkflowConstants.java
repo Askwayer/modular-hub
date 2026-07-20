@@ -32,6 +32,16 @@ public final class WorkflowConstants {
     public static final String WORKFLOW_INSTANCE_VIEW_PERMISSION = "system:workflow:instance:view";
 
     /**
+     * 报销工作流查看权限码。
+     */
+    public static final String WORKFLOW_REIMBURSEMENT_VIEW_PERMISSION = "system:workflow:reimbursement:view";
+
+    /**
+     * 报销工作流状态重同步权限码。
+     */
+    public static final String WORKFLOW_REIMBURSEMENT_RESYNC_PERMISSION = "system:workflow:reimbursement:resync";
+
+    /**
      * 报销申请人办理权限变量。
      */
     public static final String APPLICANT_PERMISSION_VARIABLE = "applicantPermission";
@@ -55,6 +65,16 @@ public final class WorkflowConstants {
      * 工作流分布式锁前缀。
      */
     public static final String WORKFLOW_LOCK_PREFIX = "vita:workflow:";
+
+    /**
+     * 客户端办理任务时不得覆盖的平台和办理人变量。
+     */
+    public static final List<String> PROTECTED_TASK_VARIABLES = List.of(
+            INITIATOR_ID_VARIABLE,
+            INITIATOR_DEPT_ID_VARIABLE,
+            APPLICANT_PERMISSION_VARIABLE,
+            DEPT_LEADER_PERMISSION_VARIABLE
+    );
 
     /**
      * Warm-Flow 保存流程定义路径。

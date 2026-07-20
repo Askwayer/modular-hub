@@ -290,6 +290,35 @@
           )
     </select>
 
+    <select id="countInstanceAccessByBusinessId" resultType="long">
+        SELECT COUNT(1)
+        FROM flow_instance i
+        WHERE i.business_id = #{businessId}
+          AND i.del_flag = '0'
+          AND (
+              i.create_by = #{userId}
+              OR EXISTS (
+                  SELECT 1
+                  FROM flow_task t
+                  INNER JOIN flow_user fu ON fu.associated = t.id AND fu.del_flag = '0'
+                  WHERE t.instance_id = i.id
+                    AND t.del_flag = '0'
+                    AND fu.type IN ('1', '2', '3')
+                    AND fu.processed_by IN
+                    <foreach collection="permissions" item="permission" open="(" separator="," close=")">
+                        #{permission}
+                    </foreach>
+              )
+              OR EXISTS (
+                  SELECT 1
+                  FROM flow_his_task h
+                  WHERE h.instance_id = i.id
+                    AND h.del_flag = '0'
+                    AND h.approver = #{userId}
+              )
+          )
+    </select>
+
     <select id="countTaskAccess" resultType="long">
         SELECT COUNT(1)
         FROM flow_task t

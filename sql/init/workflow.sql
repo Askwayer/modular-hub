@@ -204,3 +204,31 @@ CREATE TABLE `workflow_category`
     KEY `idx_workflow_category_parent` (`parent_code`),
     KEY `idx_workflow_category_status_sort` (`status`, `sort_no`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT ='工作流分类表';
+
+DROP TABLE IF EXISTS `workflow_reimbursement`;
+CREATE TABLE `workflow_reimbursement`
+(
+    `id`                bigint         NOT NULL COMMENT '报销单ID',
+    `tenant_id`         bigint                  DEFAULT NULL COMMENT '租户ID',
+    `business_id`       varchar(40)    NOT NULL COMMENT '全局业务ID',
+    `title`             varchar(100)   NOT NULL COMMENT '报销标题',
+    `expense_type`      varchar(50)    NOT NULL COMMENT '费用类型',
+    `expense_date`      date           NOT NULL COMMENT '费用发生日期',
+    `total_amount`      decimal(16, 2) NOT NULL COMMENT '报销总金额',
+    `reason`            varchar(1000)  NOT NULL COMMENT '报销事由',
+    `applicant_id`      bigint         NOT NULL COMMENT '申请人ID',
+    `applicant_dept_id` bigint                  DEFAULT NULL COMMENT '申请部门ID',
+    `instance_id`       bigint                  DEFAULT NULL COMMENT '流程实例ID',
+    `business_status`   varchar(20)    NOT NULL COMMENT '业务状态',
+    `create_time`       datetime       NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '新增时间',
+    `update_time`       datetime                DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `is_deleted`        tinyint(1)              DEFAULT '0' COMMENT '是否删除(0-否,1-是)',
+    `create_by_id`      bigint                  DEFAULT NULL COMMENT '新增用户ID',
+    `create_by`         varchar(50)             DEFAULT NULL COMMENT '新增用户名称',
+    `update_by_id`      bigint                  DEFAULT NULL COMMENT '更新用户ID',
+    `update_by`         varchar(50)             DEFAULT NULL COMMENT '更新用户名称',
+    `version`           bigint                  DEFAULT '0' COMMENT '乐观锁',
+    `remark`            varchar(500)            DEFAULT NULL COMMENT '备注',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_workflow_reimbursement_business_id` (`business_id`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT ='工作流报销单';

@@ -67,6 +67,21 @@ class ApplicationWorkflowYamlTest {
         assertThat(workflow.getProperty("vita.auth.extra-exclude-paths[0]")).isNull();
     }
 
+    /**
+     * 工作流集成测试配置必须使用独立数据库和 Redis DB。
+     *
+     * @throws IOException 配置文件读取异常
+     */
+    @Test
+    void workflowIntegrationProfileShouldBeIsolated() throws IOException {
+        PropertySource<?> integration = loadPropertySource("application-workflow-integration.yml");
+
+        assertThat(integration.getProperty("vita.workflow.enabled")).isEqualTo(true);
+        assertThat(integration.getProperty("vita.mysql.master.database"))
+                .isEqualTo("${VITA_WORKFLOW_IT_MYSQL_DATABASE:be_vita_workflow_it}");
+        assertThat(integration.getProperty("spring.data.redis.database")).isEqualTo(14);
+    }
+
     private List<String> bindStringList(String resourceName, String propertyName) throws IOException {
         MutablePropertySources propertySources = new MutablePropertySources();
         propertySources.addLast(loadPropertySource(resourceName));

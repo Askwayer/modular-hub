@@ -134,21 +134,26 @@ class WorkflowRouteSecurityTest {
         assertUnauthorized(adminGet("/workflow/instances/mine"));
         assertUnauthorized(adminGet("/workflow/tasks/pending"));
         assertUnauthorized(adminPost("/workflow/tasks/1/pass"));
+        assertUnauthorized(adminGet("/workflow/reimbursements/mine"));
+        assertUnauthorized(adminPost("/workflow/reimbursements/1/submit"));
         assertUnauthorized(adminGet("/system/workflow/definitions/page"));
         assertUnauthorized(adminGet("/system/workflow/instances/running"));
+        assertUnauthorized(adminGet("/system/workflow/reimbursements/page"));
+        assertUnauthorized(adminPost("/system/workflow/reimbursements/resync"));
         assertUnauthorized(importJsonRequest(null));
     }
 
     /**
-     * 普通登录用户可以进入 Warm-Flow 内置接口。
+     * 普通登录用户只能进入 Warm-Flow 内置业务接口。
      *
      * @throws Exception 请求异常
      */
     @Test
-    void loggedInUserShouldAccessBuiltInWorkflowRoutes() throws Exception {
+    void loggedInUserShouldOnlyAccessBuiltInWorkflowBusinessRoutes() throws Exception {
         String token = login(NORMAL_USER_ID);
 
-        assertEntered(adminGet("/warm-flow/query-def"), token);
+        assertForbidden(withToken(adminGet("/warm-flow/query-def"), token));
+        assertForbidden(withToken(adminPost("/warm-flow/save-json"), token));
         assertEntered(adminGet("/warm-flow/published-form"), token);
         assertEntered(adminGet("/warm-flow/form-content/1"), token);
         assertEntered(adminGet("/warm-flow/execute/load/1"), token);
@@ -158,6 +163,20 @@ class WorkflowRouteSecurityTest {
         assertEntered(adminGet("/workflow/instances/mine"), token);
         assertEntered(adminGet("/workflow/tasks/pending"), token);
         assertEntered(adminPost("/workflow/tasks/1/pass"), token);
+        assertEntered(adminGet("/workflow/reimbursements/mine"), token);
+        assertEntered(adminPost("/workflow/reimbursements/1/submit"), token);
+    }
+
+    /**
+     * 管理员角色可以进入 Warm-Flow 内置管理接口。
+     *
+     * @throws Exception 请求异常
+     */
+    @Test
+    void administratorShouldAccessBuiltInWorkflowManagementRoutes() throws Exception {
+        assertEntered(adminGet("/warm-flow/query-def"), login(ROLE_ONLY_ADMIN_ID));
+        assertEntered(adminPost("/warm-flow/save-json"), login(SUB_ADMIN_ID));
+        assertEntered(adminGet("/warm-flow/query-def"), login(SUPER_ADMIN_ID));
     }
 
     /**
@@ -171,11 +190,21 @@ class WorkflowRouteSecurityTest {
         assertForbidden(withToken(adminGet("/system/workflow/definitions/page"), login(ROLE_ONLY_ADMIN_ID)));
         assertForbidden(withToken(adminGet("/system/workflow/definitions/page"), login(PERMISSION_ONLY_USER_ID)));
         assertForbidden(withToken(adminGet("/system/workflow/instances/running"), login(NORMAL_USER_ID)));
+        assertForbidden(withToken(adminGet("/system/workflow/reimbursements/page"), login(NORMAL_USER_ID)));
+        assertForbidden(withToken(adminGet("/system/workflow/reimbursements/page"), login(ROLE_ONLY_ADMIN_ID)));
+        assertForbidden(withToken(adminGet("/system/workflow/reimbursements/page"), login(PERMISSION_ONLY_USER_ID)));
+        assertForbidden(withToken(adminPost("/system/workflow/reimbursements/resync"), login(NORMAL_USER_ID)));
+        assertForbidden(withToken(adminPost("/system/workflow/reimbursements/resync"), login(ROLE_ONLY_ADMIN_ID)));
+        assertForbidden(withToken(adminPost("/system/workflow/reimbursements/resync"), login(PERMISSION_ONLY_USER_ID)));
 
         assertEntered(adminGet("/system/workflow/definitions/page"), login(SUB_ADMIN_ID));
         assertEntered(adminGet("/system/workflow/definitions/page"), login(SUPER_ADMIN_ID));
         assertEntered(adminGet("/system/workflow/instances/running"), login(SUB_ADMIN_ID));
         assertEntered(adminGet("/system/workflow/instances/running"), login(SUPER_ADMIN_ID));
+        assertEntered(adminGet("/system/workflow/reimbursements/page"), login(SUB_ADMIN_ID));
+        assertEntered(adminGet("/system/workflow/reimbursements/page"), login(SUPER_ADMIN_ID));
+        assertEntered(adminPost("/system/workflow/reimbursements/resync"), login(SUB_ADMIN_ID));
+        assertEntered(adminPost("/system/workflow/reimbursements/resync"), login(SUPER_ADMIN_ID));
     }
 
     /**
@@ -284,7 +313,9 @@ class WorkflowRouteSecurityTest {
                                 WorkflowConstants.WORKFLOW_IMPORT_PERMISSION,
                                 WorkflowConstants.WORKFLOW_DEFINITION_VIEW_PERMISSION,
                                 WorkflowConstants.WORKFLOW_DEFINITION_MANAGE_PERMISSION,
-                                WorkflowConstants.WORKFLOW_INSTANCE_VIEW_PERMISSION
+                                WorkflowConstants.WORKFLOW_INSTANCE_VIEW_PERMISSION,
+                                WorkflowConstants.WORKFLOW_REIMBURSEMENT_VIEW_PERMISSION,
+                                WorkflowConstants.WORKFLOW_REIMBURSEMENT_RESYNC_PERMISSION
                         );
                     }
                     return List.of();
@@ -327,7 +358,8 @@ class WorkflowRouteSecurityTest {
                 "/warm-flow/execute/hisLoad/1",
                 "/workflow/definitions/published",
                 "/workflow/instances/mine",
-                "/workflow/tasks/pending"
+                "/workflow/tasks/pending",
+                "/workflow/reimbursements/mine"
         })
         String getRoute() {
             return "entered";
@@ -335,7 +367,9 @@ class WorkflowRouteSecurityTest {
 
         @PostMapping({
                 "/warm-flow/execute/handle",
-                "/workflow/tasks/1/pass"
+                "/warm-flow/save-json",
+                "/workflow/tasks/1/pass",
+                "/workflow/reimbursements/1/submit"
         })
         String postRoute() {
             return "entered";
@@ -351,6 +385,20 @@ class WorkflowRouteSecurityTest {
         @GetMapping("/system/workflow/instances/running")
         @SaCheckPermission(WorkflowConstants.WORKFLOW_INSTANCE_VIEW_PERMISSION)
         String instanceManagementRoute() {
+            WorkflowAdminAccessChecker.check();
+            return "entered";
+        }
+
+        @GetMapping("/system/workflow/reimbursements/page")
+        @SaCheckPermission(WorkflowConstants.WORKFLOW_REIMBURSEMENT_VIEW_PERMISSION)
+        String reimbursementManagementRoute() {
+            WorkflowAdminAccessChecker.check();
+            return "entered";
+        }
+
+        @PostMapping("/system/workflow/reimbursements/resync")
+        @SaCheckPermission(WorkflowConstants.WORKFLOW_REIMBURSEMENT_RESYNC_PERMISSION)
+        String reimbursementResyncRoute() {
             WorkflowAdminAccessChecker.check();
             return "entered";
         }

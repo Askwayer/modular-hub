@@ -6,6 +6,8 @@ import com.vita.workflow.config.ConditionalOnWorkflowEnabled;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
@@ -51,9 +53,29 @@ public class WorkflowDistributedLock {
             Thread.currentThread().interrupt();
             throw new ServiceException(GlobalErrorCode.LOCKED);
         } finally {
-            if (locked && lock.isHeldByCurrentThread()) {
-                lock.unlock();
+            if (locked && !releaseAfterTransaction(lock)) {
+                release(lock);
             }
+        }
+    }
+
+    private boolean releaseAfterTransaction(RLock lock) {
+        if (!TransactionSynchronizationManager.isActualTransactionActive()
+                || !TransactionSynchronizationManager.isSynchronizationActive()) {
+            return false;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCompletion(int status) {
+                release(lock);
+            }
+        });
+        return true;
+    }
+
+    private void release(RLock lock) {
+        if (lock.isHeldByCurrentThread()) {
+            lock.unlock();
         }
     }
 }

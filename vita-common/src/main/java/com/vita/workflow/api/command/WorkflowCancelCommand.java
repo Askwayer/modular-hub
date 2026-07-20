@@ -9,7 +9,7 @@ import lombok.Data;
  * @BelongsPackage: com.vita.workflow.api.command
  * @Author: znk
  * @CreateTime: 2026-07-18
- * @Description: 流程撤销命令
+ * @Description: 未审批流程撤回命令
  * @Version: 1.0
  */
 @Data

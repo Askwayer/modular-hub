@@ -56,6 +56,10 @@ public interface WorkflowRuntimeQueryMapper {
                              @Param("userId") String userId,
                              @Param("permissions") List<String> permissions);
 
+    long countInstanceAccessByBusinessId(@Param("businessId") String businessId,
+                                         @Param("userId") String userId,
+                                         @Param("permissions") List<String> permissions);
+
     long countTaskAccess(@Param("taskId") Long taskId,
                          @Param("permissions") List<String> permissions);
 

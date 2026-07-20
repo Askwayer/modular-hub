@@ -5,7 +5,7 @@
 - 提供流程发起、我的发起、待办、已办、实例详情、流程轨迹、通过、退回和撤销的通用运行时闭环。
 - `vita-common` 只声明中立工作流协议，不依赖 Warm-Flow 类型；`vita-workflow` 使用 Warm-Flow 官方 Service 实现状态变更。
 - Warm-Flow 8 张引擎表不生成 Controller、Entity、Mapper 和写 Service，仅保留专用只读投影 Mapper。
-- 本阶段不新增报销业务表，不实现通知、转办、委派、会签、加减签和实例状态人工修改。
+- 生产验收扩展新增最小报销业务表和状态同步；仍不实现通知、转办、委派、会签、加减签和实例状态人工修改。
 
 ## 2. 模块职责
 
@@ -13,14 +13,15 @@
 | --- | --- |
 | `vita-common` | `WorkflowPort`、命令、快照、启动上下文扩展点和提交后事件协议 |
 | `vita-workflow` | Warm-Flow 适配、只读关联查询、访问校验、锁、事件发布和报销启动上下文 |
-| `vita-admin` | 普通登录用户运行时接口和管理员定义、实例接口 |
+| `vita-service` | 报销单单表业务域、业务状态监听和状态重同步服务 |
+| `vita-admin` | 普通登录用户运行时/报销接口和管理员定义、实例、报销补偿接口 |
 | `vita-generator` | 阻止 8 张 Warm-Flow 引擎表生成业务 CRUD |
 
 `vita-workflow` 是仓库中唯一允许使用 JOIN 的模块，且 JOIN 只能存在于专用只读 Query Mapper。其他模块、初始化 SQL、升级 SQL 和代码生成器均不得使用 JOIN。流程定义、实例和任务的写操作必须调用 Warm-Flow 官方 Service。
 
 ## 3. 公共 Java 协议
 
-`WorkflowPort` 提供 `start`、`pass`、`rejectLast`、`rejectTo`、`cancel` 和 `getByBusinessId`。命令和返回对象不暴露 Warm-Flow DTO。
+`WorkflowPort` 提供 `start`、`startAndPass`、`pass`、`rejectLast`、`rejectTo`、`cancel`、`getByBusinessId` 和 `canAccess`。命令和返回对象不暴露 Warm-Flow DTO。
 
 `businessId` 是长度不超过 40 的全局唯一、不可复用业务键；业务模块应使用带业务域前缀的稳定值，例如 `REIMBURSE:20260720:10001`。
 
@@ -30,7 +31,7 @@
 2. 平台变量 `initiatorId`、`initiatorDeptId`
 3. 匹配 `flowCode` 的 `WorkflowStartContextProvider` 变量
 
-流程相关办理人变量必须由 Provider 生成。`start` 创建 `TOBESUBMIT` 实例并返回首个 `taskId`，不会自动办理首个任务；申请人通过 `pass` 完成员工提交。
+流程相关办理人变量必须由 Provider 生成。`start` 创建 `TOBESUBMIT` 实例并返回首个 `taskId`；业务模块使用 `startAndPass` 在同一业务锁和事务内创建实例并办理首任务。
 
 ## 4. 普通用户接口
 
@@ -43,7 +44,7 @@
 | `GET /workflow/instances/mine` | 分页查询当前用户发起的实例 |
 | `GET /workflow/instances/{instanceId}` | 查询有权访问的实例 |
 | `GET /workflow/instances/{instanceId}/history` | 查询有权访问的流程轨迹 |
-| `POST /workflow/instances/{instanceId}/cancel` | 发起人撤销未结束实例 |
+| `POST /workflow/instances/{instanceId}/cancel` | 发起人在尚无审批人办理时撤回并终止实例 |
 | `GET /workflow/tasks/pending` | 按用户、角色和部门权限分页查询待办 |
 | `GET /workflow/tasks/completed` | 按历史实际办理人分页查询已办 |
 | `GET /workflow/tasks/{taskId}` | 查询当前用户可办理的任务 |
@@ -63,14 +64,16 @@
 | `system:workflow:definition:view` | 定义分页和详情 |
 | `system:workflow:definition:manage` | 发布、取消发布、复制和删除定义 |
 | `system:workflow:instance:view` | 运行中、已完成实例分页、详情和轨迹 |
+| `system:workflow:reimbursement:view` | 报销单分页和详情 |
+| `system:workflow:reimbursement:resync` | 按业务 ID 重同步报销状态 |
 
 定义删除前检查是否已有实例；实例监控仅提供只读接口，不允许直接修改引擎表、任务或变量。
 
 ## 6. 并发、事务与事件
 
 - 发起按 `vita:workflow:start:{businessId}` 加 Redis 分布式锁。
-- 办理按 `vita:workflow:task:{taskId}` 加锁，撤销按 `vita:workflow:instance:{instanceId}` 加锁。
-- 锁不等待，竞争失败返回 `423`；锁在 `finally` 中释放。
+- 办理按 `vita:workflow:task:{taskId}` 加锁，撤回按 `vita:workflow:instance:{instanceId}` 加锁。
+- 锁不等待，竞争失败返回 `423`；存在外层事务时锁在事务完成后释放，否则在 `finally` 中立即释放。
 - `businessId` 重复校验由分布式锁内的数据库查询完成；本阶段不修改 Warm-Flow 引擎表索引。
 - 状态变更事件在事务提交后发布；事务回滚不发布。
 - `WorkflowChangedEvent` 不包含原始流程变量。同步监听器异常只记录日志，不改变已经提交的流程结果。
@@ -86,10 +89,22 @@ sql/upgrade/warm_flow_upgrade.sql
 sql/upgrade/vita_workflow_upgrade.sql
 ```
 
-`warm_flow_upgrade.sql` 会删除并重建全部 Warm-Flow 引擎表，永久清空流程定义、实例、任务、历史、办理人和表单数据；`vita_workflow_upgrade.sql` 会删除并重建 `workflow_category`，仅恢复默认分类。角色、权限和管理员授权不清空，按业务编码幂等补齐。引擎表继续使用 `sql/init/workflow.sql` 的原始索引，不增加增强索引。
+`warm_flow_upgrade.sql` 会删除并重建全部 Warm-Flow 引擎表，永久清空流程定义、实例、任务、历史、办理人和表单数据；`vita_workflow_upgrade.sql` 会删除并重建 `workflow_category`，仅恢复默认分类，并通过 `CREATE TABLE IF NOT EXISTS` 补齐报销表，不删除已有报销数据。角色、权限和管理员授权不清空，按业务编码幂等补齐。引擎表继续使用 `sql/init/workflow.sql` 的原始索引，不增加增强索引。
 
 ## 8. 启停与发布
 
 - 所有自建工作流 Bean 和 Controller 受 `vita.workflow.enabled` 控制。
-- 保持一期路由策略：设计器静态资源和 `/warm-flow-ui/config` 公开，`/warm-flow/**` 与 `/workflow/**` 要求登录，`/system/workflow/**` 执行管理端双重校验。
+- 设计器静态资源和 `/warm-flow-ui/config` 公开；Warm-Flow 表单加载和办理接口要求登录；其余 `/warm-flow/**` 限管理员角色；`/system/workflow/**` 执行权限码与管理员角色双重校验。
 - 发布前备份需要保留的数据，再按文档顺序执行两个重建脚本并重新导入流程定义。
+
+## 9. 报销生产最小闭环
+
+- `workflow_reimbursement` 保存标题、费用类型、发生日期、金额、事由、申请人、部门、实例 ID 和业务状态。
+- 状态为 `DRAFT`、`APPROVING`、`RETURNED`、`APPROVED`、`CANCELLED`；只有 `DRAFT` 和 `RETURNED` 可编辑和提交。
+- 首次提交调用 `startAndPass`，退回申请节点后只办理现有任务，不重复创建实例。
+- 流程事件提交后以独立事务同步业务状态；监听失败不回滚流程，管理员通过业务 ID 重同步补偿。
+- 撤回只允许在申请人首次提交后、尚无其他人工办理记录时执行，调用 `terminationByInsId` 终止实例并清空待办；撤回后不可修改或重提。
+
+## 10. 集成测试环境
+
+`vita-admin/src/test/resources/application-workflow-integration.yml` 提供隔离 MySQL 8 和 Redis 配置，使用独立数据库与 Redis DB 14。通过 `VITA_WORKFLOW_IT_MYSQL_*`、`VITA_WORKFLOW_IT_REDIS_*` 环境变量覆盖连接信息。该配置不依赖 Docker，也不进入默认单元测试；执行全链路验收前需先初始化测试库并导入发布报销流程定义。

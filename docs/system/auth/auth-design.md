@@ -735,7 +735,8 @@ public Result<?> list() {
 `vita.auth.extra-exclude-paths` 在 `vita-admin/src/main/resources/application.yml` 集中维护，profile 配置和 workflow 配置不得重复声明该列表。
 
 - 匿名访问：`/warm-flow-ui/index.html`、`/warm-flow-ui/css/**`、`/warm-flow-ui/js/**`、`/warm-flow-ui/ico/**`、`/warm-flow-ui/config`
-- 登录访问：全部 `/warm-flow/**`
+- 登录访问：`/warm-flow/published-form`、`/warm-flow/form-content/**`、`/warm-flow/execute/load/**`、`/warm-flow/execute/hisLoad/**`、`/warm-flow/execute/handle`
+- 管理员角色访问：其余 `/warm-flow/**`，仅允许 `SUB_ADMIN` 或 `SUPER_ADMIN`
 - 管理访问：`/system/workflow/**` 在登录基础上继续执行权限码与管理员角色校验
 - 禁止放行 `/warm-flow/**` 或 `/warm-flow-ui/**` 整体路径
 

@@ -376,6 +376,8 @@ List<RouterVo>           // 前端路由树
 - `system:workflow:definition:view`
 - `system:workflow:definition:manage`
 - `system:workflow:instance:view`
+- `system:workflow:reimbursement:view`
+- `system:workflow:reimbursement:resync`
 - `system:oper-log:view/delete`
 - `system:login-log:view/delete`
 
@@ -395,13 +397,16 @@ List<RouterVo>           // 前端路由树
 - `PUT /system/workflow/definitions/{id}/publish`、`PUT /system/workflow/definitions/{id}/unpublish` -> `system:workflow:definition:manage`
 - `POST /system/workflow/definitions/{id}/copy`、`DELETE /system/workflow/definitions/{id}` -> `system:workflow:definition:manage`
 - `GET /system/workflow/instances/**` -> `system:workflow:instance:view`
+- `GET /system/workflow/reimbursements/**` -> `system:workflow:reimbursement:view`
+- `POST /system/workflow/reimbursements/resync` -> `system:workflow:reimbursement:resync`
 
 已有环境通过 `sql/upgrade/vita_workflow_upgrade.sql` 按角色码和权限码幂等补齐工作流 RBAC 数据。该脚本同时会重建 `workflow_category`，执行前必须备份自定义分类。
 
 工作流补充边界：
 
 - `/warm-flow-ui/config` 和设计器静态资源允许匿名访问，不参与 RBAC 权限码判定
-- `/warm-flow/**` 统一要求登录，节点办理资格由 Warm-Flow `PermissionHandler` 判定
+- Warm-Flow 表单加载和办理接口要求登录，节点办理资格由 Warm-Flow `PermissionHandler` 判定
+- 其余 `/warm-flow/**` 内置设计和管理接口只允许 `SUB_ADMIN` / `SUPER_ADMIN`
 - `/workflow/**` 统一要求登录，实例查看和任务办理还必须通过 service 层归属检查
 - `/system/workflow/**` 是管理端接口，必须同时具备对应 `system:workflow:*` 权限和 `SUB_ADMIN` / `SUPER_ADMIN` 角色
 - 定义管理支持查看、发布、取消发布、复制和安全删除；实例监控只读，不提供修改状态或变量接口

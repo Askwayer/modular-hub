@@ -7,10 +7,7 @@ import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
 import com.vita.core.page.PageResponse;
 import com.vita.workflow.api.WorkflowStartContextProvider;
-import com.vita.workflow.api.command.WorkflowCancelCommand;
-import com.vita.workflow.api.command.WorkflowRejectCommand;
-import com.vita.workflow.api.command.WorkflowStartCommand;
-import com.vita.workflow.api.command.WorkflowTaskCommand;
+import com.vita.workflow.api.command.*;
 import com.vita.workflow.api.event.WorkflowChangedEvent;
 import com.vita.workflow.api.event.WorkflowOperation;
 import com.vita.workflow.api.model.WorkflowInstanceSnapshot;
@@ -97,6 +94,26 @@ public class WorkflowRuntimeServiceImpl implements WorkflowRuntimeService {
                 () -> transactionTemplate.execute(status -> doStart(command)));
     }
 
+    @Override
+    public WorkflowInstanceSnapshot startAndPass(WorkflowSubmitCommand command) {
+        validateSubmitCommand(command);
+        String lockKey = WorkflowConstants.WORKFLOW_LOCK_PREFIX + "start:" + command.getBusinessId();
+        return distributedLock.execute(lockKey, () -> transactionTemplate.execute(status -> {
+            WorkflowStartCommand startCommand = new WorkflowStartCommand();
+            startCommand.setFlowCode(command.getFlowCode());
+            startCommand.setBusinessId(command.getBusinessId());
+            startCommand.setVariables(safeVariables(command.getVariables()));
+            WorkflowStartResult startResult = doStart(startCommand);
+
+            WorkflowTaskVo task = requireTask(startResult.getTaskId());
+            requireTaskAccess(task.getTaskId());
+            Instance instance = WorkflowEngineExceptionTranslator.execute(
+                    () -> taskService.pass(task.getTaskId(), command.getMessage(),
+                            safeTaskVariables(command.getVariables())));
+            return buildOperationResult(task, instance, WorkflowOperation.PASS, task.getTaskId());
+        }));
+    }
+
     private WorkflowStartResult doStart(WorkflowStartCommand command) {
         if (queryMapper.selectInstanceByBusinessId(command.getBusinessId()) != null) {
             throw new ServiceException(GlobalErrorCode.BAD_REQUEST.getCode(), "业务ID已存在，不能重复发起流程");
@@ -140,7 +157,8 @@ public class WorkflowRuntimeServiceImpl implements WorkflowRuntimeService {
         validateTaskCommand(command);
         return executeTask(command.getTaskId(), task -> {
             Instance instance = WorkflowEngineExceptionTranslator.execute(
-                    () -> taskService.pass(command.getTaskId(), command.getMessage(), safeVariables(command.getVariables())));
+                    () -> taskService.pass(command.getTaskId(), command.getMessage(),
+                            safeTaskVariables(command.getVariables())));
             return buildOperationResult(task, instance, WorkflowOperation.PASS, command.getTaskId());
         });
     }
@@ -157,7 +175,7 @@ public class WorkflowRuntimeServiceImpl implements WorkflowRuntimeService {
             }
             FlowParams flowParams = FlowParams.build()
                     .message(command.getMessage())
-                    .variable(safeVariables(command.getVariables()));
+                    .variable(safeTaskVariables(command.getVariables()));
             Instance instance = WorkflowEngineExceptionTranslator.execute(
                     () -> taskService.rejectLast(command.getTaskId(), flowParams));
             return buildOperationResult(task, instance, WorkflowOperation.REJECT_LAST, command.getTaskId());
@@ -173,7 +191,7 @@ public class WorkflowRuntimeServiceImpl implements WorkflowRuntimeService {
             }
             Instance instance = WorkflowEngineExceptionTranslator.execute(
                     () -> taskService.rejectAtWill(command.getTaskId(), command.getTargetNodeCode(),
-                            command.getMessage(), safeVariables(command.getVariables())));
+                            command.getMessage(), safeTaskVariables(command.getVariables())));
             return buildOperationResult(task, instance, WorkflowOperation.REJECT_TO, command.getTaskId());
         });
     }
@@ -193,6 +211,16 @@ public class WorkflowRuntimeServiceImpl implements WorkflowRuntimeService {
             if (Integer.valueOf(2).equals(current.getNodeType())) {
                 throw new ServiceException(GlobalErrorCode.BAD_REQUEST.getCode(), "已结束流程不能撤销");
             }
+            List<WorkflowHistoryVo> userTaskHistory = queryMapper.selectHistoryByInstanceId(command.getInstanceId())
+                    .stream()
+                    .filter(history -> Integer.valueOf(WorkflowConstants.USER_TASK_NODE_TYPE)
+                            .equals(history.getNodeType()))
+                    .toList();
+            if (userTaskHistory.size() > 1
+                    || userTaskHistory.stream().anyMatch(history ->
+                    !String.valueOf(operatorId).equals(history.getApproverId()))) {
+                throw new ServiceException(GlobalErrorCode.BAD_REQUEST.getCode(), "流程已有审批人办理，不能撤回");
+            }
             Long taskId = queryMapper.selectCurrentTaskId(command.getInstanceId());
             FlowParams flowParams = FlowParams.build()
                     .handler(String.valueOf(operatorId))
@@ -201,12 +229,11 @@ public class WorkflowRuntimeServiceImpl implements WorkflowRuntimeService {
                     .hisStatus(FlowStatus.CANCEL.getKey())
                     .ignore(true);
             Instance instance = WorkflowEngineExceptionTranslator.execute(
-                    () -> taskService.revoke(command.getInstanceId(), flowParams));
+                    () -> taskService.terminationByInsId(command.getInstanceId(), flowParams));
             Definition definition = requireDefinition(instance.getDefinitionId());
-            Long currentTaskId = queryMapper.selectCurrentTaskId(instance.getId());
             publishEvent(WorkflowOperation.CANCEL, definition, instance, taskId, operatorId,
                     current.getNodeCode(), instance.getNodeCode());
-            return toSnapshot(definition, instance, currentTaskId);
+            return toSnapshot(definition, instance, null);
         }));
     }
 
@@ -220,6 +247,19 @@ public class WorkflowRuntimeServiceImpl implements WorkflowRuntimeService {
             throw new ServiceException(GlobalErrorCode.NOT_FOUND.getCode(), "流程实例不存在");
         }
         return toSnapshot(instance, queryMapper.selectCurrentTaskId(instance.getInstanceId()));
+    }
+
+    @Override
+    public boolean canAccess(String businessId, Long userId) {
+        if (!StringUtils.hasText(businessId) || userId == null) {
+            return false;
+        }
+        Long currentUserId = currentUserId();
+        if (!userId.equals(currentUserId)) {
+            return false;
+        }
+        return queryMapper.countInstanceAccessByBusinessId(
+                businessId, String.valueOf(userId), currentPermissions()) > 0;
     }
 
     @Override
@@ -500,6 +540,12 @@ public class WorkflowRuntimeServiceImpl implements WorkflowRuntimeService {
         return safeVariables;
     }
 
+    private Map<String, Object> safeTaskVariables(Map<String, Object> variables) {
+        Map<String, Object> safeVariables = new HashMap<>(safeVariables(variables));
+        WorkflowConstants.PROTECTED_TASK_VARIABLES.forEach(safeVariables::remove);
+        return safeVariables;
+    }
+
     private boolean targetContains(String allowedTargets, String targetNodeCode) {
         if (!StringUtils.hasText(allowedTargets) || !StringUtils.hasText(targetNodeCode)) {
             return false;
@@ -522,6 +568,16 @@ public class WorkflowRuntimeServiceImpl implements WorkflowRuntimeService {
     private void validateTaskCommand(WorkflowTaskCommand command) {
         if (command == null || command.getTaskId() == null) {
             throw new ServiceException(GlobalErrorCode.BAD_REQUEST.getCode(), "任务ID不能为空");
+        }
+    }
+
+    private void validateSubmitCommand(WorkflowSubmitCommand command) {
+        if (command == null || !StringUtils.hasText(command.getFlowCode())
+                || !StringUtils.hasText(command.getBusinessId())) {
+            throw new ServiceException(GlobalErrorCode.BAD_REQUEST.getCode(), "流程编码和业务ID不能为空");
+        }
+        if (command.getBusinessId().length() > 40) {
+            throw new ServiceException(GlobalErrorCode.BAD_REQUEST.getCode(), "业务ID长度不能超过40");
         }
     }
 

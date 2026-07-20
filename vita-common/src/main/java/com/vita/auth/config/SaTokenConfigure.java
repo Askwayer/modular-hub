@@ -5,6 +5,7 @@ import cn.dev33.satoken.interceptor.SaInterceptor;
 import cn.dev33.satoken.router.SaHttpMethod;
 import cn.dev33.satoken.router.SaRouter;
 import cn.dev33.satoken.stp.StpUtil;
+import com.vita.auth.constant.AuthConstants;
 import com.vita.auth.property.AuthProperty;
 import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
@@ -30,6 +31,15 @@ import java.util.List;
 @Configuration
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
 public class SaTokenConfigure implements WebMvcConfigurer {
+
+    private static final List<String> WARM_FLOW_USER_PATHS = List.of(
+            "/warm-flow/published-form",
+            "/warm-flow/form-content",
+            "/warm-flow/form-content/**",
+            "/warm-flow/execute/load/**",
+            "/warm-flow/execute/hisLoad/**",
+            "/warm-flow/execute/handle"
+    );
 
     @Resource
     private RequestTraceInterceptor requestTraceInterceptor;
@@ -73,17 +83,31 @@ public class SaTokenConfigure implements WebMvcConfigurer {
         List<String> excludePaths = new ArrayList<>(authProperty.getExtraExcludePaths());
 
 
-        // 注册 Sa-Token 拦截器，定义详细认证规则
+        // 先统一校验登录，再收紧 Warm-Flow 内置管理接口。
         registry.addInterceptor(new SaInterceptor(handle -> {
-                    // 检查是否已登录
                     try {
                         StpUtil.checkLogin();
                     } catch (Exception e) {
                         throw new ServiceException(GlobalErrorCode.UNAUTHORIZED);
                     }
+
                 }))
-                // 注册 Sa-Token 拦截器，校验规则为 StpUtil.checkLogin() 登录校验。
                 .addPathPatterns("/**")
                 .excludePathPatterns(excludePaths);
+
+        registry.addInterceptor(new SaInterceptor(handle -> checkWorkflowAdministrator()))
+                .addPathPatterns("/warm-flow/**")
+                .excludePathPatterns(WARM_FLOW_USER_PATHS);
+    }
+
+    /**
+     * 校验工作流管理角色。
+     */
+    private void checkWorkflowAdministrator() {
+        if (StpUtil.hasRole(AuthConstants.SUPER_ADMIN_ROLE_CODE)
+                || StpUtil.hasRole(AuthConstants.SUB_ADMIN_ROLE_CODE)) {
+            return;
+        }
+        throw new ServiceException(GlobalErrorCode.FORBIDDEN);
     }
 }
