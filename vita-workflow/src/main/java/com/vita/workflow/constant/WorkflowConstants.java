@@ -17,6 +17,46 @@ public final class WorkflowConstants {
     public static final String WORKFLOW_IMPORT_PERMISSION = "system:workflow:import";
 
     /**
+     * 工作流定义查看权限码。
+     */
+    public static final String WORKFLOW_DEFINITION_VIEW_PERMISSION = "system:workflow:definition:view";
+
+    /**
+     * 工作流定义管理权限码。
+     */
+    public static final String WORKFLOW_DEFINITION_MANAGE_PERMISSION = "system:workflow:definition:manage";
+
+    /**
+     * 工作流实例查看权限码。
+     */
+    public static final String WORKFLOW_INSTANCE_VIEW_PERMISSION = "system:workflow:instance:view";
+
+    /**
+     * 报销申请人办理权限变量。
+     */
+    public static final String APPLICANT_PERMISSION_VARIABLE = "applicantPermission";
+
+    /**
+     * 报销部门负责人办理权限变量。
+     */
+    public static final String DEPT_LEADER_PERMISSION_VARIABLE = "deptLeaderPermission";
+
+    /**
+     * 平台发起人变量。
+     */
+    public static final String INITIATOR_ID_VARIABLE = "initiatorId";
+
+    /**
+     * 平台发起人部门变量。
+     */
+    public static final String INITIATOR_DEPT_ID_VARIABLE = "initiatorDeptId";
+
+    /**
+     * 工作流分布式锁前缀。
+     */
+    public static final String WORKFLOW_LOCK_PREFIX = "vita:workflow:";
+
+    /**
      * Warm-Flow 保存流程定义路径。
      */
     public static final String WARM_FLOW_SAVE_JSON_PATH = "/warm-flow/save-json";

@@ -1,6 +1,7 @@
 package com.vita.workflow.config;
 
 import com.vita.workflow.handler.WorkflowPermissionHandler;
+import com.vita.workflow.runtime.service.WorkflowRuntimeService;
 import com.vita.workflow.service.IWorkflowDefinitionService;
 import org.dromara.warm.flow.core.FlowEngine;
 import org.dromara.warm.flow.core.handler.PermissionHandler;
@@ -54,6 +55,7 @@ public class WorkflowConfiguration {
         requireBean(applicationContext, HandlerSelectService.class);
         requireBean(applicationContext, CategoryService.class);
         requireBean(applicationContext, IWorkflowDefinitionService.class);
+        requireBean(applicationContext, WorkflowRuntimeService.class);
         LOGGER.info("Warm-Flow 启动自检通过");
     }
 

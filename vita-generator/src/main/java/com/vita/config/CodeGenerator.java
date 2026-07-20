@@ -68,7 +68,15 @@ public class CodeGenerator {
     /**
      * 生成器配置 - TABLE NAME
      */
-    private static final String[] TABLE_NAMES = {"flow_definition","flow_node","flow_skip","flow_instance","flow_task","flow_his_task","flow_user","flow_form"};
+    private static final String[] TABLE_NAMES = {"workflow_category"};
+
+    /**
+     * Warm-Flow 官方引擎表，禁止生成业务 CRUD。
+     */
+    private static final Set<String> WARM_FLOW_ENGINE_TABLES = Set.of(
+            "flow_definition", "flow_node", "flow_skip", "flow_instance",
+            "flow_task", "flow_his_task", "flow_user", "flow_form"
+    );
 
     /**
      * 默认目标模块（兼容旧配置）
@@ -99,6 +107,7 @@ public class CodeGenerator {
      * 生成器配置 - DIR NAME
      */
     public static void main(String[] args) {
+        validateGeneratedTables();
         ModuleConfig moduleConfig = ModuleConfig.load();
         DataSourceConfig.Builder dataSourceConfig = DbUtil.getDataSourceConfig(DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD);
         logger.info("模块化生成配置: {}", moduleConfig);
@@ -250,6 +259,18 @@ public class CodeGenerator {
                 // 7、执行
                 .execute();
         logger.info("代码生成完成。");
+    }
+
+    /**
+     * 校验生成表不包含 Warm-Flow 官方引擎表。
+     */
+    private static void validateGeneratedTables() {
+        List<String> invalidTables = Arrays.stream(TABLE_NAMES)
+                .filter(WARM_FLOW_ENGINE_TABLES::contains)
+                .toList();
+        if (!invalidTables.isEmpty()) {
+            throw new IllegalArgumentException("禁止为 Warm-Flow 引擎表生成业务 CRUD：" + invalidTables);
+        }
     }
 
     /**

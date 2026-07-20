@@ -93,16 +93,15 @@ Warm-Flow 内置 `/warm-flow/**` 包含流程设计、表单与 `execute/*` 接�
 
 be-vita 自建 `workflow_category` 继续遵循仓库审计字段规范。已有环境执行 `sql/upgrade/20260714_warm_flow_1_8_8_schema_upgrade.sql`，该脚本只幂等创建缺失的 `flow_form`，不删除或重建已有流程数据。
 
-## 8. 第二阶段边界
+## 8. 第二阶段衔接
 
-第二阶段作为独立变更实施：
+二阶段通用运行时已经独立落地，详细设计见 `docs/system/workflow/warm-flow-phase2-runtime.md`。
 
-- 在 `vita-common` 定义不暴露 Warm-Flow DTO 的中立工作流端口。
-- 在 `vita-workflow` 实现定义、实例、任务和事件编排。
-- 管理端路由继续使用 `/system/workflow/**` 与 `system:workflow:*` 权限。
-- 普通用户业务路由使用 `/workflow/**`，除登录外必须在 service 层校验任务归属和办理权限。
-- 按业务 `flowCode` 发布 be-vita 应用事件，业务模块监听事件，不反向依赖 Warm-Flow。
-- 不在一期顺带实现报销发起、待办、已办、委派、转办、会签、通知和业务扩展表。
+- `vita-common` 提供不暴露 Warm-Flow DTO 的中立工作流端口和事件协议。
+- `vita-workflow` 实现定义、实例、任务、访问控制、并发锁和提交后事件编排。
+- `/workflow/**` 提供普通登录用户运行时接口，service 层校验实例访问权和任务办理权。
+- `/system/workflow/**` 提供定义管理和实例只读监控，执行权限码与管理员角色双重校验。
+- 报销流程作为端到端验收定义接入，但仍不新增报销业务表、通知、委派、转办和会签能力。
 
 ## 9. 验收测试
 
@@ -110,4 +109,5 @@ be-vita 自建 `workflow_category` 继续遵循仓库审计字段规范。已有
 - 使用实际 `/admin/api/...` URL 验证匿名、普通登录用户、子管理员和超级管理员访问边界。
 - 验证 `/system/workflow/importJson` 同时执行权限码和角色校验。
 - 验证 `vita.workflow.enabled=false` 时条件 Bean 不注册。
+- 验证引擎表生成 CRUD 不再注册，代码生成器拒绝再次生成。
 - 编译全仓并执行 workflow/admin 目标测试。

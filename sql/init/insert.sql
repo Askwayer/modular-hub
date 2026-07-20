@@ -196,7 +196,19 @@ VALUES (2001, '用户管理查看', 'system:user:view', 'MENU_ACTION', 1001, NUL
        (2032, '工作流定义导入', 'system:workflow:import', 'MENU_ACTION', NULL, 'POST',
         '/system/workflow/importJson', 'system:workflow:import', 101, 1, 1, 0, 0,
         '2026-07-03 00:00:00', 1, 'system', '2026-07-03 00:00:00', 1, 'system',
-        0, '导入 Warm-Flow 流程定义 JSON');
+        0, '导入 Warm-Flow 流程定义 JSON'),
+       (2033, '工作流定义查看', 'system:workflow:definition:view', 'MENU_ACTION', NULL, 'GET',
+        '/system/workflow/definitions/**', 'system:workflow:definition:view', 102, 1, 1, 0, 0,
+        '2026-07-20 00:00:00', 1, 'system', '2026-07-20 00:00:00', 1, 'system',
+        0, '查看工作流定义列表和详情'),
+       (2034, '工作流定义管理', 'system:workflow:definition:manage', 'MENU_ACTION', NULL, NULL,
+        '/system/workflow/definitions/**', 'system:workflow:definition:manage', 103, 1, 1, 0, 0,
+        '2026-07-20 00:00:00', 1, 'system', '2026-07-20 00:00:00', 1, 'system',
+        0, '发布、取消发布、复制和删除工作流定义'),
+       (2035, '工作流实例查看', 'system:workflow:instance:view', 'MENU_ACTION', NULL, 'GET',
+        '/system/workflow/instances/**', 'system:workflow:instance:view', 104, 1, 1, 0, 0,
+        '2026-07-20 00:00:00', 1, 'system', '2026-07-20 00:00:00', 1, 'system',
+        0, '查看工作流实例和流转轨迹');
 
 -- ----------------------------
 -- Records of sys_user_role
@@ -312,7 +324,19 @@ VALUES (5001, 1, 2001, 0, 0, '2026-04-02 00:00:00',
        (5037, 3, 2014, 0, 0, '2026-07-07 00:00:00',
         1, 'system', '2026-07-07 00:00:00', 1, 'system', 0),
        (5038, 3, 2032, 0, 0, '2026-07-07 00:00:00',
-        1, 'system', '2026-07-07 00:00:00', 1, 'system', 0);
+        1, 'system', '2026-07-07 00:00:00', 1, 'system', 0),
+       (5039, 1, 2033, 0, 0, '2026-07-20 00:00:00',
+        1, 'system', '2026-07-20 00:00:00', 1, 'system', 0),
+       (5040, 1, 2034, 0, 0, '2026-07-20 00:00:00',
+        1, 'system', '2026-07-20 00:00:00', 1, 'system', 0),
+       (5041, 1, 2035, 0, 0, '2026-07-20 00:00:00',
+        1, 'system', '2026-07-20 00:00:00', 1, 'system', 0),
+       (5042, 3, 2033, 0, 0, '2026-07-20 00:00:00',
+        1, 'system', '2026-07-20 00:00:00', 1, 'system', 0),
+       (5043, 3, 2034, 0, 0, '2026-07-20 00:00:00',
+        1, 'system', '2026-07-20 00:00:00', 1, 'system', 0),
+       (5044, 3, 2035, 0, 0, '2026-07-20 00:00:00',
+        1, 'system', '2026-07-20 00:00:00', 1, 'system', 0);
 
 -- ----------------------------
 -- Records of workflow_category

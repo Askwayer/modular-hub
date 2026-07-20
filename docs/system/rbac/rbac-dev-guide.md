@@ -373,6 +373,9 @@ List<RouterVo>           // 前端路由树
 - `system:ip-block:view/add/update/delete`
 - `system:hot-cache:view/refresh`
 - `system:workflow:import`
+- `system:workflow:definition:view`
+- `system:workflow:definition:manage`
+- `system:workflow:instance:view`
 - `system:oper-log:view/delete`
 - `system:login-log:view/delete`
 
@@ -388,13 +391,18 @@ List<RouterVo>           // 前端路由树
 - `POST /system/hot/cache/refresh` -> `system:hot-cache:refresh`
 - `POST /system/hot/cache/refreshAll` -> `system:hot-cache:refresh`
 - `POST /system/workflow/importJson` -> `system:workflow:import`
+- `GET /system/workflow/definitions/page`、`GET /system/workflow/definitions/{id}` -> `system:workflow:definition:view`
+- `PUT /system/workflow/definitions/{id}/publish`、`PUT /system/workflow/definitions/{id}/unpublish` -> `system:workflow:definition:manage`
+- `POST /system/workflow/definitions/{id}/copy`、`DELETE /system/workflow/definitions/{id}` -> `system:workflow:definition:manage`
+- `GET /system/workflow/instances/**` -> `system:workflow:instance:view`
 
 工作流补充边界：
 
 - `/warm-flow-ui/config` 和设计器静态资源允许匿名访问，不参与 RBAC 权限码判定
 - `/warm-flow/**` 统一要求登录，节点办理资格由 Warm-Flow `PermissionHandler` 判定
+- `/workflow/**` 统一要求登录，实例查看和任务办理还必须通过 service 层归属检查
 - `/system/workflow/**` 是管理端接口，必须同时具备对应 `system:workflow:*` 权限和 `SUB_ADMIN` / `SUPER_ADMIN` 角色
-- 当前只实现 `/system/workflow/importJson`，不存在报销流程一键创建接口
+- 定义管理支持查看、发布、取消发布、复制和安全删除；实例监控只读，不提供修改状态或变量接口
 
 ---
 

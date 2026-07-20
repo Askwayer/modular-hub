@@ -1,12 +1,8 @@
 package com.vita.controller.workflow;
 
 import cn.dev33.satoken.annotation.SaCheckPermission;
-import cn.dev33.satoken.stp.StpUtil;
-import com.vita.auth.constant.AuthConstants;
 import com.vita.core.CommonResult;
 import com.vita.core.controller.BaseController;
-import com.vita.core.exception.GlobalErrorCode;
-import com.vita.core.exception.ServiceException;
 import com.vita.repeat.annotation.RepeatSubmit;
 import com.vita.workflow.config.ConditionalOnWorkflowEnabled;
 import com.vita.workflow.constant.WorkflowConstants;
@@ -44,19 +40,7 @@ public class WorkflowController extends BaseController {
     @PostMapping(value = "/importJson", consumes = MediaType.APPLICATION_JSON_VALUE)
     @SaCheckPermission(WorkflowConstants.WORKFLOW_IMPORT_PERMISSION)
     public CommonResult<Boolean> importJson(@RequestBody(required = false) DefJson defJson) {
-        checkWorkflowCreatorRole();
+        WorkflowAdminAccessChecker.check();
         return CommonResult.success(workflowDefinitionService.importJson(defJson));
-    }
-
-    private void checkWorkflowCreatorRole() {
-        try {
-            StpUtil.checkLogin();
-        } catch (Exception ex) {
-            throw new ServiceException(GlobalErrorCode.UNAUTHORIZED);
-        }
-        if (StpUtil.hasRole(AuthConstants.SUPER_ADMIN_ROLE_CODE) || StpUtil.hasRole(AuthConstants.SUB_ADMIN_ROLE_CODE)) {
-            return;
-        }
-        throw new ServiceException(GlobalErrorCode.FORBIDDEN.getCode(), "只有子管理员或超级管理员可以创建流程");
     }
 }

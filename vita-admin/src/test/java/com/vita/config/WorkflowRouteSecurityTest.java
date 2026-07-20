@@ -1,5 +1,6 @@
 package com.vita.config;
 
+import cn.dev33.satoken.annotation.SaCheckPermission;
 import cn.dev33.satoken.filter.SaTokenContextFilterForJakartaServlet;
 import cn.dev33.satoken.spring.SaBeanInject;
 import cn.dev33.satoken.spring.SaBeanRegister;
@@ -10,6 +11,7 @@ import com.vita.auth.config.SaTokenConfigure;
 import com.vita.auth.constant.AuthConstants;
 import com.vita.auth.handler.SaTokenExceptionHandler;
 import com.vita.auth.property.AuthProperty;
+import com.vita.controller.workflow.WorkflowAdminAccessChecker;
 import com.vita.controller.workflow.WorkflowController;
 import com.vita.core.exception.ControllerExceptionHandler;
 import com.vita.log.interceptor.RequestTraceInterceptor;
@@ -26,7 +28,12 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.TestExecutionListeners;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
+import org.springframework.test.context.support.DependencyInjectionTestExecutionListener;
+import org.springframework.test.context.support.DirtiesContextBeforeModesTestExecutionListener;
+import org.springframework.test.context.support.DirtiesContextTestExecutionListener;
+import org.springframework.test.context.web.ServletTestExecutionListener;
 import org.springframework.test.context.web.WebAppConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
@@ -57,6 +64,15 @@ import static org.springframework.test.web.servlet.setup.MockMvcBuilders.webAppC
 @ContextConfiguration(
         classes = WorkflowRouteSecurityTest.RouteTestConfiguration.class,
         initializers = ConfigDataApplicationContextInitializer.class
+)
+@TestExecutionListeners(
+        listeners = {
+                ServletTestExecutionListener.class,
+                DirtiesContextBeforeModesTestExecutionListener.class,
+                DependencyInjectionTestExecutionListener.class,
+                DirtiesContextTestExecutionListener.class
+        },
+        inheritListeners = false
 )
 class WorkflowRouteSecurityTest {
 
@@ -114,6 +130,12 @@ class WorkflowRouteSecurityTest {
         assertUnauthorized(adminGet("/warm-flow/execute/load/1"));
         assertUnauthorized(adminGet("/warm-flow/execute/hisLoad/1"));
         assertUnauthorized(adminPost("/warm-flow/execute/handle"));
+        assertUnauthorized(adminGet("/workflow/definitions/published"));
+        assertUnauthorized(adminGet("/workflow/instances/mine"));
+        assertUnauthorized(adminGet("/workflow/tasks/pending"));
+        assertUnauthorized(adminPost("/workflow/tasks/1/pass"));
+        assertUnauthorized(adminGet("/system/workflow/definitions/page"));
+        assertUnauthorized(adminGet("/system/workflow/instances/running"));
         assertUnauthorized(importJsonRequest(null));
     }
 
@@ -132,6 +154,28 @@ class WorkflowRouteSecurityTest {
         assertEntered(adminGet("/warm-flow/execute/load/1"), token);
         assertEntered(adminGet("/warm-flow/execute/hisLoad/1"), token);
         assertEntered(adminPost("/warm-flow/execute/handle"), token);
+        assertEntered(adminGet("/workflow/definitions/published"), token);
+        assertEntered(adminGet("/workflow/instances/mine"), token);
+        assertEntered(adminGet("/workflow/tasks/pending"), token);
+        assertEntered(adminPost("/workflow/tasks/1/pass"), token);
+    }
+
+    /**
+     * 新增工作流管理接口必须同时满足权限码和管理员角色。
+     *
+     * @throws Exception 请求异常
+     */
+    @Test
+    void workflowManagementRoutesShouldRequirePermissionAndAdminRole() throws Exception {
+        assertForbidden(withToken(adminGet("/system/workflow/definitions/page"), login(NORMAL_USER_ID)));
+        assertForbidden(withToken(adminGet("/system/workflow/definitions/page"), login(ROLE_ONLY_ADMIN_ID)));
+        assertForbidden(withToken(adminGet("/system/workflow/definitions/page"), login(PERMISSION_ONLY_USER_ID)));
+        assertForbidden(withToken(adminGet("/system/workflow/instances/running"), login(NORMAL_USER_ID)));
+
+        assertEntered(adminGet("/system/workflow/definitions/page"), login(SUB_ADMIN_ID));
+        assertEntered(adminGet("/system/workflow/definitions/page"), login(SUPER_ADMIN_ID));
+        assertEntered(adminGet("/system/workflow/instances/running"), login(SUB_ADMIN_ID));
+        assertEntered(adminGet("/system/workflow/instances/running"), login(SUPER_ADMIN_ID));
     }
 
     /**
@@ -236,7 +280,12 @@ class WorkflowRouteSecurityTest {
                     String id = String.valueOf(loginId);
                     if (SUB_ADMIN_ID.equals(id) || SUPER_ADMIN_ID.equals(id)
                             || PERMISSION_ONLY_USER_ID.equals(id)) {
-                        return List.of(WorkflowConstants.WORKFLOW_IMPORT_PERMISSION);
+                        return List.of(
+                                WorkflowConstants.WORKFLOW_IMPORT_PERMISSION,
+                                WorkflowConstants.WORKFLOW_DEFINITION_VIEW_PERMISSION,
+                                WorkflowConstants.WORKFLOW_DEFINITION_MANAGE_PERMISSION,
+                                WorkflowConstants.WORKFLOW_INSTANCE_VIEW_PERMISSION
+                        );
                     }
                     return List.of();
                 }
@@ -275,14 +324,34 @@ class WorkflowRouteSecurityTest {
                 "/warm-flow/published-form",
                 "/warm-flow/form-content/1",
                 "/warm-flow/execute/load/1",
-                "/warm-flow/execute/hisLoad/1"
+                "/warm-flow/execute/hisLoad/1",
+                "/workflow/definitions/published",
+                "/workflow/instances/mine",
+                "/workflow/tasks/pending"
         })
         String getRoute() {
             return "entered";
         }
 
-        @PostMapping("/warm-flow/execute/handle")
+        @PostMapping({
+                "/warm-flow/execute/handle",
+                "/workflow/tasks/1/pass"
+        })
         String postRoute() {
+            return "entered";
+        }
+
+        @GetMapping("/system/workflow/definitions/page")
+        @SaCheckPermission(WorkflowConstants.WORKFLOW_DEFINITION_VIEW_PERMISSION)
+        String definitionManagementRoute() {
+            WorkflowAdminAccessChecker.check();
+            return "entered";
+        }
+
+        @GetMapping("/system/workflow/instances/running")
+        @SaCheckPermission(WorkflowConstants.WORKFLOW_INSTANCE_VIEW_PERMISSION)
+        String instanceManagementRoute() {
+            WorkflowAdminAccessChecker.check();
             return "entered";
         }
     }

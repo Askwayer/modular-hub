@@ -5,7 +5,8 @@
 - 流程编码：`REIMBURSE_APPROVAL_V1`
 - 流程分类：`REIMBURSE`（展示名由 `workflow_category` 映射为“报销审批”）
 - 流程路径：员工发起 -> 部门主管审批 -> 财务审批 -> 综合管理部审批 -> 总经理审批 -> 完成
-- 本版仅交付 Warm-Flow 流程定义、角色准备、设计器选人协议和留档产物
+- 二阶段已接入通用运行时，以该定义验收创建、提交、逐级审批、退回和撤销
+- 本阶段仍不新增报销业务表，报销单详情由后续业务模块维护
 
 ## 2. 节点编码
 
@@ -92,6 +93,41 @@
 - 流程定义使用 Warm-Flow `DefJson` 结构留档
 - 可通过 `POST /admin/api/system/workflow/importJson` 直接导入当前 JSON
 - 调用时携带 `Authorization: Bearer <token>`，并要求 `system:workflow:import` 权限和 `SUB_ADMIN` 或 `SUPER_ADMIN` 角色
-- 当前没有报销流程一键创建接口，导入不会自动发布；发布操作通过设计器完成
+- 导入不会自动发布；管理员通过 `PUT /admin/api/system/workflow/definitions/{definitionId}/publish` 发布
 - 创建前需要先执行 Warm-Flow 官方引擎表脚本 `sql/init/workflow.sql`
 - 若设计器导入后发生坐标微调，以设计器重新保存结果为准，不影响节点编码、办理人协议与退回规则
+
+## 8. 二阶段运行时调用
+
+先创建待提交实例：
+
+```http
+POST /admin/api/workflow/instances/start
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "flowCode": "REIMBURSE_APPROVAL_V1",
+  "businessId": "REIMBURSE:20260720:10001",
+  "variables": {}
+}
+```
+
+`businessId` 全局唯一且不可复用。服务端根据当前登录用户生成 `applicantPermission`，并按 `sys_user.dept_id -> sys_dept.leader_user_id` 生成 `deptLeaderPermission`；客户端同名值会被覆盖。部门或部门负责人缺失时，发起直接返回业务错误。
+
+创建成功后返回首个 `taskId`，实例处于 `TOBESUBMIT`，不会自动提交。员工调用以下接口完成提交：
+
+```http
+POST /admin/api/workflow/tasks/{taskId}/pass
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "message": "提交报销申请",
+  "variables": {}
+}
+```
+
+后续审批人从 `GET /admin/api/workflow/tasks/pending` 获取本人待办并使用同一 `pass` 接口办理。退回上一人工节点使用 `reject-last`；退回申请人使用 `reject-to`，`targetNodeCode` 为 `submit_apply`，且当前节点必须配置允许该节点。
+
+发起人可对未结束实例调用 `POST /admin/api/workflow/instances/{instanceId}/cancel` 撤销。撤销通过 Warm-Flow `TaskService.revoke` 回到首个业务节点，不删除实例；返回的新任务可再次提交。
