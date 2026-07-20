@@ -91,7 +91,9 @@ Warm-Flow 内置 `/warm-flow/**` 包含流程设计、表单与 `execute/*` 接�
 - `flow_user`
 - `flow_form`
 
-be-vita 自建 `workflow_category` 继续遵循仓库审计字段规范。已有环境执行 `sql/upgrade/20260714_warm_flow_1_8_8_schema_upgrade.sql`，该脚本只幂等创建缺失的 `flow_form`，不删除或重建已有流程数据。
+be-vita 自建 `workflow_category` 继续遵循仓库审计字段规范。已有环境依次执行
+`sql/upgrade/warm_flow_upgrade.sql` 和 `sql/upgrade/vita_workflow_upgrade.sql`。前者删除并重建全部 8 张
+Warm-Flow 引擎表，后者删除并重建 `workflow_category`；执行前必须备份需要保留的流程和分类数据。
 
 ## 8. 第二阶段衔接
 

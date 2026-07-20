@@ -69,7 +69,9 @@
 
 ## 6. 角色准备
 
-升级脚本：`sql/upgrade/20260703_reimburse_workflow_roles_upgrade.sql`
+升级脚本：`sql/upgrade/vita_workflow_upgrade.sql`
+
+该脚本会重建 `workflow_category` 并清空已有自定义分类；审批角色、工作流权限和管理员授权按业务编码幂等补齐。
 
 初始化三类物理角色：
 
@@ -94,7 +96,9 @@
 - 可通过 `POST /admin/api/system/workflow/importJson` 直接导入当前 JSON
 - 调用时携带 `Authorization: Bearer <token>`，并要求 `system:workflow:import` 权限和 `SUB_ADMIN` 或 `SUPER_ADMIN` 角色
 - 导入不会自动发布；管理员通过 `PUT /admin/api/system/workflow/definitions/{definitionId}/publish` 发布
-- 创建前需要先执行 Warm-Flow 官方引擎表脚本 `sql/init/workflow.sql`
+- 新环境创建前执行 `sql/init/workflow.sql`；已有环境重建时依次执行
+  `sql/upgrade/warm_flow_upgrade.sql` 和 `sql/upgrade/vita_workflow_upgrade.sql`
+- `warm_flow_upgrade.sql` 会永久清空全部流程定义、实例、任务、历史和表单数据
 - 若设计器导入后发生坐标微调，以设计器重新保存结果为准，不影响节点编码、办理人协议与退回规则
 
 ## 8. 二阶段运行时调用

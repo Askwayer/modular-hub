@@ -79,16 +79,17 @@
 
 ## 7. 数据库升级
 
-新环境直接执行 `sql/init/workflow.sql`。已有环境执行：
+新环境直接执行 `sql/init/workflow.sql`。已有环境按顺序执行：
 
 ```text
-sql/upgrade/20260720_workflow_runtime_phase2_upgrade.sql
+sql/upgrade/warm_flow_upgrade.sql
+sql/upgrade/vita_workflow_upgrade.sql
 ```
 
-升级脚本只幂等补充权限记录及管理员授权，不修改 Warm-Flow 引擎表结构或索引。`sql/init/workflow.sql` 保持原始代码仓库的引擎表索引定义。
+`warm_flow_upgrade.sql` 会删除并重建全部 Warm-Flow 引擎表，永久清空流程定义、实例、任务、历史、办理人和表单数据；`vita_workflow_upgrade.sql` 会删除并重建 `workflow_category`，仅恢复默认分类。角色、权限和管理员授权不清空，按业务编码幂等补齐。引擎表继续使用 `sql/init/workflow.sql` 的原始索引，不增加增强索引。
 
 ## 8. 启停与发布
 
 - 所有自建工作流 Bean 和 Controller 受 `vita.workflow.enabled` 控制。
 - 保持一期路由策略：设计器静态资源和 `/warm-flow-ui/config` 公开，`/warm-flow/**` 与 `/workflow/**` 要求登录，`/system/workflow/**` 执行管理端双重校验。
-- 发布前先执行数据库权限升级脚本；历史重复业务键需由业务侧人工确认和清理。
+- 发布前备份需要保留的数据，再按文档顺序执行两个重建脚本并重新导入流程定义。

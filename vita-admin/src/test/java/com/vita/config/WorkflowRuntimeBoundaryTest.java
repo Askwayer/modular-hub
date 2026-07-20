@@ -65,11 +65,11 @@ class WorkflowRuntimeBoundaryTest {
     }
 
     @Test
-    void workflowSqlShouldPreserveEngineIndexesAndOnlyUpgradePermissions() throws IOException {
+    void workflowUpgradeSqlShouldBeConsolidatedAndRespectDatabaseBoundaries() throws IOException {
         Path repository = resolveRepositoryRoot();
         String initSql = Files.readString(repository.resolve("sql/init/workflow.sql"));
-        String upgradeSql = Files.readString(repository.resolve(
-                "sql/upgrade/20260720_workflow_runtime_phase2_upgrade.sql"));
+        String warmFlowSql = Files.readString(repository.resolve("sql/upgrade/warm_flow_upgrade.sql"));
+        String vitaWorkflowSql = Files.readString(repository.resolve("sql/upgrade/vita_workflow_upgrade.sql"));
 
         assertThat(initSql).doesNotContain(
                 "uk_flow_instance_business_id",
@@ -77,13 +77,43 @@ class WorkflowRuntimeBoundaryTest {
                 "idx_flow_task_instance",
                 "idx_flow_his_task_approver_update"
         );
-        assertThat(upgradeSql)
+        assertThat(warmFlowSql)
                 .doesNotContain("ALTER TABLE", "information_schema.statistics", "SIGNAL SQLSTATE")
+                .contains("DROP TABLE IF EXISTS `flow_definition`", "DROP TABLE IF EXISTS `flow_form`");
+        assertThat(vitaWorkflowSql)
+                .doesNotContain(
+                        " JOIN ",
+                        "ALTER TABLE",
+                        "information_schema.statistics",
+                        "DROP TABLE IF EXISTS `sys_role`",
+                        "DROP TABLE IF EXISTS `sys_permission`",
+                        "DROP TABLE IF EXISTS `sys_role_permission`"
+                )
                 .contains(
-                "system:workflow:definition:view",
-                "system:workflow:definition:manage",
-                "system:workflow:instance:view"
-        );
+                        "DROP TABLE IF EXISTS `workflow_category`",
+                        "@next_role_id",
+                        "@next_permission_id",
+                        "@next_role_permission_id",
+                        "WHERE NOT EXISTS",
+                        "FINANCE_APPROVER",
+                        "GENERAL_AFFAIRS_APPROVER",
+                        "GENERAL_MANAGER_APPROVER",
+                        "SUB_ADMIN",
+                        "system:workflow:import",
+                        "system:workflow:definition:view",
+                        "system:workflow:definition:manage",
+                        "system:workflow:instance:view"
+                );
+
+        try (var paths = Files.list(repository.resolve("sql/upgrade"))) {
+            List<String> workflowScripts = paths
+                    .map(path -> path.getFileName().toString())
+                    .filter(name -> name.endsWith(".sql"))
+                    .filter(name -> name.contains("workflow") || name.contains("warm_flow"))
+                    .sorted()
+                    .toList();
+            assertThat(workflowScripts).containsExactly("vita_workflow_upgrade.sql", "warm_flow_upgrade.sql");
+        }
     }
 
     private boolean containsJoin(Path path) {

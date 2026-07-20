@@ -396,6 +396,8 @@ List<RouterVo>           // 前端路由树
 - `POST /system/workflow/definitions/{id}/copy`、`DELETE /system/workflow/definitions/{id}` -> `system:workflow:definition:manage`
 - `GET /system/workflow/instances/**` -> `system:workflow:instance:view`
 
+已有环境通过 `sql/upgrade/vita_workflow_upgrade.sql` 按角色码和权限码幂等补齐工作流 RBAC 数据。该脚本同时会重建 `workflow_category`，执行前必须备份自定义分类。
+
 工作流补充边界：
 
 - `/warm-flow-ui/config` 和设计器静态资源允许匿名访问，不参与 RBAC 权限码判定
