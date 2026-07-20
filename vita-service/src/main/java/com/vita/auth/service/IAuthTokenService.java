@@ -1,6 +1,6 @@
 package com.vita.auth.service;
 
-import com.vita.core.model.LoginUserInfoModel;
+import com.vita.auth.model.LoginUserInfoModel;
 
 import java.util.List;
 

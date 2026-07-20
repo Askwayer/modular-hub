@@ -1,6 +1,6 @@
 package com.vita.system.associate.sysRolePermission.mapper;
 
-import com.vita.core.mapper.BaseMapperX;
+import com.vita.mybatis.mapper.BaseMapperX;
 import com.vita.system.associate.sysRolePermission.entity.SysRolePermission;
 import org.apache.ibatis.annotations.Mapper;
 

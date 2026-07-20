@@ -1,9 +1,9 @@
 package com.vita.auth.service.impl;
 
+import com.vita.auth.constant.AuthConstants;
+import com.vita.auth.context.LoginUserInfoContextLoader;
+import com.vita.auth.model.LoginUserInfoModel;
 import com.vita.auth.service.IAuthTokenService;
-import com.vita.constant.AuthConstants;
-import com.vita.core.context.LoginUserInfoContextLoader;
-import com.vita.core.model.LoginUserInfoModel;
 import com.vita.log.model.RequestClientInfo;
 import com.vita.log.resolver.RequestClientInfoResolver;
 import com.vita.system.sysUser.entity.SysUser;

@@ -1,13 +1,13 @@
 package com.vita.controller.hot;
 
 import cn.dev33.satoken.annotation.SaCheckPermission;
-import com.vita.annotation.RepeatSubmit;
 import com.vita.core.CommonResult;
 import com.vita.core.controller.BaseController;
 import com.vita.hot.service.IHotSourceService;
 import com.vita.hot.vo.HotEngineHealthVo;
 import com.vita.hot.vo.HotSourceSnapshotVo;
 import com.vita.hot.vo.HotSourceStatusVo;
+import com.vita.repeat.annotation.RepeatSubmit;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;

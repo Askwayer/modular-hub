@@ -1,6 +1,6 @@
 package com.vita.log.executor;
 
-import com.vita.interceptor.RequestTraceInterceptor;
+import com.vita.log.interceptor.RequestTraceInterceptor;
 import com.vita.log.model.OperLogRecord;
 import com.vita.log.persistence.OperLogPersistence;
 import org.slf4j.Logger;
@@ -14,9 +14,12 @@ import org.springframework.stereotype.Component;
 import java.util.concurrent.Executor;
 
 /**
- * 系统操作日志场景执行器，负责日志快照收口、依赖解析与统一任务投递。
- *
- * @author znk
+ * @BelongsProject: be-vita
+ * @BelongsPackage: com.vita.log.executor
+ * @Author: znk
+ * @CreateTime: 2026-07-10  16:40:48
+ * @Description: 操作日志异步执行器
+ * @Version: 1.0
  */
 @Component
 public class OperLogAsyncExecutor {

@@ -1,15 +1,18 @@
 package com.vita.log.service;
 
-import com.vita.interceptor.RequestTraceInterceptor;
 import com.vita.log.executor.LoginAuditAsyncExecutor;
+import com.vita.log.interceptor.RequestTraceInterceptor;
 import com.vita.log.model.RequestClientInfo;
 import org.slf4j.MDC;
 import org.springframework.stereotype.Component;
 
 /**
- * 登录审计服务，负责组装登录审计快照并提交异步执行。
- *
- * @Author znk
+ * @BelongsProject: be-vita
+ * @BelongsPackage: com.vita.log.service
+ * @Author: znk
+ * @CreateTime: 2026-07-10  16:40:48
+ * @Description: 登录审计服务
+ * @Version: 1.0
  */
 @Component
 public class LoginAuditService {

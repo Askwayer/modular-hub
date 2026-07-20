@@ -77,6 +77,8 @@
 
 负责 token、session、在线用户信息、登出、强制下线等。
 
+`LoginUserInfoModel` 已迁移至 `com.vita.auth.model`。由于旧登录会话可能保存原全限定类名，发布该结构调整时必须清理 Sa-Token 会话命名空间，并要求在线用户重新登录；系统不保留旧包兼容反序列化逻辑。
+
 ### 4.4 审计日志服务
 
 负责记录登录成功/失败日志、来源 IP、浏览器、操作系统、登录地点等。
@@ -725,6 +727,20 @@ public Result<?> list() {
     return Result.ok();
 }
 ```
+
+---
+
+## 13.1 工作流认证边界
+
+`vita.auth.extra-exclude-paths` 在 `vita-admin/src/main/resources/application.yml` 集中维护，profile 配置和 workflow 配置不得重复声明该列表。
+
+- 匿名访问：`/warm-flow-ui/index.html`、`/warm-flow-ui/css/**`、`/warm-flow-ui/js/**`、`/warm-flow-ui/ico/**`、`/warm-flow-ui/config`
+- 登录访问：`/warm-flow/published-form`、`/warm-flow/form-content/**`、`/warm-flow/execute/load/**`、`/warm-flow/execute/hisLoad/**`、`/warm-flow/execute/handle`
+- 管理员角色访问：其余 `/warm-flow/**`，仅允许 `SUB_ADMIN` 或 `SUPER_ADMIN`
+- 管理访问：`/system/workflow/**` 在登录基础上继续执行权限码与管理员角色校验
+- 禁止放行 `/warm-flow/**` 或 `/warm-flow-ui/**` 整体路径
+
+Sa-Token 注解鉴权在路由登录校验前执行。`SaTokenExceptionHandler` 必须保持高于通用异常处理器的优先级，确保 `NotLoginException`、`NotPermissionException` 和 `NotRoleException` 分别返回正确的 401/403 业务码，而不是被通用异常处理器转为 500。
 
 ---
 

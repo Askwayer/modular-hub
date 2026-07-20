@@ -3,7 +3,7 @@
 -- 默认账号：
 -- 1. admin / admin@123456
 -- 2. common / common@123456
--- 密码已按 com.vita.utils.Sm4Utils.encryptToBase64 预加密
+-- 密码已按 com.vita.crypto.Sm4Utils.encryptToBase64 预加密
 -- ----------------------------
 INSERT INTO `sys_user` (`id`, `dept_id`, `nick_name`, `user_name`, `password`, `mobile`, `email`, `avatar_url`,
                         `gender`,
@@ -26,12 +26,15 @@ VALUES (1, NULL, '超级管理员', 'super-admin', 'VFxoaF65+ZEmXPwhNr/ixA==', N
 INSERT INTO `sys_role` (`id`, `role_name`, `role_code`, `role_sort`, `status`, `data_scope_type`, `is_system`,
                         `is_deleted`, `tenant_id`, `create_time`, `create_by_id`, `create_by`, `update_time`,
                         `update_by_id`, `update_by`, `version`, `remark`)
-VALUES (1, '超级管理员角色', 'SUPER_ADMIN_ROLE', 1, 1, 'ALL', 1,
+VALUES (1, '超级管理员角色', 'SUPER_ADMIN', 1, 1, 'ALL', 1,
         0, 0, '2026-04-02 00:00:00', 1, 'system', '2026-04-02 00:00:00',
         1, 'system', 0, '用于初始化菜单与权限，超级管理员语义仍以用户标记为准'),
        (2, '普通用户角色', 'COMMON_USER', 2, 1, 'SELF', 1,
         0, 0, '2026-04-02 00:00:00', 1, 'system', '2026-04-02 00:00:00',
-        1, 'system', 0, '普通用户默认角色');
+        1, 'system', 0, '普通用户默认角色'),
+       (3, '子管理员', 'SUB_ADMIN', 3, 1, 'SELF', 0,
+        0, 0, '2026-07-07 00:00:00', 1, 'system', '2026-07-07 00:00:00',
+        1, 'system', 0, '可查看全部权限并创建工作流定义');
 
 -- ----------------------------
 -- Records of sys_menu
@@ -189,7 +192,31 @@ VALUES (2001, '用户管理查看', 'system:user:view', 'MENU_ACTION', 1001, NUL
        (2031, '热搜缓存刷新', 'system:hot-cache:refresh', 'MENU_ACTION', NULL, 'POST',
         '/system/hot/cache/refresh,/system/hot/cache/refreshAll', 'system:hot-cache:refresh', 92, 1, 1, 0, 0,
         '2026-04-02 00:00:00', 1, 'system', '2026-04-02 00:00:00', 1, 'system',
-        0, '涵盖单源刷新与全量刷新');
+        0, '涵盖单源刷新与全量刷新'),
+       (2032, '工作流定义导入', 'system:workflow:import', 'MENU_ACTION', NULL, 'POST',
+        '/system/workflow/importJson', 'system:workflow:import', 101, 1, 1, 0, 0,
+        '2026-07-03 00:00:00', 1, 'system', '2026-07-03 00:00:00', 1, 'system',
+        0, '导入 Warm-Flow 流程定义 JSON'),
+       (2033, '工作流定义查看', 'system:workflow:definition:view', 'MENU_ACTION', NULL, 'GET',
+        '/system/workflow/definitions/**', 'system:workflow:definition:view', 102, 1, 1, 0, 0,
+        '2026-07-20 00:00:00', 1, 'system', '2026-07-20 00:00:00', 1, 'system',
+        0, '查看工作流定义列表和详情'),
+       (2034, '工作流定义管理', 'system:workflow:definition:manage', 'MENU_ACTION', NULL, NULL,
+        '/system/workflow/definitions/**', 'system:workflow:definition:manage', 103, 1, 1, 0, 0,
+        '2026-07-20 00:00:00', 1, 'system', '2026-07-20 00:00:00', 1, 'system',
+        0, '发布、取消发布、复制和删除工作流定义'),
+       (2035, '工作流实例查看', 'system:workflow:instance:view', 'MENU_ACTION', NULL, 'GET',
+        '/system/workflow/instances/**', 'system:workflow:instance:view', 104, 1, 1, 0, 0,
+        '2026-07-20 00:00:00', 1, 'system', '2026-07-20 00:00:00', 1, 'system',
+        0, '查看工作流实例和流转轨迹'),
+       (2036, '报销工作流查看', 'system:workflow:reimbursement:view', 'MENU_ACTION', NULL, 'GET',
+        '/system/workflow/reimbursements/**', 'system:workflow:reimbursement:view', 105, 1, 1, 0, 0,
+        '2026-07-20 00:00:00', 1, 'system', '2026-07-20 00:00:00', 1, 'system',
+        0, '查看报销工作流列表和详情'),
+       (2037, '报销工作流状态重同步', 'system:workflow:reimbursement:resync', 'MENU_ACTION', NULL, 'POST',
+        '/system/workflow/reimbursements/resync', 'system:workflow:reimbursement:resync', 106, 1, 1, 0, 0,
+        '2026-07-20 00:00:00', 1, 'system', '2026-07-20 00:00:00', 1, 'system',
+        0, '根据流程实例补偿同步报销业务状态');
 
 -- ----------------------------
 -- Records of sys_user_role
@@ -226,7 +253,7 @@ VALUES (4001, 1, 1000, 0, 0, '2026-04-02 00:00:00', 1,
 
 -- ----------------------------
 -- Records of sys_role_permission
--- 超级管理员角色关联全量权限，普通用户角色仅保留查看权限
+-- 超级管理员角色关联全量权限，普通用户角色仅保留查看权限，子管理员保留权限查看和工作流创建权限
 -- ----------------------------
 INSERT INTO `sys_role_permission` (`id`, `role_id`, `permission_id`, `is_deleted`, `tenant_id`, `create_time`,
                                    `create_by_id`, `create_by`, `update_time`, `update_by_id`, `update_by`, `version`)
@@ -299,7 +326,52 @@ VALUES (5001, 1, 2001, 0, 0, '2026-04-02 00:00:00',
        (5034, 1, 2031, 0, 0, '2026-04-02 00:00:00',
         1, 'system', '2026-04-02 00:00:00', 1, 'system', 0),
        (5035, 2, 2030, 0, 0, '2026-04-02 00:00:00',
-        1, 'system', '2026-04-02 00:00:00', 1, 'system', 0);
+        1, 'system', '2026-04-02 00:00:00', 1, 'system', 0),
+       (5036, 1, 2032, 0, 0, '2026-07-03 00:00:00',
+        1, 'system', '2026-07-03 00:00:00', 1, 'system', 0),
+       (5037, 3, 2014, 0, 0, '2026-07-07 00:00:00',
+        1, 'system', '2026-07-07 00:00:00', 1, 'system', 0),
+       (5038, 3, 2032, 0, 0, '2026-07-07 00:00:00',
+        1, 'system', '2026-07-07 00:00:00', 1, 'system', 0),
+       (5039, 1, 2033, 0, 0, '2026-07-20 00:00:00',
+        1, 'system', '2026-07-20 00:00:00', 1, 'system', 0),
+       (5040, 1, 2034, 0, 0, '2026-07-20 00:00:00',
+        1, 'system', '2026-07-20 00:00:00', 1, 'system', 0),
+       (5041, 1, 2035, 0, 0, '2026-07-20 00:00:00',
+        1, 'system', '2026-07-20 00:00:00', 1, 'system', 0),
+       (5042, 3, 2033, 0, 0, '2026-07-20 00:00:00',
+        1, 'system', '2026-07-20 00:00:00', 1, 'system', 0),
+       (5043, 3, 2034, 0, 0, '2026-07-20 00:00:00',
+        1, 'system', '2026-07-20 00:00:00', 1, 'system', 0),
+       (5044, 3, 2035, 0, 0, '2026-07-20 00:00:00',
+        1, 'system', '2026-07-20 00:00:00', 1, 'system', 0),
+       (5045, 1, 2036, 0, 0, '2026-07-20 00:00:00',
+        1, 'system', '2026-07-20 00:00:00', 1, 'system', 0),
+       (5046, 1, 2037, 0, 0, '2026-07-20 00:00:00',
+        1, 'system', '2026-07-20 00:00:00', 1, 'system', 0),
+       (5047, 3, 2036, 0, 0, '2026-07-20 00:00:00',
+        1, 'system', '2026-07-20 00:00:00', 1, 'system', 0),
+       (5048, 3, 2037, 0, 0, '2026-07-20 00:00:00',
+        1, 'system', '2026-07-20 00:00:00', 1, 'system', 0);
+
+-- ----------------------------
+-- Records of workflow_category
+-- ----------------------------
+INSERT INTO `workflow_category` (`id`, `tenant_id`, `category_code`, `category_name`, `parent_code`, `sort_no`,
+                                 `status`, `create_time`, `update_time`, `is_deleted`, `create_by_id`, `create_by`,
+                                 `update_by_id`, `update_by`, `version`, `remark`)
+VALUES (7001, 0, 'FINANCE', '财务类', NULL, 10,
+        1, '2026-07-07 00:00:00', '2026-07-07 00:00:00', 0, 1, 'system',
+        1, 'system', 0, '工作流默认分类'),
+       (7002, 0, 'REIMBURSE', '报销审批', 'FINANCE', 11,
+        1, '2026-07-07 00:00:00', '2026-07-07 00:00:00', 0, 1, 'system',
+        1, 'system', 0, '报销审批流程分类'),
+       (7003, 0, 'HR', '人事类', NULL, 20,
+        1, '2026-07-07 00:00:00', '2026-07-07 00:00:00', 0, 1, 'system',
+        1, 'system', 0, '工作流默认分类'),
+       (7004, 0, 'ADMIN', '行政类', NULL, 30,
+        1, '2026-07-07 00:00:00', '2026-07-07 00:00:00', 0, 1, 'system',
+        1, 'system', 0, '工作流默认分类');
 
 SET
 FOREIGN_KEY_CHECKS = 1;

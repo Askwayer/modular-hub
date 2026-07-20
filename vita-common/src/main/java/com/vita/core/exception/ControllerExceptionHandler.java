@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -12,10 +13,10 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 /**
  * @BelongsProject: be-vita
- * @BelongsPackage: com.vita.core.controller
+ * @BelongsPackage: com.vita.core.exception
  * @Author: znk
  * @CreateTime: 2026-03-04  21:18:47
- * @Description: 统一异常处理、数据预处理等
+ * @Description: 统一异常处理器
  * @Version: 1.0
  */
 @ControllerAdvice
@@ -30,10 +31,10 @@ public class ControllerExceptionHandler {
     }
 
     /**
-     * 校验异常统一处理
+     * 处理参数绑定校验异常。
      *
-     * @param e
-     * @return
+     * @param e 异常
+     * @return 返回结果
      */
     @ExceptionHandler(value = BindException.class)
     @ResponseBody
@@ -45,7 +46,21 @@ public class ControllerExceptionHandler {
     }
 
     /**
-     * 校验异常统一处理
+     * JSON 请求体反序列化异常统一处理。
+     *
+     * @param e 异常
+     * @return 返回结果
+     */
+    @ExceptionHandler(value = HttpMessageNotReadableException.class)
+    @ResponseBody
+    public CommonResult validExceptionHandler(HttpMessageNotReadableException e) {
+        String resolvedMessage = resolveValidationMessage("请求体不是合法的 JSON");
+        LOG.warn("请求体解析失败：{}" , resolvedMessage);
+        return CommonResult.error(GlobalErrorCode.BAD_REQUEST.getCode(), resolvedMessage);
+    }
+
+    /**
+     * 处理业务异常。
      *
      * @param e 异常
      * @return 返回结果
@@ -58,6 +73,12 @@ public class ControllerExceptionHandler {
         return CommonResult.error(e.getCode(), resolvedMessage);
     }
 
+    /**
+     * 处理未捕获的系统异常。
+     *
+     * @param e 异常
+     * @return 返回结果
+     */
     @ExceptionHandler(value = Exception.class)
     @ResponseBody
     public CommonResult validExceptionHandler(Exception e) {

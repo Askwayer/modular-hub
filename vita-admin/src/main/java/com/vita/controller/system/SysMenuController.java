@@ -1,10 +1,10 @@
 package com.vita.controller.system;
 
 import cn.dev33.satoken.annotation.SaCheckPermission;
-import com.vita.annotation.RepeatSubmit;
 import com.vita.common.core.model.TreeSelectModel;
 import com.vita.core.CommonResult;
 import com.vita.core.controller.BaseController;
+import com.vita.repeat.annotation.RepeatSubmit;
 import com.vita.system.sysMenu.dto.SysMenuCreateDto;
 import com.vita.system.sysMenu.dto.SysMenuSearchDto;
 import com.vita.system.sysMenu.dto.SysMenuUpdateDto;

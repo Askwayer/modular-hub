@@ -18,6 +18,7 @@ AI 生成结果如果与本文件冲突，以本文件为准。
 
 - `vita-common`
 - `vita-service`
+- `vita-workflow`
 - `vita-admin`
 - `vita-openapi`
 - `vita-scheduler`
@@ -28,6 +29,7 @@ AI 生成结果如果与本文件冲突，以本文件为准。
 
 ```text
 vita-admin    -> vita-service -> vita-common
+vita-admin    -> vita-workflow -> vita-common
 vita-openapi  -> vita-service -> vita-common
 vita-scheduler -> vita-service -> vita-common
 ```
@@ -38,6 +40,7 @@ vita-scheduler -> vita-service -> vita-common
 - `vita-openapi` 是公开查询启动模块，主要承载只读公开接口暴露。
 - `vita-scheduler` 是调度触发启动模块，主要承载定时刷新或手工触发接口暴露。
 - `vita-service` 是主业务服务层模块，承载系统业务、Mapper、DTO、VO、实体定义和服务实现。
+- `vita-workflow` 是工作流基础设施模块，承载 Warm-Flow 配置、处理器、资源文件和后续可独立演进的工作流基础能力。
 - `vita-common` 是公共基础模块，承载统一返回、异常、分页、基础模型、MyBatis-Plus 扩展、Sa-Token、Redisson 和工具能力。
 - `vita-generator` 是代码生成器与模板模块。
 - `vita-starters` 是 profile 驱动的 starter 聚合父模块，当前包含 `vita-captcha-spring-boot-starter`、`vita-file-spring-boot-starter`、`vita-i18n-spring-boot-starter`、`vita-poi-spring-boot-starter`。
@@ -54,7 +57,7 @@ vita-scheduler -> vita-service -> vita-common
 
 ### 3.1 模块边界
 
-- 必须保持 `vita-admin -> vita-service -> vita-common`、`vita-openapi -> vita-service -> vita-common`、`vita-scheduler -> vita-service -> vita-common` 的依赖边界。
+- 必须保持 `vita-admin -> vita-service -> vita-common`、`vita-admin -> vita-workflow -> vita-common`、`vita-openapi -> vita-service -> vita-common`、`vita-scheduler -> vita-service -> vita-common` 的依赖边界。
 - 必须统一使用 `com.vita.*` 作为包前缀。
 - 必须通过公开服务接口完成跨模块协作，不能直接跨模块访问内部 Mapper、内部实现类或配置细节。
 - 必须把通用能力沉淀到 `vita-common` 或合适的 starter，不能为了临时复用破坏模块边界。
@@ -63,7 +66,8 @@ vita-scheduler -> vita-service -> vita-common
 
 - Controller 必须只负责接收参数、鉴权声明、调用 Service、返回 `CommonResult`。
 - Service 必须负责业务编排、参数校验、事务控制、跨表聚合、状态流转。
-- Mapper 必须负责单表持久化、单表条件封装、单表投影、单表计数、单表排序和必要的 XML。
+- Mapper 默认只负责单表持久化、单表条件封装、单表投影、单表计数、单表排序和必要的 XML。
+- 仅 `vita-workflow` 允许在专用只读 Query Mapper 中使用 `join` 完成工作流定义、实例、任务、办理人和轨迹投影；引擎表状态写入仍必须调用 Warm-Flow 官方 Service，不能通过关联 SQL 或自建写 Mapper 修改。
 - Entity 必须只表达数据库表结构，不承载 Controller 语义和 Web 校验规则。
 
 ### 3.3 统一技术基线
@@ -126,7 +130,8 @@ vita-scheduler -> vita-service -> vita-common
 
 ## 5. 明确禁止
 
-- 禁止生成 `join` SQL。
+- 禁止 `vita-workflow` 之外的模块编写或生成 `join` SQL。
+- 禁止代码生成器生成 `join` SQL；`vita-workflow` 的只读关联查询必须手工设计并保持在专用 Query Mapper 内。
 - 禁止 Controller 直接调用 Mapper。
 - 禁止 Controller 中编写复杂业务判断、跨表组装或第三方 SDK 调用。
 - 禁止 Service 中用 `selectList().stream().map()` 替代本应由 Mapper 完成的单表投影。
@@ -260,7 +265,8 @@ CREATE TABLE `sys_user`
 
 - 检查 Controller 是否保持轻量。
 - 检查 Service 是否没有承担 Mapper 细节。
-- 检查是否出现 `join SQL`、第二套返回体、`*Properties`、直接 SDK 调用等禁用项。
+- 检查 `vita-workflow` 之外是否出现 `join SQL`，并检查第二套返回体、`*Properties`、直接 SDK 调用等禁用项。
+- 检查 `vita-workflow` 中的 `join SQL` 是否仅存在于专用只读 Query Mapper，且没有引擎表写 SQL。
 - 检查文档、初始化脚本、升级脚本是否同步。
 - 检查新表 DDL 是否满足字段顺序、默认值和例外规则。
 

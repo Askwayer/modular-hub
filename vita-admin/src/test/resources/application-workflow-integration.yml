@@ -1,0 +1,35 @@
+vita:
+  workflow:
+    enabled: true
+  mysql:
+    master:
+      host: ${VITA_WORKFLOW_IT_MYSQL_HOST:127.0.0.1}
+      port: ${VITA_WORKFLOW_IT_MYSQL_PORT:3306}
+      database: ${VITA_WORKFLOW_IT_MYSQL_DATABASE:be_vita_workflow_it}
+      username: ${VITA_WORKFLOW_IT_MYSQL_USERNAME:root}
+      password: ${VITA_WORKFLOW_IT_MYSQL_PASSWORD:password}
+  redis:
+    enabled: true
+    open: true
+    host: ${VITA_WORKFLOW_IT_REDIS_HOST:127.0.0.1}
+    port: ${VITA_WORKFLOW_IT_REDIS_PORT:6379}
+    passwd: ${VITA_WORKFLOW_IT_REDIS_PASSWORD:}
+
+spring:
+  datasource:
+    dynamic:
+      primary: master
+      strict: true
+      datasource:
+        master:
+          type: com.zaxxer.hikari.HikariDataSource
+          driver-class-name: com.mysql.cj.jdbc.Driver
+          url: jdbc:mysql://${vita.mysql.master.host}:${vita.mysql.master.port}/${vita.mysql.master.database}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC
+          username: ${vita.mysql.master.username}
+          password: ${vita.mysql.master.password}
+  data:
+    redis:
+      host: ${vita.redis.host}
+      port: ${vita.redis.port}
+      database: 14
+      password: ${vita.redis.passwd}

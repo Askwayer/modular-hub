@@ -1,6 +1,6 @@
 package com.vita.system.sysUser.mapper;
 
-import com.vita.core.mapper.BaseMapperX;
+import com.vita.mybatis.mapper.BaseMapperX;
 import com.vita.system.sysUser.entity.SysUser;
 import org.apache.ibatis.annotations.Mapper;
 

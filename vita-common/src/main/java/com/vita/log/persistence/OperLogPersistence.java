@@ -3,9 +3,12 @@ package com.vita.log.persistence;
 import com.vita.log.model.OperLogRecord;
 
 /**
- * 操作日志持久化扩展点，由上层模块提供具体实现。
- *
- * @author znk
+ * @BelongsProject: be-vita
+ * @BelongsPackage: com.vita.log.persistence
+ * @Author: znk
+ * @CreateTime: 2026-07-10  16:40:48
+ * @Description: 操作日志持久化扩展接口
+ * @Version: 1.0
  */
 public interface OperLogPersistence {
 

@@ -1,6 +1,6 @@
 package com.vita.system.sysLoginLog.mapper;
 
-import com.vita.core.mapper.BaseMapperX;
+import com.vita.mybatis.mapper.BaseMapperX;
 import com.vita.system.sysLoginLog.entity.SysLoginLog;
 import org.apache.ibatis.annotations.Mapper;
 

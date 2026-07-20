@@ -6,7 +6,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
 import com.vita.core.page.PageResponse;
-import com.vita.mybatis.LambdaQueryWrapperX;
+import com.vita.mybatis.wrapper.LambdaQueryWrapperX;
 import com.vita.system.sysOperLog.dto.SysOperLogCreateDto;
 import com.vita.system.sysOperLog.dto.SysOperLogSearchDto;
 import com.vita.system.sysOperLog.dto.SysOperLogUpdateDto;

@@ -2,7 +2,6 @@ package com.vita.file.service;
 
 import cn.hutool.core.text.CharSequenceUtil;
 import com.alibaba.fastjson2.JSONObject;
-import com.vita.core.RedisCache;
 import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
 import com.vita.file.dto.FileUploadRequestDto;
@@ -12,6 +11,7 @@ import com.vita.file.storage.FileStorage;
 import com.vita.file.support.*;
 import com.vita.file.vo.FileAccessUrlVo;
 import com.vita.file.vo.FileUploadVo;
+import com.vita.redis.RedisCache;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;

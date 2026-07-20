@@ -8,9 +8,12 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 /**
- * 登录审计快照，用于在认证层与持久化层之间传递登录事件信息。
- *
- * @author znk
+ * @BelongsProject: be-vita
+ * @BelongsPackage: com.vita.log.model
+ * @Author: znk
+ * @CreateTime: 2026-07-10  16:40:48
+ * @Description: 登录审计记录模型
+ * @Version: 1.0
  */
 @Data
 @AllArgsConstructor

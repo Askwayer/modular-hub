@@ -14,6 +14,7 @@
 be-vita
 ├── vita-common
 ├── vita-service
+├── vita-workflow
 ├── vita-generator
 ├── vita-starters
 │   ├── vita-captcha-spring-boot-starter
@@ -35,6 +36,7 @@ be-vita
 
 - `vita-common`：公共基础模块，承载统一返回、异常、分页、MyBatis-Plus、Redisson、Sa-Token、工具类和基础模型。
 - `vita-service`：系统业务服务层，承载认证、RBAC、系统管理等核心业务。
+- `vita-workflow`：工作流基础设施模块，承载 Warm-Flow 配置、处理器与资源文件。
 - `vita-admin`：管理端启动模块，入口类 `com.vita.config.VitaAdminApplication`，上下文路径 `/admin/api`。
 - `vita-openapi`：公开查询接口启动模块，入口类 `com.vita.config.VitaOpenApiApplication`，上下文路径 `/openapi/api`，承载热榜等只读 public 接口。
 - `vita-scheduler`：热榜刷新触发启动模块，入口类 `com.vita.config.VitaSchedulerApplication`，上下文路径 `/scheduler/api`，承载热榜 public 刷新触发接口。
@@ -45,6 +47,7 @@ be-vita
 
 ```text
 vita-admin   -> vita-service -> vita-common
+vita-admin   -> vita-workflow -> vita-common
 vita-openapi -> vita-service -> vita-common
 vita-scheduler -> vita-service -> vita-common
 ```

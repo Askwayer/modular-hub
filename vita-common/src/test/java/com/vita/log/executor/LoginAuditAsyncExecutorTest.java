@@ -1,12 +1,12 @@
 package com.vita.log.executor;
 
-import com.vita.constant.Constants;
+import com.vita.core.constant.Constants;
 import com.vita.log.model.RequestClientInfo;
 import com.vita.log.persistence.LoginAuditPersistence;
 import com.vita.log.persistence.LoginLocationPersistence;
 import com.vita.log.persistence.LoginUserInfoPersistence;
 import com.vita.log.service.IpLocationService;
-import com.vita.utils.ip.AddressUtils;
+import com.vita.utils.web.ip.AddressUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

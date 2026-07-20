@@ -7,7 +7,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
 import com.vita.core.page.PageResponse;
-import com.vita.mybatis.LambdaQueryWrapperX;
+import com.vita.mybatis.wrapper.LambdaQueryWrapperX;
 import com.vita.system.associate.sysRoleMenu.dto.SysRoleMenuCreateDto;
 import com.vita.system.associate.sysRoleMenu.dto.SysRoleMenuSearchDto;
 import com.vita.system.associate.sysRoleMenu.dto.SysRoleMenuUpdateDto;

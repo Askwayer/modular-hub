@@ -1,8 +1,8 @@
 package com.vita.mybatis.handler;
 
 import com.baomidou.mybatisplus.core.handlers.MetaObjectHandler;
-import com.vita.core.context.LoginUserInfoModelContext;
-import com.vita.core.model.LoginUserInfoModel;
+import com.vita.auth.context.LoginUserInfoModelContext;
+import com.vita.auth.model.LoginUserInfoModel;
 import org.apache.ibatis.reflection.MetaObject;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -10,14 +10,11 @@ import org.springframework.stereotype.Component;
 import java.time.LocalDateTime;
 
 /**
- * MybatisPlus 自动填充处理器
- * 用于在插入和更新操作时自动填充实体的时间和用户相关字段
- *
- * @BelongsProject: vita
+ * @BelongsProject: be-vita
  * @BelongsPackage: com.vita.mybatis.handler
  * @Author: znk
  * @CreateTime: 2025-08-07  10:43:23
- * @Description: 配置mybatis-plus处理器
+ * @Description: MybatisPlus自动填充处理器
  * @Version: 1.0
  */
 @Component

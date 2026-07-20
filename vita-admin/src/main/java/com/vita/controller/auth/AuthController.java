@@ -1,12 +1,12 @@
 package com.vita.controller.auth;
 
-import com.vita.annotation.RepeatSubmit;
 import com.vita.auth.dto.AuthLoginDto;
 import com.vita.auth.service.IAuthService;
 import com.vita.auth.vo.AuthInfoVo;
 import com.vita.auth.vo.AuthLoginVo;
 import com.vita.core.CommonResult;
 import com.vita.core.controller.BaseController;
+import com.vita.repeat.annotation.RepeatSubmit;
 import com.vita.system.sysMenu.vo.RouterVo;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;

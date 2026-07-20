@@ -1,7 +1,7 @@
 package com.vita.system.sysRole.mapper;
 
-import com.vita.mybatis.LambdaQueryWrapperX;
-import com.vita.core.mapper.BaseMapperX;
+import com.vita.mybatis.mapper.BaseMapperX;
+import com.vita.mybatis.wrapper.LambdaQueryWrapperX;
 import com.vita.system.sysRole.entity.SysRole;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;

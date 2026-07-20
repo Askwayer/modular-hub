@@ -8,7 +8,7 @@ import java.time.LocalDateTime;
 /**
  * @BelongsProject: be-vita
  * @BelongsPackage: com.vita.log.model
- * @Author: Codex
+ * @Author: znk
  * @CreateTime: 2026-03-26
  * @Description: 当前请求客户端信息快照
  * @Version: 1.0

@@ -5,7 +5,7 @@ import cn.hutool.core.util.StrUtil;
 import ${commonPackage}.exception.GlobalErrorCode;
 import ${commonPackage}.exception.ServiceException;
 import ${commonPackage}.page.PageResponse;
-import com.vita.mybatis.LambdaQueryWrapperX;
+import com.vita.mybatis.wrapper.LambdaQueryWrapperX;
 import ${dtoPackage}.${entity}CreateDto;
 import ${dtoPackage}.${entity}SearchDto;
 import ${dtoPackage}.${entity}UpdateDto;

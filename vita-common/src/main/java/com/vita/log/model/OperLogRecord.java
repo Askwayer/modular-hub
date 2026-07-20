@@ -5,7 +5,12 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 /**
- * 操作日志快照，供 common 层采集并由下游持久化适配器落库。
+ * @BelongsProject: be-vita
+ * @BelongsPackage: com.vita.log.model
+ * @Author: znk
+ * @CreateTime: 2026-07-10  16:40:48
+ * @Description: 操作日志记录模型
+ * @Version: 1.0
  */
 @Data
 public class OperLogRecord {

@@ -1,6 +1,5 @@
 package com.vita.auth.vo;
 
-import com.vita.core.model.LoginUserInfoModel;
 import lombok.Data;
 
 /**

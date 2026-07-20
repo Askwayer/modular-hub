@@ -18,7 +18,7 @@
   - `sys-info.log`
   - `sys-error.log`
   - `sys-access.log`
-- `vita-common/src/main/java/com/vita/aspect/LogAspect.java` 已存在切面骨架，已引入：
+- `vita-common/src/main/java/com/vita/log/aspect/LogAspect.java` 已存在切面骨架，已引入：
   - `@Around`
   - `MDC`
   - `NamedThreadLocal`
@@ -28,7 +28,7 @@
   - 实体：`com.vita.system.sysOperLog.entity.sysOperLog`
   - DTO：`com.vita.system.sysOperLog.dto.sysOperLogCreateDto`
   - Service：`com.vita.system.sysOperLog.service.IsysOperLogService`
-- `vita-common/src/main/java/com/vita/core/context/LoginUserInfoModelContext.java` 已使用 `ThreadLocal` 保存登录用户上下文
+- `vita-common/src/main/java/com/vita/auth/context/LoginUserInfoModelContext.java` 已使用 `ThreadLocal` 保存登录用户上下文
 
 ## 3. 当前问题
 
