@@ -64,6 +64,7 @@ public class WorkflowDistributedLock {
                 || !TransactionSynchronizationManager.isSynchronizationActive()) {
             return false;
         }
+        // 外层事务提交前必须继续持锁，避免数据库尚未提交时相同操作再次进入。
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCompletion(int status) {

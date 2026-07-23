@@ -105,6 +105,8 @@ Warm-Flow 引擎表，后者删除并重建 `workflow_category`，但只在缺�
 - `/workflow/**` 提供普通登录用户运行时接口，service 层校验实例访问权和任务办理权。
 - `/system/workflow/**` 提供定义管理和实例只读监控，执行权限码与管理员角色双重校验。
 - 报销流程已接入最小业务表、提交后状态监听和管理员重同步补偿，不包含通知、委派、转办和会签能力。
+- 三阶段将通用定义、实例和任务 Controller 聚合到 `vita-workflow`，详细扩展方式见
+  `docs/system/workflow/warm-flow-phase3-controller.md`；报销 Controller 继续保留在 `vita-admin`。
 
 ## 9. 验收测试
 

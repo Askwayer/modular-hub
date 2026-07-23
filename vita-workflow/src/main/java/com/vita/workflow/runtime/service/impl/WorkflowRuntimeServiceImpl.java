@@ -98,6 +98,7 @@ public class WorkflowRuntimeServiceImpl implements WorkflowRuntimeService {
     public WorkflowInstanceSnapshot startAndPass(WorkflowSubmitCommand command) {
         validateSubmitCommand(command);
         String lockKey = WorkflowConstants.WORKFLOW_LOCK_PREFIX + "start:" + command.getBusinessId();
+        // 实例创建和首任务办理共享业务锁与事务，任一步失败都不得留下半提交实例。
         return distributedLock.execute(lockKey, () -> transactionTemplate.execute(status -> {
             WorkflowStartCommand startCommand = new WorkflowStartCommand();
             startCommand.setFlowCode(command.getFlowCode());
@@ -124,6 +125,7 @@ public class WorkflowRuntimeServiceImpl implements WorkflowRuntimeService {
         Map<String, Object> variables = command.getVariables() == null
                 ? new HashMap<>() : new HashMap<>(command.getVariables());
         variables.entrySet().removeIf(entry -> entry.getValue() == null);
+        // 平台身份变量覆盖客户端同名值，流程 Provider 变量最后合并并拥有最高优先级。
         variables.put(WorkflowConstants.INITIATOR_ID_VARIABLE, operatorId);
         if (deptId != null) {
             variables.put(WorkflowConstants.INITIATOR_DEPT_ID_VARIABLE, deptId);
@@ -216,6 +218,7 @@ public class WorkflowRuntimeServiceImpl implements WorkflowRuntimeService {
                     .filter(history -> Integer.valueOf(WorkflowConstants.USER_TASK_NODE_TYPE)
                             .equals(history.getNodeType()))
                     .toList();
+            // 只允许“申请人已提交但尚无其他人工节点办理”的实例进入撤回终态。
             if (userTaskHistory.size() > 1
                     || userTaskHistory.stream().anyMatch(history ->
                     !String.valueOf(operatorId).equals(history.getApproverId()))) {
@@ -384,6 +387,7 @@ public class WorkflowRuntimeServiceImpl implements WorkflowRuntimeService {
 
     private WorkflowInstanceSnapshot executeTask(Long taskId, TaskOperation taskOperation) {
         String lockKey = WorkflowConstants.WORKFLOW_LOCK_PREFIX + "task:" + taskId;
+        // 归属校验和引擎写操作必须位于同一个任务锁及事务中，防止重复办理。
         return distributedLock.execute(lockKey, () -> transactionTemplate.execute(status -> {
             WorkflowTaskVo task = requireTask(taskId);
             requireTaskAccess(taskId);
@@ -467,6 +471,7 @@ public class WorkflowRuntimeServiceImpl implements WorkflowRuntimeService {
                               Long operatorId,
                               String sourceNodeCode,
                               String targetNodeCode) {
+        // 发布器负责延迟到事务提交后发送，监听失败不反向回滚引擎操作。
         eventPublisher.publish(new WorkflowChangedEvent(
                 UUID.randomUUID(), Instant.now(), operation, definition.getFlowCode(),
                 definition.getId(), instance.getId(), instance.getBusinessId(), taskId,
@@ -542,6 +547,7 @@ public class WorkflowRuntimeServiceImpl implements WorkflowRuntimeService {
 
     private Map<String, Object> safeTaskVariables(Map<String, Object> variables) {
         Map<String, Object> safeVariables = new HashMap<>(safeVariables(variables));
+        // 办理人和发起人变量只能由平台及流程 Provider 生成，任务请求不得覆盖。
         WorkflowConstants.PROTECTED_TASK_VARIABLES.forEach(safeVariables::remove);
         return safeVariables;
     }

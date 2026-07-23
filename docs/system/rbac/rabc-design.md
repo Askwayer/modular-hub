@@ -395,6 +395,8 @@ RBAC 查询应统一过滤以下条件：
 - Warm-Flow 表单加载和办理接口复用 Sa-Token 登录态；具体节点办理资格由 Warm-Flow `PermissionHandler` 判定。
 - 其余 `/warm-flow/**` 内置设计和管理接口只允许 `SUB_ADMIN` / `SUPER_ADMIN`。
 - `/system/workflow/**` 属于管理接口，必须同时使用 `@SaCheckPermission` 和 `SUB_ADMIN` / `SUPER_ADMIN` 角色校验。
+- 通用工作流 Controller 接口只声明路由契约；Sa-Token 1.44.0 不读取接口继承的权限注解，
+  默认实现及后续自定义实现必须在 `/system/workflow/**` 方法上直接声明 `@SaCheckPermission`。
 - Sa-Token 专用异常处理器优先于通用异常处理器，确保未登录和无权限分别返回 401、403 业务码。
 
 ---

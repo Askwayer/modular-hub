@@ -1,8 +1,13 @@
 package com.vita.config;
 
+import cn.dev33.satoken.annotation.SaCheckPermission;
+import com.vita.controller.workflow.WorkflowReimbursementAdminController;
+import com.vita.workflow.constant.WorkflowConstants;
+import com.vita.workflow.reimbursement.dto.ReimbursementSearchDto;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -41,6 +46,45 @@ class WorkflowRuntimeBoundaryTest {
                 "vita-generator/src/main/java/com/vita/config/CodeGenerator.java"));
         assertThat(generator).contains("private static final String[] TABLE_NAMES = {\"workflow_category\"}");
         assertThat(generator).contains("WARM_FLOW_ENGINE_TABLES", "validateGeneratedTables()");
+    }
+
+    @Test
+    void genericControllersShouldBeAggregatedInWorkflowModule() throws IOException {
+        Path repository = resolveRepositoryRoot();
+        Path workflowController = repository.resolve(
+                "vita-workflow/src/main/java/com/vita/workflow/controller");
+        Path adminController = repository.resolve(
+                "vita-admin/src/main/java/com/vita/controller/workflow");
+
+        assertThat(workflowController.resolve("api/WorkflowDefinitionControllerApi.java")).exists();
+        assertThat(workflowController.resolve("api/WorkflowInstanceControllerApi.java")).exists();
+        assertThat(workflowController.resolve("api/WorkflowTaskControllerApi.java")).exists();
+        assertThat(workflowController.resolve("WorkflowControllerConfiguration.java")).exists();
+        assertThat(adminController.resolve("WorkflowReimbursementController.java")).exists();
+        assertThat(adminController.resolve("WorkflowReimbursementAdminController.java")).exists();
+
+        assertThat(adminController.resolve("WorkflowController.java")).doesNotExist();
+        assertThat(adminController.resolve("WorkflowDefinitionAdminController.java")).doesNotExist();
+        assertThat(adminController.resolve("WorkflowInstanceAdminController.java")).doesNotExist();
+        assertThat(adminController.resolve("WorkflowRuntimeDefinitionController.java")).doesNotExist();
+        assertThat(adminController.resolve("WorkflowRuntimeInstanceController.java")).doesNotExist();
+        assertThat(adminController.resolve("WorkflowRuntimeTaskController.java")).doesNotExist();
+
+        String autoConfigurations = Files.readString(repository.resolve(
+                "vita-workflow/src/main/resources/META-INF/spring/"
+                        + "org.springframework.boot.autoconfigure.AutoConfiguration.imports"));
+        assertThat(autoConfigurations).contains(
+                "com.vita.workflow.controller.WorkflowControllerConfiguration");
+    }
+
+    @Test
+    void reimbursementManagementMethodsShouldDeclarePermissionDirectly() throws NoSuchMethodException {
+        assertPermission("page", WorkflowConstants.WORKFLOW_REIMBURSEMENT_VIEW_PERMISSION,
+                ReimbursementSearchDto.class);
+        assertPermission("detail", WorkflowConstants.WORKFLOW_REIMBURSEMENT_VIEW_PERMISSION,
+                Long.class);
+        assertPermission("resync", WorkflowConstants.WORKFLOW_REIMBURSEMENT_RESYNC_PERMISSION,
+                String.class);
     }
 
     @Test
@@ -141,6 +185,14 @@ class WorkflowRuntimeBoundaryTest {
         } catch (IOException ex) {
             throw new IllegalStateException("读取文件失败：" + path, ex);
         }
+    }
+
+    private void assertPermission(String methodName, String permission,
+                                  Class<?>... parameterTypes) throws NoSuchMethodException {
+        Method method = WorkflowReimbursementAdminController.class.getMethod(methodName, parameterTypes);
+        SaCheckPermission annotation = method.getAnnotation(SaCheckPermission.class);
+        assertThat(annotation).as("WorkflowReimbursementAdminController#" + methodName).isNotNull();
+        assertThat(annotation.value()).containsExactly(permission);
     }
 
     private List<Path> sourceAndSqlRoots(Path repository) throws IOException {

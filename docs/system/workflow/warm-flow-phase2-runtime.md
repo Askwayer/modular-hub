@@ -12,9 +12,9 @@
 | 模块 | 职责 |
 | --- | --- |
 | `vita-common` | `WorkflowPort`、命令、快照、启动上下文扩展点和提交后事件协议 |
-| `vita-workflow` | Warm-Flow 适配、只读关联查询、访问校验、锁、事件发布和报销启动上下文 |
+| `vita-workflow` | Warm-Flow 适配、通用定义/实例/任务 Controller、只读关联查询、访问校验、锁、事件发布和报销启动上下文 |
 | `vita-service` | 报销单单表业务域、业务状态监听和状态重同步服务 |
-| `vita-admin` | 普通登录用户运行时/报销接口和管理员定义、实例、报销补偿接口 |
+| `vita-admin` | 管理端启动配置、报销普通接口和报销管理补偿接口 |
 | `vita-generator` | 阻止 8 张 Warm-Flow 引擎表生成业务 CRUD |
 
 `vita-workflow` 是仓库中唯一允许使用 JOIN 的模块，且 JOIN 只能存在于专用只读 Query Mapper。其他模块、初始化 SQL、升级 SQL 和代码生成器均不得使用 JOIN。流程定义、实例和任务的写操作必须调用 Warm-Flow 官方 Service。
@@ -94,6 +94,7 @@ sql/upgrade/vita_workflow_upgrade.sql
 ## 8. 启停与发布
 
 - 所有自建工作流 Bean 和 Controller 受 `vita.workflow.enabled` 控制。
+- 通用 Controller 默认实现由 `WorkflowControllerConfiguration` 自动装配；存在同接口自定义 Bean 时默认实现自动退让，不提供额外 YAML 分组开关。
 - 设计器静态资源和 `/warm-flow-ui/config` 公开；Warm-Flow 表单加载和办理接口要求登录；其余 `/warm-flow/**` 限管理员角色；`/system/workflow/**` 执行权限码与管理员角色双重校验。
 - 发布前备份需要保留的数据，再按文档顺序执行两个重建脚本并重新导入流程定义。
 

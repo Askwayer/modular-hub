@@ -11,12 +11,11 @@ import com.vita.auth.config.SaTokenConfigure;
 import com.vita.auth.constant.AuthConstants;
 import com.vita.auth.handler.SaTokenExceptionHandler;
 import com.vita.auth.property.AuthProperty;
-import com.vita.controller.workflow.WorkflowAdminAccessChecker;
-import com.vita.controller.workflow.WorkflowController;
+import com.vita.core.CommonResult;
 import com.vita.core.exception.ControllerExceptionHandler;
 import com.vita.log.interceptor.RequestTraceInterceptor;
 import com.vita.workflow.constant.WorkflowConstants;
-import com.vita.workflow.service.IWorkflowDefinitionService;
+import com.vita.workflow.controller.support.WorkflowAdminAccessChecker;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -291,15 +290,9 @@ class WorkflowRouteSecurityTest {
             RequestTraceInterceptor.class,
             ControllerExceptionHandler.class,
             SaTokenExceptionHandler.class,
-            WorkflowController.class,
             WorkflowRouteProbeController.class
     })
     static class RouteTestConfiguration {
-
-        @Bean
-        IWorkflowDefinitionService workflowDefinitionService() {
-            return defJson -> true;
-        }
 
         @Bean
         StpInterface workflowRouteStpInterface() {
@@ -373,6 +366,13 @@ class WorkflowRouteSecurityTest {
         })
         String postRoute() {
             return "entered";
+        }
+
+        @PostMapping(value = "/system/workflow/importJson", consumes = MediaType.APPLICATION_JSON_VALUE)
+        @SaCheckPermission(WorkflowConstants.WORKFLOW_IMPORT_PERMISSION)
+        CommonResult<Boolean> importJson() {
+            WorkflowAdminAccessChecker.check();
+            return CommonResult.success(true);
         }
 
         @GetMapping("/system/workflow/definitions/page")

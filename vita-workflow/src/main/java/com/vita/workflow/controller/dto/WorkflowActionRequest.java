@@ -1,4 +1,4 @@
-package com.vita.controller.workflow.dto;
+package com.vita.workflow.controller.dto;
 
 import jakarta.validation.constraints.Size;
 import lombok.Data;
@@ -8,9 +8,9 @@ import java.util.Map;
 
 /**
  * @BelongsProject: be-vita
- * @BelongsPackage: com.vita.controller.workflow.dto
+ * @BelongsPackage: com.vita.workflow.controller.dto
  * @Author: znk
- * @CreateTime: 2026-07-20
+ * @CreateTime: 2026-07-23
  * @Description: 工作流任务操作请求
  * @Version: 1.0
  */

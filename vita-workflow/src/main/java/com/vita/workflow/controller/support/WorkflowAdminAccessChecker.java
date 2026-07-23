@@ -1,4 +1,4 @@
-package com.vita.controller.workflow;
+package com.vita.workflow.controller.support;
 
 import cn.dev33.satoken.stp.StpUtil;
 import com.vita.auth.constant.AuthConstants;
@@ -7,9 +7,9 @@ import com.vita.core.exception.ServiceException;
 
 /**
  * @BelongsProject: be-vita
- * @BelongsPackage: com.vita.controller.workflow
+ * @BelongsPackage: com.vita.workflow.controller.support
  * @Author: znk
- * @CreateTime: 2026-07-20
+ * @CreateTime: 2026-07-23
  * @Description: 工作流管理端角色校验器
  * @Version: 1.0
  */

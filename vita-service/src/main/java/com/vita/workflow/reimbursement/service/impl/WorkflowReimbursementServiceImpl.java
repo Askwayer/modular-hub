@@ -123,6 +123,7 @@ public class WorkflowReimbursementServiceImpl implements WorkflowReimbursementSe
 
         WorkflowInstanceSnapshot snapshot;
         if (reimbursement.getBusinessStatus() == ReimbursementStatus.DRAFT) {
+            // 首次提交原子创建实例并办理申请人首任务，避免业务单与流程实例状态分离。
             WorkflowSubmitCommand command = new WorkflowSubmitCommand();
             command.setFlowCode(ReimbursementConstants.FLOW_CODE);
             command.setBusinessId(reimbursement.getBusinessId());
@@ -131,6 +132,7 @@ public class WorkflowReimbursementServiceImpl implements WorkflowReimbursementSe
             snapshot = workflowPort.startAndPass(command);
             reimbursement.setInstanceId(snapshot.getInstanceId());
         } else {
+            // 退回申请节点后只办理现有任务，businessId 不得再次创建流程实例。
             WorkflowInstanceSnapshot current = workflowPort.getByBusinessId(reimbursement.getBusinessId());
             if (current.getTaskId() == null
                     || !ReimbursementConstants.APPLICANT_NODE_CODE.equals(current.getNodeCode())) {
@@ -253,6 +255,7 @@ public class WorkflowReimbursementServiceImpl implements WorkflowReimbursementSe
         if (event.operation() == WorkflowOperation.CANCEL) {
             return ReimbursementStatus.CANCELLED;
         }
+        // 只有退回申请人节点才恢复业务可编辑状态，中间节点退回仍处于审批中。
         if (event.operation() == WorkflowOperation.REJECT_LAST
                 || event.operation() == WorkflowOperation.REJECT_TO) {
             return ReimbursementConstants.APPLICANT_NODE_CODE.equals(event.targetNodeCode())
