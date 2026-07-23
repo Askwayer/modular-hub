@@ -3,9 +3,12 @@ package com.vita.workflow.service;
 import org.dromara.warm.flow.core.dto.DefJson;
 
 /**
- * 工作流定义服务接口。
- *
- * @author Codex
+ * @BelongsProject: be-vita
+ * @BelongsPackage: com.vita.workflow.service
+ * @Author: znk
+ * @CreateTime: 2026-07-23
+ * @Description: 工作流定义导入服务
+ * @Version: 1.0
  */
 public interface IWorkflowDefinitionService {
 

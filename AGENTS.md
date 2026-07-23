@@ -15,7 +15,7 @@
 - `mvn -f vita-starters/pom.xml -Pstarter-captcha test`: test the captcha starter profile.
 
 ## Coding, Rules, and Naming
-Use 4-space indentation, UTF-8, `PascalCase` for classes, `camelCase` for methods and fields, and `UPPER_SNAKE_CASE` for constants. Keep controller logic thin, business orchestration in services, and single-table SQL details in mappers. Detailed AI and code generation constraints live only in `AICoding/rules/be-vita-ai-codegen-rules.md`; `README.md`, `CLAUDE.md`, and this file are summaries, not parallel rule sources.
+Use 4-space indentation, UTF-8, `PascalCase` for classes, `camelCase` for methods and fields, and `UPPER_SNAKE_CASE` for constants. Keep controller logic thin, business orchestration in services, and single-table SQL details in mappers. For new tables, standard CRUD scaffolding must start from `vita-generator` templates before business customization. Core business code should add concise Chinese comments at key rules, transaction boundaries, state transitions, concurrency control, and external integrations, not line-by-line narration. Detailed AI and code generation constraints live only in `AICoding/rules/be-vita-ai-codegen-rules.md`; `README.md`, `CLAUDE.md`, and this file are summaries, not parallel rule sources.
 
 ## Database and Documentation Sync
 For new tables, follow the default DDL suffix unless the table is a pure association table: `tenant_id`, `create_time`, `update_time`, `is_deleted`, `create_by_id`, `create_by`, `update_by_id`, `update_by`, `version`, `remark`. Standard ordering is `id -> tenant_id -> business fields -> audit suffix`. `sys_user` is the representative sample; `pwd_update_date` is business-specific, not part of the global suffix.

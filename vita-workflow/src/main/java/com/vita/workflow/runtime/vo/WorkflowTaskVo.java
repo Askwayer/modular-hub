@@ -3,6 +3,8 @@ package com.vita.workflow.runtime.vo;
 import lombok.Data;
 
 import java.time.LocalDateTime;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 /**
  * @BelongsProject: be-vita
@@ -20,6 +22,8 @@ public class WorkflowTaskVo {
     private Long instanceId;
     private Long definitionId;
     private String businessId;
+    private String businessCode;
+    private String businessTitle;
     private String flowCode;
     private String flowName;
     private String nodeCode;
@@ -31,6 +35,7 @@ public class WorkflowTaskVo {
     private String approverName;
     private String message;
     private String allowedRejectNodeCode;
+    private Set<String> allowedOperations = new LinkedHashSet<>();
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
 }

@@ -38,7 +38,7 @@ public class RepeatSubmitAspect {
         this.redisCache = redisCache;
     }
 
-    @Pointcut("execution(public * com.vita.controller..*Controller.*(..))")
+    @Pointcut("execution(public * com.vita..controller..*Controller.*(..))")
     public void controllerPointcut() {
     }
 

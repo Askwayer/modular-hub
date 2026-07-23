@@ -14,6 +14,7 @@ import com.vita.workflow.api.command.WorkflowSubmitCommand;
 import com.vita.workflow.api.command.WorkflowTaskCommand;
 import com.vita.workflow.api.event.WorkflowChangedEvent;
 import com.vita.workflow.api.event.WorkflowOperation;
+import com.vita.workflow.api.model.WorkflowBusinessMetadata;
 import com.vita.workflow.api.model.WorkflowInstanceSnapshot;
 import com.vita.workflow.reimbursement.constant.ReimbursementConstants;
 import com.vita.workflow.reimbursement.dto.*;
@@ -39,7 +40,11 @@ import org.springframework.util.StringUtils;
  * @Version: 1.0
  */
 @Service
-@ConditionalOnProperty(prefix = "vita.workflow", name = "enabled", havingValue = "true")
+@ConditionalOnProperty(
+        prefix = "vita.workflow",
+        name = "enabled",
+        havingValue = "true",
+        matchIfMissing = true)
 public class WorkflowReimbursementServiceImpl implements WorkflowReimbursementService {
 
     private static final String FLOW_STATUS_TOBE_SUBMIT = "0";
@@ -123,14 +128,20 @@ public class WorkflowReimbursementServiceImpl implements WorkflowReimbursementSe
 
         WorkflowInstanceSnapshot snapshot;
         if (reimbursement.getBusinessStatus() == ReimbursementStatus.DRAFT) {
+            // 首次提交原子创建实例并办理申请人首任务，避免业务单与流程实例状态分离。
             WorkflowSubmitCommand command = new WorkflowSubmitCommand();
             command.setFlowCode(ReimbursementConstants.FLOW_CODE);
             command.setBusinessId(reimbursement.getBusinessId());
             command.setMessage(commandDto.getMessage());
             command.setVariables(commandDto.getVariables());
+            WorkflowBusinessMetadata metadata = new WorkflowBusinessMetadata();
+            metadata.setBusinessCode(ReimbursementConstants.BUSINESS_CODE);
+            metadata.setBusinessTitle(reimbursement.getTitle());
+            command.setMetadata(metadata);
             snapshot = workflowPort.startAndPass(command);
             reimbursement.setInstanceId(snapshot.getInstanceId());
         } else {
+            // 退回申请节点后只办理现有任务，businessId 不得再次创建流程实例。
             WorkflowInstanceSnapshot current = workflowPort.getByBusinessId(reimbursement.getBusinessId());
             if (current.getTaskId() == null
                     || !ReimbursementConstants.APPLICANT_NODE_CODE.equals(current.getNodeCode())) {
@@ -186,7 +197,10 @@ public class WorkflowReimbursementServiceImpl implements WorkflowReimbursementSe
     @Transactional(propagation = Propagation.REQUIRES_NEW, rollbackFor = Exception.class)
     public void syncFromEvent(WorkflowChangedEvent event) {
         if (event == null || !ReimbursementConstants.FLOW_CODE.equals(event.flowCode())
-                || !StringUtils.hasText(event.businessId()) || event.operation() == WorkflowOperation.START) {
+                || !StringUtils.hasText(event.businessId())
+                || event.operation() == WorkflowOperation.START
+                || event.operation() == WorkflowOperation.ACTIVATE
+                || event.operation() == WorkflowOperation.SUSPEND) {
             return;
         }
         WorkflowReimbursement reimbursement = reimbursementMapper.selectOne(
@@ -253,6 +267,13 @@ public class WorkflowReimbursementServiceImpl implements WorkflowReimbursementSe
         if (event.operation() == WorkflowOperation.CANCEL) {
             return ReimbursementStatus.CANCELLED;
         }
+        if (event.operation() == WorkflowOperation.TERMINATE) {
+            return ReimbursementStatus.TERMINATED;
+        }
+        if (event.operation() == WorkflowOperation.INVALIDATE) {
+            return ReimbursementStatus.INVALIDATED;
+        }
+        // 只有退回申请人节点才恢复业务可编辑状态，中间节点退回仍处于审批中。
         if (event.operation() == WorkflowOperation.REJECT_LAST
                 || event.operation() == WorkflowOperation.REJECT_TO) {
             return ReimbursementConstants.APPLICANT_NODE_CODE.equals(event.targetNodeCode())
@@ -267,8 +288,13 @@ public class WorkflowReimbursementServiceImpl implements WorkflowReimbursementSe
 
     private ReimbursementStatus resolveStatus(WorkflowInstanceSnapshot snapshot) {
         String flowStatus = snapshot.getFlowStatus();
-        if (FLOW_STATUS_TERMINATE.equals(flowStatus) || FLOW_STATUS_NULLIFY.equals(flowStatus)
-                || FLOW_STATUS_CANCEL.equals(flowStatus) || FLOW_STATUS_INVALID.equals(flowStatus)) {
+        if (FLOW_STATUS_TERMINATE.equals(flowStatus)) {
+            return ReimbursementStatus.TERMINATED;
+        }
+        if (FLOW_STATUS_NULLIFY.equals(flowStatus) || FLOW_STATUS_INVALID.equals(flowStatus)) {
+            return ReimbursementStatus.INVALIDATED;
+        }
+        if (FLOW_STATUS_CANCEL.equals(flowStatus)) {
             return ReimbursementStatus.CANCELLED;
         }
         if (isFinished(flowStatus) || ReimbursementConstants.END_NODE_CODE.equals(snapshot.getNodeCode())) {

@@ -11,12 +11,11 @@ import com.vita.auth.config.SaTokenConfigure;
 import com.vita.auth.constant.AuthConstants;
 import com.vita.auth.handler.SaTokenExceptionHandler;
 import com.vita.auth.property.AuthProperty;
-import com.vita.controller.workflow.WorkflowAdminAccessChecker;
-import com.vita.controller.workflow.WorkflowController;
+import com.vita.core.CommonResult;
 import com.vita.core.exception.ControllerExceptionHandler;
 import com.vita.log.interceptor.RequestTraceInterceptor;
 import com.vita.workflow.constant.WorkflowConstants;
-import com.vita.workflow.service.IWorkflowDefinitionService;
+import com.vita.workflow.controller.support.WorkflowAdminAccessChecker;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -37,17 +36,13 @@ import org.springframework.test.context.web.ServletTestExecutionListener;
 import org.springframework.test.context.web.WebAppConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 
 import java.util.List;
 
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 import static org.springframework.test.web.servlet.setup.MockMvcBuilders.webAppContextSetup;
 
@@ -132,12 +127,24 @@ class WorkflowRouteSecurityTest {
         assertUnauthorized(adminPost("/warm-flow/execute/handle"));
         assertUnauthorized(adminGet("/workflow/definitions/published"));
         assertUnauthorized(adminGet("/workflow/instances/mine"));
+        assertUnauthorized(adminGet("/workflow/instances/by-business/TEST:1"));
+        assertUnauthorized(adminGet("/workflow/instances/by-business/TEST:1/graph"));
         assertUnauthorized(adminGet("/workflow/tasks/pending"));
+        assertUnauthorized(adminGet("/workflow/tasks/1/handlers"));
         assertUnauthorized(adminPost("/workflow/tasks/1/pass"));
         assertUnauthorized(adminGet("/workflow/reimbursements/mine"));
         assertUnauthorized(adminPost("/workflow/reimbursements/1/submit"));
         assertUnauthorized(adminGet("/system/workflow/definitions/page"));
         assertUnauthorized(adminGet("/system/workflow/instances/running"));
+        assertUnauthorized(adminGet("/system/workflow/instances/by-business/TEST:1"));
+        assertUnauthorized(adminGet("/system/workflow/instances/1/variables"));
+        assertUnauthorized(adminPut("/system/workflow/instances/1/variables"));
+        assertUnauthorized(adminDelete("/system/workflow/instances/1"));
+        assertUnauthorized(adminPost("/system/workflow/instances/1/invalidate"));
+        assertUnauthorized(adminGet("/system/workflow/tasks/pending"));
+        assertUnauthorized(adminPut("/system/workflow/tasks/1/handlers"));
+        assertUnauthorized(adminGet("/system/workflow/categories/tree"));
+        assertUnauthorized(adminGet("/system/workflow/assignee-rules"));
         assertUnauthorized(adminGet("/system/workflow/reimbursements/page"));
         assertUnauthorized(adminPost("/system/workflow/reimbursements/resync"));
         assertUnauthorized(importJsonRequest(null));
@@ -161,7 +168,10 @@ class WorkflowRouteSecurityTest {
         assertEntered(adminPost("/warm-flow/execute/handle"), token);
         assertEntered(adminGet("/workflow/definitions/published"), token);
         assertEntered(adminGet("/workflow/instances/mine"), token);
+        assertEntered(adminGet("/workflow/instances/by-business/TEST:1"), token);
+        assertEntered(adminGet("/workflow/instances/by-business/TEST:1/graph"), token);
         assertEntered(adminGet("/workflow/tasks/pending"), token);
+        assertEntered(adminGet("/workflow/tasks/1/handlers"), token);
         assertEntered(adminPost("/workflow/tasks/1/pass"), token);
         assertEntered(adminGet("/workflow/reimbursements/mine"), token);
         assertEntered(adminPost("/workflow/reimbursements/1/submit"), token);
@@ -190,6 +200,16 @@ class WorkflowRouteSecurityTest {
         assertForbidden(withToken(adminGet("/system/workflow/definitions/page"), login(ROLE_ONLY_ADMIN_ID)));
         assertForbidden(withToken(adminGet("/system/workflow/definitions/page"), login(PERMISSION_ONLY_USER_ID)));
         assertForbidden(withToken(adminGet("/system/workflow/instances/running"), login(NORMAL_USER_ID)));
+        assertForbidden(withToken(adminGet("/system/workflow/instances/1/variables"), login(NORMAL_USER_ID)));
+        assertForbidden(withToken(adminPut("/system/workflow/instances/1/variables"), login(NORMAL_USER_ID)));
+        assertForbidden(withToken(adminDelete("/system/workflow/instances/1"), login(NORMAL_USER_ID)));
+        assertForbidden(withToken(adminPost("/system/workflow/instances/1/invalidate"), login(NORMAL_USER_ID)));
+        assertForbidden(withToken(adminGet("/system/workflow/tasks/pending"), login(NORMAL_USER_ID)));
+        assertForbidden(withToken(adminPut("/system/workflow/tasks/1/handlers"), login(NORMAL_USER_ID)));
+        assertForbidden(withToken(adminPut("/system/workflow/tasks/1/handlers"), login(ROLE_ONLY_ADMIN_ID)));
+        assertForbidden(withToken(adminPut("/system/workflow/tasks/1/handlers"), login(PERMISSION_ONLY_USER_ID)));
+        assertForbidden(withToken(adminGet("/system/workflow/categories/tree"), login(NORMAL_USER_ID)));
+        assertForbidden(withToken(adminGet("/system/workflow/assignee-rules"), login(NORMAL_USER_ID)));
         assertForbidden(withToken(adminGet("/system/workflow/reimbursements/page"), login(NORMAL_USER_ID)));
         assertForbidden(withToken(adminGet("/system/workflow/reimbursements/page"), login(ROLE_ONLY_ADMIN_ID)));
         assertForbidden(withToken(adminGet("/system/workflow/reimbursements/page"), login(PERMISSION_ONLY_USER_ID)));
@@ -201,6 +221,22 @@ class WorkflowRouteSecurityTest {
         assertEntered(adminGet("/system/workflow/definitions/page"), login(SUPER_ADMIN_ID));
         assertEntered(adminGet("/system/workflow/instances/running"), login(SUB_ADMIN_ID));
         assertEntered(adminGet("/system/workflow/instances/running"), login(SUPER_ADMIN_ID));
+        assertEntered(adminGet("/system/workflow/instances/1/variables"), login(SUB_ADMIN_ID));
+        assertEntered(adminGet("/system/workflow/instances/1/variables"), login(SUPER_ADMIN_ID));
+        assertEntered(adminPut("/system/workflow/instances/1/variables"), login(SUB_ADMIN_ID));
+        assertEntered(adminPut("/system/workflow/instances/1/variables"), login(SUPER_ADMIN_ID));
+        assertEntered(adminDelete("/system/workflow/instances/1"), login(SUB_ADMIN_ID));
+        assertEntered(adminDelete("/system/workflow/instances/1"), login(SUPER_ADMIN_ID));
+        assertEntered(adminPost("/system/workflow/instances/1/invalidate"), login(SUB_ADMIN_ID));
+        assertEntered(adminPost("/system/workflow/instances/1/invalidate"), login(SUPER_ADMIN_ID));
+        assertEntered(adminGet("/system/workflow/tasks/pending"), login(SUB_ADMIN_ID));
+        assertEntered(adminGet("/system/workflow/tasks/pending"), login(SUPER_ADMIN_ID));
+        assertEntered(adminPut("/system/workflow/tasks/1/handlers"), login(SUB_ADMIN_ID));
+        assertEntered(adminPut("/system/workflow/tasks/1/handlers"), login(SUPER_ADMIN_ID));
+        assertEntered(adminGet("/system/workflow/categories/tree"), login(SUB_ADMIN_ID));
+        assertEntered(adminGet("/system/workflow/categories/tree"), login(SUPER_ADMIN_ID));
+        assertEntered(adminGet("/system/workflow/assignee-rules"), login(SUB_ADMIN_ID));
+        assertEntered(adminGet("/system/workflow/assignee-rules"), login(SUPER_ADMIN_ID));
         assertEntered(adminGet("/system/workflow/reimbursements/page"), login(SUB_ADMIN_ID));
         assertEntered(adminGet("/system/workflow/reimbursements/page"), login(SUPER_ADMIN_ID));
         assertEntered(adminPost("/system/workflow/reimbursements/resync"), login(SUB_ADMIN_ID));
@@ -280,6 +316,14 @@ class WorkflowRouteSecurityTest {
         return post(CONTEXT_PATH + path).contextPath(CONTEXT_PATH);
     }
 
+    private MockHttpServletRequestBuilder adminPut(String path) {
+        return put(CONTEXT_PATH + path).contextPath(CONTEXT_PATH);
+    }
+
+    private MockHttpServletRequestBuilder adminDelete(String path) {
+        return delete(CONTEXT_PATH + path).contextPath(CONTEXT_PATH);
+    }
+
     @Configuration(proxyBeanMethods = false)
     @EnableWebMvc
     @EnableConfigurationProperties(AuthProperty.class)
@@ -291,15 +335,9 @@ class WorkflowRouteSecurityTest {
             RequestTraceInterceptor.class,
             ControllerExceptionHandler.class,
             SaTokenExceptionHandler.class,
-            WorkflowController.class,
             WorkflowRouteProbeController.class
     })
     static class RouteTestConfiguration {
-
-        @Bean
-        IWorkflowDefinitionService workflowDefinitionService() {
-            return defJson -> true;
-        }
 
         @Bean
         StpInterface workflowRouteStpInterface() {
@@ -314,6 +352,13 @@ class WorkflowRouteSecurityTest {
                                 WorkflowConstants.WORKFLOW_DEFINITION_VIEW_PERMISSION,
                                 WorkflowConstants.WORKFLOW_DEFINITION_MANAGE_PERMISSION,
                                 WorkflowConstants.WORKFLOW_INSTANCE_VIEW_PERMISSION,
+                                WorkflowConstants.WORKFLOW_INSTANCE_MANAGE_PERMISSION,
+                                WorkflowConstants.WORKFLOW_TASK_VIEW_PERMISSION,
+                                WorkflowConstants.WORKFLOW_TASK_MANAGE_PERMISSION,
+                                WorkflowConstants.WORKFLOW_CATEGORY_VIEW_PERMISSION,
+                                WorkflowConstants.WORKFLOW_CATEGORY_MANAGE_PERMISSION,
+                                WorkflowConstants.WORKFLOW_ASSIGNEE_RULE_VIEW_PERMISSION,
+                                WorkflowConstants.WORKFLOW_ASSIGNEE_RULE_MANAGE_PERMISSION,
                                 WorkflowConstants.WORKFLOW_REIMBURSEMENT_VIEW_PERMISSION,
                                 WorkflowConstants.WORKFLOW_REIMBURSEMENT_RESYNC_PERMISSION
                         );
@@ -358,7 +403,10 @@ class WorkflowRouteSecurityTest {
                 "/warm-flow/execute/hisLoad/1",
                 "/workflow/definitions/published",
                 "/workflow/instances/mine",
+                "/workflow/instances/by-business/TEST:1",
+                "/workflow/instances/by-business/TEST:1/graph",
                 "/workflow/tasks/pending",
+                "/workflow/tasks/1/handlers",
                 "/workflow/reimbursements/mine"
         })
         String getRoute() {
@@ -375,6 +423,13 @@ class WorkflowRouteSecurityTest {
             return "entered";
         }
 
+        @PostMapping(value = "/system/workflow/importJson", consumes = MediaType.APPLICATION_JSON_VALUE)
+        @SaCheckPermission(WorkflowConstants.WORKFLOW_IMPORT_PERMISSION)
+        CommonResult<Boolean> importJson() {
+            WorkflowAdminAccessChecker.check();
+            return CommonResult.success(true);
+        }
+
         @GetMapping("/system/workflow/definitions/page")
         @SaCheckPermission(WorkflowConstants.WORKFLOW_DEFINITION_VIEW_PERMISSION)
         String definitionManagementRoute() {
@@ -385,6 +440,65 @@ class WorkflowRouteSecurityTest {
         @GetMapping("/system/workflow/instances/running")
         @SaCheckPermission(WorkflowConstants.WORKFLOW_INSTANCE_VIEW_PERMISSION)
         String instanceManagementRoute() {
+            WorkflowAdminAccessChecker.check();
+            return "entered";
+        }
+
+        @GetMapping({
+                "/system/workflow/instances/by-business/TEST:1",
+                "/system/workflow/instances/1/variables"
+        })
+        @SaCheckPermission(WorkflowConstants.WORKFLOW_INSTANCE_VIEW_PERMISSION)
+        String instanceGovernanceViewRoute() {
+            WorkflowAdminAccessChecker.check();
+            return "entered";
+        }
+
+        @PutMapping("/system/workflow/instances/1/variables")
+        @SaCheckPermission(WorkflowConstants.WORKFLOW_INSTANCE_MANAGE_PERMISSION)
+        String instanceVariableUpdateRoute() {
+            WorkflowAdminAccessChecker.check();
+            return "entered";
+        }
+
+        @DeleteMapping("/system/workflow/instances/1")
+        @SaCheckPermission(WorkflowConstants.WORKFLOW_INSTANCE_MANAGE_PERMISSION)
+        String instanceDeleteRoute() {
+            WorkflowAdminAccessChecker.check();
+            return "entered";
+        }
+
+        @PostMapping("/system/workflow/instances/1/invalidate")
+        @SaCheckPermission(WorkflowConstants.WORKFLOW_INSTANCE_MANAGE_PERMISSION)
+        String instanceInvalidateRoute() {
+            WorkflowAdminAccessChecker.check();
+            return "entered";
+        }
+
+        @GetMapping("/system/workflow/tasks/pending")
+        @SaCheckPermission(WorkflowConstants.WORKFLOW_TASK_VIEW_PERMISSION)
+        String taskManagementRoute() {
+            WorkflowAdminAccessChecker.check();
+            return "entered";
+        }
+
+        @PutMapping("/system/workflow/tasks/1/handlers")
+        @SaCheckPermission(WorkflowConstants.WORKFLOW_TASK_MANAGE_PERMISSION)
+        String taskHandlerManagementRoute() {
+            WorkflowAdminAccessChecker.check();
+            return "entered";
+        }
+
+        @GetMapping("/system/workflow/categories/tree")
+        @SaCheckPermission(WorkflowConstants.WORKFLOW_CATEGORY_VIEW_PERMISSION)
+        String categoryManagementRoute() {
+            WorkflowAdminAccessChecker.check();
+            return "entered";
+        }
+
+        @GetMapping("/system/workflow/assignee-rules")
+        @SaCheckPermission(WorkflowConstants.WORKFLOW_ASSIGNEE_RULE_VIEW_PERMISSION)
+        String assigneeRuleManagementRoute() {
             WorkflowAdminAccessChecker.check();
             return "entered";
         }

@@ -8,6 +8,7 @@ import com.vita.workflow.api.command.WorkflowRejectCommand;
 import com.vita.workflow.api.command.WorkflowStartCommand;
 import com.vita.workflow.api.command.WorkflowTaskCommand;
 import com.vita.workflow.runtime.mapper.WorkflowRuntimeQueryMapper;
+import com.vita.workflow.runtime.model.WorkflowNodePolicy;
 import com.vita.workflow.runtime.service.impl.WorkflowRuntimeServiceImpl;
 import com.vita.workflow.runtime.support.WorkflowAfterCommitEventPublisher;
 import com.vita.workflow.runtime.support.WorkflowDistributedLock;
@@ -139,13 +140,66 @@ class WorkflowRuntimeServiceValidationTest {
                 .hasMessageContaining("已有审批人办理");
     }
 
+    /**
+     * 平台内部变量在查询白名单之前即被拒绝。
+     */
+    @Test
+    void protectedVariableShouldNotBeUpdated() {
+        WorkflowRuntimeService service = service(Map.of());
+
+        assertThatThrownBy(() -> service.updateInstanceVariable(
+                1L, "_vitaNextAssignee:approve", 200L, "测试"))
+                .isInstanceOf(ServiceException.class)
+                .hasMessageContaining("平台保护变量");
+    }
+
+    /**
+     * 未注册变量策略的流程保持只读。
+     */
+    @Test
+    void flowWithoutVariablePolicyShouldBeReadOnly() {
+        WorkflowInstanceVo instance = new WorkflowInstanceVo();
+        instance.setInstanceId(1L);
+        instance.setFlowCode("READ_ONLY_FLOW");
+        instance.setNodeType(1);
+        WorkflowRuntimeService service = service(Map.of("selectInstanceById", instance));
+
+        assertThatThrownBy(() -> service.updateInstanceVariable(
+                1L, "amount", 100, "修正金额"))
+                .isInstanceOf(ServiceException.class)
+                .hasMessageContaining("未开放该变量");
+    }
+
+    /**
+     * 实例变量更新必须先校验实例 ID，禁止生成空 ID 锁键。
+     */
+    @Test
+    void variableUpdateShouldRequireInstanceId() {
+        WorkflowRuntimeService service = service(Map.of());
+
+        assertThatThrownBy(() -> service.updateInstanceVariable(
+                null, "amount", 100, "修正金额"))
+                .isInstanceOf(ServiceException.class)
+                .hasMessageContaining("实例ID不能为空");
+    }
+
     private WorkflowRuntimeService service(Map<String, Object> responses) {
         return new WorkflowRuntimeServiceImpl(
                 null,
                 null,
                 null,
+                null,
+                null,
+                null,
+                null,
                 mapper(responses),
+                null,
+                null,
+                null,
+                (definitionId, nodeCode) -> WorkflowNodePolicy.legacy(),
+                null,
                 new WorkflowLoginUserSupport(),
+                java.util.List.of(),
                 java.util.List.of(),
                 new WorkflowDistributedLock(redissonClient(true)),
                 new WorkflowAfterCommitEventPublisher(event -> {

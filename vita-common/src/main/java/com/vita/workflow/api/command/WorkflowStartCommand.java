@@ -1,5 +1,7 @@
 package com.vita.workflow.api.command;
 
+import com.vita.workflow.api.model.WorkflowBusinessMetadata;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
@@ -27,4 +29,7 @@ public class WorkflowStartCommand {
     private String businessId;
 
     private Map<String, Object> variables = new HashMap<>();
+
+    @Valid
+    private WorkflowBusinessMetadata metadata;
 }

@@ -13,5 +13,17 @@ public enum WorkflowOperation {
     PASS,
     REJECT_LAST,
     REJECT_TO,
-    CANCEL
+    CANCEL,
+    TRANSFER,
+    DELEGATE,
+    ADD_SIGN,
+    REDUCE_SIGN,
+    TERMINATE,
+    INVALIDATE,
+    ACTIVATE,
+    SUSPEND,
+    VARIABLE_UPDATE,
+    MODIFY_HANDLER,
+    DELETE,
+    DELETE_HISTORY
 }

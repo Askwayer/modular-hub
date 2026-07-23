@@ -6,7 +6,7 @@
 - 流程分类：`REIMBURSE`（展示名由 `workflow_category` 映射为“报销审批”）
 - 流程路径：员工发起 -> 部门主管审批 -> 财务审批 -> 综合管理部审批 -> 总经理审批 -> 完成
 - 已接入 `workflow_reimbursement` 最小业务表，以该定义验收创建、提交、逐级审批、退回、状态同步和撤回
-- 业务状态为 `DRAFT`、`APPROVING`、`RETURNED`、`APPROVED`、`CANCELLED`
+- 业务状态为 `DRAFT`、`APPROVING`、`RETURNED`、`APPROVED`、`CANCELLED`、`TERMINATED`、`INVALIDATED`
 
 ## 2. 节点编码
 
@@ -56,22 +56,23 @@
 
 - `dept_leader_approve` 节点，“返回上一级”和“退回申请人”都会回到 `submit_apply`
 - `finance_approve`、`general_affairs_approve`、`general_manager_approve` 同时保留两种退回路径
-- 流程不做金额分支、不做会签、不做加签、不做抄送
+- 当前报销定义不做金额分支；通用运行时已支持按节点显式配置加签、抄送和终止
 
 ## 5. 设计器选人协议
 
-- 设计器开放“用户 / 角色 / 部门”页签
+- 设计器开放“用户 / 角色 / 部门 / 规则”页签
 - 用户候选来自 `sys_user`
 - 角色候选来自 `sys_role`
 - 部门候选来自 `sys_dept`
 - `SUPER_ADMIN` 在设计器里只展示一条虚拟角色项，不回显物理 `SUPER_ADMIN` 角色记录
 - 员工发起和部门主管节点统一通过变量表达式配置，不通过选择器选人
+- 新流程可选择内置 `DEPT_LEADER` 受控规则，平台生成固定桥接表达式，不接受任意 SpEL
 
 ## 6. 角色准备
 
 升级脚本：`sql/upgrade/vita_workflow_upgrade.sql`
 
-该脚本会重建 `workflow_category` 并清空已有自定义分类；`workflow_reimbursement` 只在缺失时创建，已有报销单不会被删除；审批角色、工作流权限和管理员授权按业务编码幂等补齐。
+该脚本以增量方式补齐 `workflow_category`、默认分类、报销、业务元数据、抄送和办理人规则表，不清空已有分类或业务数据；审批角色、工作流权限和管理员授权按业务编码幂等补齐。
 
 初始化三类物理角色：
 
@@ -139,6 +140,9 @@ Content-Type: application/json
 后续审批人从 `GET /admin/api/workflow/tasks/pending` 获取本人待办并调用通用 `pass` 接口。退回申请人后报销单进入 `RETURNED`，申请人修改后再次调用报销 `submit`，只办理现有申请节点任务。
 
 申请人可在尚无审批人办理时调用 `POST /admin/api/workflow/reimbursements/{id}/withdraw`。撤回使用 `TaskService.terminationByInsId` 终止实例并清空待办，报销单进入 `CANCELLED` 终态，不允许修改或重提；重新申请必须新建报销单。
+
+节点授权的候选办理人调用通用终止接口后，报销单进入 `TERMINATED`；管理员作废实例后进入
+`INVALIDATED`。实例挂起和恢复不改变报销业务状态。三个状态均不允许申请人修改或重提。
 
 查询接口：
 

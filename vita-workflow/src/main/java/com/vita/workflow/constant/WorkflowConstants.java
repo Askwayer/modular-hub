@@ -11,6 +11,18 @@ import java.util.List;
  */
 public final class WorkflowConstants {
 
+    public static final String NODE_EXT_CAPABILITY = "VitaTaskCapability";
+
+    public static final String NODE_EXT_COPY_USER = "VitaCopyUser";
+
+    public static final String NODE_EXT_NEXT_ASSIGNEE = "VitaNextAssignee";
+
+    public static final String NEXT_ASSIGNEE_FIXED = "FIXED";
+
+    public static final String NEXT_ASSIGNEE_SELECT_USER = "SELECT_USER";
+
+    public static final String INTERNAL_NEXT_ASSIGNEE_PREFIX = "_vitaNextAssignee:";
+
     /**
      * 工作流 JSON 导入权限码。
      */
@@ -30,6 +42,43 @@ public final class WorkflowConstants {
      * 工作流实例查看权限码。
      */
     public static final String WORKFLOW_INSTANCE_VIEW_PERMISSION = "system:workflow:instance:view";
+
+    /**
+     * 工作流实例管理权限码。
+     */
+    public static final String WORKFLOW_INSTANCE_MANAGE_PERMISSION = "system:workflow:instance:manage";
+
+    /**
+     * 工作流任务查看权限码。
+     */
+    public static final String WORKFLOW_TASK_VIEW_PERMISSION = "system:workflow:task:view";
+
+    /**
+     * 工作流任务办理人管理权限码。
+     */
+    public static final String WORKFLOW_TASK_MANAGE_PERMISSION = "system:workflow:task:manage";
+
+    /**
+     * 工作流分类查看权限码。
+     */
+    public static final String WORKFLOW_CATEGORY_VIEW_PERMISSION = "system:workflow:category:view";
+
+    /**
+     * 工作流分类管理权限码。
+     */
+    public static final String WORKFLOW_CATEGORY_MANAGE_PERMISSION = "system:workflow:category:manage";
+
+    /**
+     * 工作流办理人规则查看权限码。
+     */
+    public static final String WORKFLOW_ASSIGNEE_RULE_VIEW_PERMISSION =
+            "system:workflow:assignee-rule:view";
+
+    /**
+     * 工作流办理人规则管理权限码。
+     */
+    public static final String WORKFLOW_ASSIGNEE_RULE_MANAGE_PERMISSION =
+            "system:workflow:assignee-rule:manage";
 
     /**
      * 报销工作流查看权限码。
@@ -95,6 +144,11 @@ public final class WorkflowConstants {
      * 办理人选择器中的部门页签名称。
      */
     public static final String DEPT_HANDLER_TYPE = "部门";
+
+    /**
+     * 办理人选择器中的受控规则页签名称。
+     */
+    public static final String RULE_HANDLER_TYPE = "规则";
 
     /**
      * 用户权限标识前缀。

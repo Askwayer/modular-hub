@@ -1,8 +1,13 @@
 package com.vita.config;
 
+import cn.dev33.satoken.annotation.SaCheckPermission;
+import com.vita.workflow.constant.WorkflowConstants;
+import com.vita.workflow.controller.WorkflowReimbursementAdminController;
+import com.vita.workflow.reimbursement.dto.ReimbursementSearchDto;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -41,6 +46,58 @@ class WorkflowRuntimeBoundaryTest {
                 "vita-generator/src/main/java/com/vita/config/CodeGenerator.java"));
         assertThat(generator).contains("private static final String[] TABLE_NAMES = {\"workflow_category\"}");
         assertThat(generator).contains("WARM_FLOW_ENGINE_TABLES", "validateGeneratedTables()");
+    }
+
+    @Test
+    void genericControllersShouldBeAggregatedInWorkflowModule() throws IOException {
+        Path repository = resolveRepositoryRoot();
+        Path workflowController = repository.resolve(
+                "vita-workflow/src/main/java/com/vita/workflow/controller");
+        Path adminController = repository.resolve(
+                "vita-admin/src/main/java/com/vita/controller/workflow");
+
+        List<String> controllerNames = List.of(
+                "WorkflowDefinitionController.java",
+                "WorkflowInstanceController.java",
+                "WorkflowTaskController.java",
+                "WorkflowCategoryController.java",
+                "WorkflowAssigneeRuleController.java",
+                "WorkflowReimbursementController.java",
+                "WorkflowReimbursementAdminController.java");
+        for (String controllerName : controllerNames) {
+            Path controller = workflowController.resolve(controllerName);
+            assertThat(controller).exists();
+            assertThat(Files.readString(controller))
+                    .doesNotContain(
+                            ".mapper.",
+                            "org.dromara.warm.flow.core.service",
+                            "TransactionTemplate",
+                            "PlatformTransactionManager",
+                            "WorkflowAfterCommitEventPublisher");
+        }
+
+        if (Files.isDirectory(adminController)) {
+            try (var paths = Files.list(adminController)) {
+                assertThat(paths.filter(path -> path.toString().endsWith(".java")).toList()).isEmpty();
+            }
+        }
+        assertThat(workflowController.resolve("api")).doesNotExist();
+        assertThat(workflowController.resolve("impl")).doesNotExist();
+        assertThat(workflowController.resolve("WorkflowControllerConfiguration.java")).doesNotExist();
+        assertThat(repository.resolve(
+                "vita-workflow/src/main/resources/META-INF/spring/"
+                        + "org.springframework.boot.autoconfigure.AutoConfiguration.imports"))
+                .doesNotExist();
+    }
+
+    @Test
+    void reimbursementManagementMethodsShouldDeclarePermissionDirectly() throws NoSuchMethodException {
+        assertPermission("page", WorkflowConstants.WORKFLOW_REIMBURSEMENT_VIEW_PERMISSION,
+                ReimbursementSearchDto.class);
+        assertPermission("detail", WorkflowConstants.WORKFLOW_REIMBURSEMENT_VIEW_PERMISSION,
+                Long.class);
+        assertPermission("resync", WorkflowConstants.WORKFLOW_REIMBURSEMENT_RESYNC_PERMISSION,
+                String.class);
     }
 
     @Test
@@ -87,12 +144,13 @@ class WorkflowRuntimeBoundaryTest {
                         " JOIN ",
                         "ALTER TABLE",
                         "information_schema.statistics",
+                        "DROP TABLE IF EXISTS `workflow_category`",
                         "DROP TABLE IF EXISTS `sys_role`",
                         "DROP TABLE IF EXISTS `sys_permission`",
                         "DROP TABLE IF EXISTS `sys_role_permission`"
                 )
                 .contains(
-                        "DROP TABLE IF EXISTS `workflow_category`",
+                        "CREATE TABLE IF NOT EXISTS `workflow_category`",
                         "@next_role_id",
                         "@next_permission_id",
                         "@next_role_permission_id",
@@ -105,12 +163,30 @@ class WorkflowRuntimeBoundaryTest {
                         "system:workflow:definition:view",
                         "system:workflow:definition:manage",
                         "system:workflow:instance:view",
+                        "system:workflow:instance:manage",
+                        "system:workflow:task:view",
+                        "system:workflow:task:manage",
+                        "system:workflow:category:view",
+                        "system:workflow:category:manage",
+                        "system:workflow:assignee-rule:view",
+                        "system:workflow:assignee-rule:manage",
                         "CREATE TABLE IF NOT EXISTS `workflow_reimbursement`",
+                        "CREATE TABLE IF NOT EXISTS `workflow_instance_metadata`",
+                        "CREATE TABLE IF NOT EXISTS `workflow_task_copy`",
+                        "CREATE TABLE IF NOT EXISTS `workflow_assignee_rule`",
                         "system:workflow:reimbursement:view",
                         "system:workflow:reimbursement:resync"
                 );
-        assertThat(vitaWorkflowSql).doesNotContain("DROP TABLE IF EXISTS `workflow_reimbursement`");
-        assertThat(initSql).contains("CREATE TABLE `workflow_reimbursement`");
+        assertThat(vitaWorkflowSql).doesNotContain(
+                "DROP TABLE IF EXISTS `workflow_reimbursement`",
+                "DROP TABLE IF EXISTS `workflow_instance_metadata`",
+                "DROP TABLE IF EXISTS `workflow_task_copy`",
+                "DROP TABLE IF EXISTS `workflow_assignee_rule`");
+        assertThat(initSql).contains(
+                "CREATE TABLE `workflow_reimbursement`",
+                "CREATE TABLE IF NOT EXISTS `workflow_instance_metadata`",
+                "CREATE TABLE IF NOT EXISTS `workflow_task_copy`",
+                "CREATE TABLE IF NOT EXISTS `workflow_assignee_rule`");
 
         try (var paths = Files.list(repository.resolve("sql/upgrade"))) {
             List<String> workflowScripts = paths
@@ -133,6 +209,24 @@ class WorkflowRuntimeBoundaryTest {
                 .doesNotContain("taskService.revoke(");
     }
 
+    @Test
+    void advancedOperationsShouldUseWarmFlowServicesWithoutEngineWriteMappers() throws IOException {
+        Path repository = resolveRepositoryRoot();
+        String runtimeService = Files.readString(repository.resolve(
+                "vita-workflow/src/main/java/com/vita/workflow/runtime/service/impl/WorkflowRuntimeServiceImpl.java"));
+
+        assertThat(runtimeService).contains(
+                "taskService.updateHandler",
+                "taskService.termination",
+                "nodeService.getNextNodeList");
+        assertThat(repository.resolve(
+                "vita-workflow/src/main/java/com/vita/workflow/runtime/mapper/FlowTaskMapper.java"))
+                .doesNotExist();
+        assertThat(repository.resolve(
+                "vita-workflow/src/main/java/com/vita/workflow/runtime/mapper/FlowUserMapper.java"))
+                .doesNotExist();
+    }
+
     private boolean containsJoin(Path path) {
         try {
             String normalized = Files.readString(path).toLowerCase(Locale.ROOT)
@@ -141,6 +235,14 @@ class WorkflowRuntimeBoundaryTest {
         } catch (IOException ex) {
             throw new IllegalStateException("读取文件失败：" + path, ex);
         }
+    }
+
+    private void assertPermission(String methodName, String permission,
+                                  Class<?>... parameterTypes) throws NoSuchMethodException {
+        Method method = WorkflowReimbursementAdminController.class.getMethod(methodName, parameterTypes);
+        SaCheckPermission annotation = method.getAnnotation(SaCheckPermission.class);
+        assertThat(annotation).as("WorkflowReimbursementAdminController#" + methodName).isNotNull();
+        assertThat(annotation.value()).containsExactly(permission);
     }
 
     private List<Path> sourceAndSqlRoots(Path repository) throws IOException {

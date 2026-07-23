@@ -18,6 +18,8 @@ public class WorkflowInstanceVo {
     private Long instanceId;
     private Long definitionId;
     private String businessId;
+    private String businessCode;
+    private String businessTitle;
     private String flowCode;
     private String flowName;
     private String category;

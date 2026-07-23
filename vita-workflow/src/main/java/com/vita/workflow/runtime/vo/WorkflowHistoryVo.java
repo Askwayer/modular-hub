@@ -28,6 +28,7 @@ public class WorkflowHistoryVo {
     private String skipType;
     private String flowStatus;
     private String message;
+    private String attachmentRef;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
 }
