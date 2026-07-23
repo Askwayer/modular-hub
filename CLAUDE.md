@@ -25,6 +25,8 @@ This file provides a concise operating summary for Claude Code in this repositor
 
 - 默认遵守 `AICoding/rules/be-vita-ai-codegen-rules.md`；本文件不再复制一套独立规范。
 - Controller 只接参与返回，业务编排放 Service，单表持久化细节放 Mapper。
+- 新增表如需标准 CRUD，必须先参照 `vita-generator` 模板生成骨架，再做业务改造，不允许直接随意手写一套。
+- 核心业务代码要求在关键业务规则、事务边界、状态流转、并发控制和外部集成位置补中文注释，不要求逐行加注释。
 - 新建表默认字段规范适用于除纯关联表外的所有新表：`tenant_id`、`create_time`、`update_time`、`is_deleted`、`create_by_id`、`create_by`、`update_by_id`、`update_by`、`version`、`remark`。
 - 代表性样例使用 `sys_user`；`pwd_update_date` 是 `sys_user` 业务字段，不属于全局强制字段。
 - 任何认证、RBAC、日志、DDL 或初始化脚本变更，都必须同步更新 `docs/` 和 `sql/`。
