@@ -1,8 +1,8 @@
 package com.vita.config;
 
 import cn.dev33.satoken.annotation.SaCheckPermission;
-import com.vita.controller.workflow.WorkflowReimbursementAdminController;
 import com.vita.workflow.constant.WorkflowConstants;
+import com.vita.workflow.controller.WorkflowReimbursementAdminController;
 import com.vita.workflow.reimbursement.dto.ReimbursementSearchDto;
 import org.junit.jupiter.api.Test;
 
@@ -56,25 +56,38 @@ class WorkflowRuntimeBoundaryTest {
         Path adminController = repository.resolve(
                 "vita-admin/src/main/java/com/vita/controller/workflow");
 
-        assertThat(workflowController.resolve("api/WorkflowDefinitionControllerApi.java")).exists();
-        assertThat(workflowController.resolve("api/WorkflowInstanceControllerApi.java")).exists();
-        assertThat(workflowController.resolve("api/WorkflowTaskControllerApi.java")).exists();
-        assertThat(workflowController.resolve("WorkflowControllerConfiguration.java")).exists();
-        assertThat(adminController.resolve("WorkflowReimbursementController.java")).exists();
-        assertThat(adminController.resolve("WorkflowReimbursementAdminController.java")).exists();
+        List<String> controllerNames = List.of(
+                "WorkflowDefinitionController.java",
+                "WorkflowInstanceController.java",
+                "WorkflowTaskController.java",
+                "WorkflowCategoryController.java",
+                "WorkflowAssigneeRuleController.java",
+                "WorkflowReimbursementController.java",
+                "WorkflowReimbursementAdminController.java");
+        for (String controllerName : controllerNames) {
+            Path controller = workflowController.resolve(controllerName);
+            assertThat(controller).exists();
+            assertThat(Files.readString(controller))
+                    .doesNotContain(
+                            ".mapper.",
+                            "org.dromara.warm.flow.core.service",
+                            "TransactionTemplate",
+                            "PlatformTransactionManager",
+                            "WorkflowAfterCommitEventPublisher");
+        }
 
-        assertThat(adminController.resolve("WorkflowController.java")).doesNotExist();
-        assertThat(adminController.resolve("WorkflowDefinitionAdminController.java")).doesNotExist();
-        assertThat(adminController.resolve("WorkflowInstanceAdminController.java")).doesNotExist();
-        assertThat(adminController.resolve("WorkflowRuntimeDefinitionController.java")).doesNotExist();
-        assertThat(adminController.resolve("WorkflowRuntimeInstanceController.java")).doesNotExist();
-        assertThat(adminController.resolve("WorkflowRuntimeTaskController.java")).doesNotExist();
-
-        String autoConfigurations = Files.readString(repository.resolve(
+        if (Files.isDirectory(adminController)) {
+            try (var paths = Files.list(adminController)) {
+                assertThat(paths.filter(path -> path.toString().endsWith(".java")).toList()).isEmpty();
+            }
+        }
+        assertThat(workflowController.resolve("api")).doesNotExist();
+        assertThat(workflowController.resolve("impl")).doesNotExist();
+        assertThat(workflowController.resolve("WorkflowControllerConfiguration.java")).doesNotExist();
+        assertThat(repository.resolve(
                 "vita-workflow/src/main/resources/META-INF/spring/"
-                        + "org.springframework.boot.autoconfigure.AutoConfiguration.imports"));
-        assertThat(autoConfigurations).contains(
-                "com.vita.workflow.controller.WorkflowControllerConfiguration");
+                        + "org.springframework.boot.autoconfigure.AutoConfiguration.imports"))
+                .doesNotExist();
     }
 
     @Test
@@ -131,12 +144,13 @@ class WorkflowRuntimeBoundaryTest {
                         " JOIN ",
                         "ALTER TABLE",
                         "information_schema.statistics",
+                        "DROP TABLE IF EXISTS `workflow_category`",
                         "DROP TABLE IF EXISTS `sys_role`",
                         "DROP TABLE IF EXISTS `sys_permission`",
                         "DROP TABLE IF EXISTS `sys_role_permission`"
                 )
                 .contains(
-                        "DROP TABLE IF EXISTS `workflow_category`",
+                        "CREATE TABLE IF NOT EXISTS `workflow_category`",
                         "@next_role_id",
                         "@next_permission_id",
                         "@next_role_permission_id",
@@ -149,12 +163,30 @@ class WorkflowRuntimeBoundaryTest {
                         "system:workflow:definition:view",
                         "system:workflow:definition:manage",
                         "system:workflow:instance:view",
+                        "system:workflow:instance:manage",
+                        "system:workflow:task:view",
+                        "system:workflow:task:manage",
+                        "system:workflow:category:view",
+                        "system:workflow:category:manage",
+                        "system:workflow:assignee-rule:view",
+                        "system:workflow:assignee-rule:manage",
                         "CREATE TABLE IF NOT EXISTS `workflow_reimbursement`",
+                        "CREATE TABLE IF NOT EXISTS `workflow_instance_metadata`",
+                        "CREATE TABLE IF NOT EXISTS `workflow_task_copy`",
+                        "CREATE TABLE IF NOT EXISTS `workflow_assignee_rule`",
                         "system:workflow:reimbursement:view",
                         "system:workflow:reimbursement:resync"
                 );
-        assertThat(vitaWorkflowSql).doesNotContain("DROP TABLE IF EXISTS `workflow_reimbursement`");
-        assertThat(initSql).contains("CREATE TABLE `workflow_reimbursement`");
+        assertThat(vitaWorkflowSql).doesNotContain(
+                "DROP TABLE IF EXISTS `workflow_reimbursement`",
+                "DROP TABLE IF EXISTS `workflow_instance_metadata`",
+                "DROP TABLE IF EXISTS `workflow_task_copy`",
+                "DROP TABLE IF EXISTS `workflow_assignee_rule`");
+        assertThat(initSql).contains(
+                "CREATE TABLE `workflow_reimbursement`",
+                "CREATE TABLE IF NOT EXISTS `workflow_instance_metadata`",
+                "CREATE TABLE IF NOT EXISTS `workflow_task_copy`",
+                "CREATE TABLE IF NOT EXISTS `workflow_assignee_rule`");
 
         try (var paths = Files.list(repository.resolve("sql/upgrade"))) {
             List<String> workflowScripts = paths
@@ -175,6 +207,24 @@ class WorkflowRuntimeBoundaryTest {
         assertThat(runtimeService)
                 .contains("taskService.terminationByInsId", "PROTECTED_TASK_VARIABLES")
                 .doesNotContain("taskService.revoke(");
+    }
+
+    @Test
+    void advancedOperationsShouldUseWarmFlowServicesWithoutEngineWriteMappers() throws IOException {
+        Path repository = resolveRepositoryRoot();
+        String runtimeService = Files.readString(repository.resolve(
+                "vita-workflow/src/main/java/com/vita/workflow/runtime/service/impl/WorkflowRuntimeServiceImpl.java"));
+
+        assertThat(runtimeService).contains(
+                "taskService.updateHandler",
+                "taskService.termination",
+                "nodeService.getNextNodeList");
+        assertThat(repository.resolve(
+                "vita-workflow/src/main/java/com/vita/workflow/runtime/mapper/FlowTaskMapper.java"))
+                .doesNotExist();
+        assertThat(repository.resolve(
+                "vita-workflow/src/main/java/com/vita/workflow/runtime/mapper/FlowUserMapper.java"))
+                .doesNotExist();
     }
 
     private boolean containsJoin(Path path) {

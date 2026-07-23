@@ -83,5 +83,7 @@ vita-scheduler -> vita-service -> vita-common
 ## 配置与约束
 
 - 当前 `application.yml` 通过 `${vita.*}` 占位符读取外部化配置，请在 profile 文件或运行环境中提供对应值。
+- 新增表如需落标准 CRUD，必须先参照 `vita-generator` 模板生成基础骨架，再进行业务补充，不允许从零随意手写一套风格不一致的 CRUD。
+- 核心业务代码应在关键业务规则、事务边界、状态流转、并发控制和外部集成等位置补充中文注释，不要求机械式逐行注释。
 - 新建表默认字段规范、分层约束、事务规则和 starter 专项规则，以 `AICoding/rules/be-vita-ai-codegen-rules.md` 为准。
 - 涉及认证、RBAC、日志、DDL 或初始化脚本的变更，必须同步更新对应 `docs/` 与 `sql/`。

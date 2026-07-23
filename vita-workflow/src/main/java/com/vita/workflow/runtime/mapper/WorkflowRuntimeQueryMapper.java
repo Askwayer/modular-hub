@@ -5,10 +5,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.vita.workflow.runtime.dto.WorkflowDefinitionSearchDto;
 import com.vita.workflow.runtime.dto.WorkflowInstanceSearchDto;
 import com.vita.workflow.runtime.dto.WorkflowTaskSearchDto;
-import com.vita.workflow.runtime.vo.WorkflowDefinitionVo;
-import com.vita.workflow.runtime.vo.WorkflowHistoryVo;
-import com.vita.workflow.runtime.vo.WorkflowInstanceVo;
-import com.vita.workflow.runtime.vo.WorkflowTaskVo;
+import com.vita.workflow.runtime.vo.*;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -48,6 +45,16 @@ public interface WorkflowRuntimeQueryMapper {
                                                   @Param("query") WorkflowTaskSearchDto query,
                                                   @Param("approverId") String approverId);
 
+    IPage<WorkflowTaskVo> selectAllPendingTaskPage(Page<WorkflowTaskVo> page,
+                                                   @Param("query") WorkflowTaskSearchDto query);
+
+    IPage<WorkflowTaskVo> selectAllCompletedTaskPage(Page<WorkflowTaskVo> page,
+                                                     @Param("query") WorkflowTaskSearchDto query);
+
+    IPage<WorkflowCopyVo> selectCopiedTaskPage(Page<WorkflowCopyVo> page,
+                                               @Param("query") WorkflowTaskSearchDto query,
+                                               @Param("recipientUserId") Long recipientUserId);
+
     WorkflowTaskVo selectTaskById(@Param("taskId") Long taskId);
 
     List<WorkflowHistoryVo> selectHistoryByInstanceId(@Param("instanceId") Long instanceId);
@@ -65,5 +72,11 @@ public interface WorkflowRuntimeQueryMapper {
 
     long countInstancesByDefinitionId(@Param("definitionId") Long definitionId);
 
+    long countDefinitionsByCategory(@Param("categoryCode") String categoryCode);
+
+    long countNodesByPermissionExpression(@Param("expression") String expression);
+
     Long selectCurrentTaskId(@Param("instanceId") Long instanceId);
+
+    Long selectLatestHistoryIdByTaskId(@Param("taskId") Long taskId);
 }

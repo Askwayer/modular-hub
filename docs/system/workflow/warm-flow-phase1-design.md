@@ -94,7 +94,7 @@ Warm-Flow 内置 `/warm-flow/**` 同时包含业务办理和管理能力。普�
 
 be-vita 自建 `workflow_category`、`workflow_reimbursement` 继续遵循仓库审计字段规范。已有环境依次执行
 `sql/upgrade/warm_flow_upgrade.sql` 和 `sql/upgrade/vita_workflow_upgrade.sql`。前者删除并重建全部 8 张
-Warm-Flow 引擎表，后者删除并重建 `workflow_category`，但只在缺失时创建 `workflow_reimbursement`，不会删除已有报销单；执行前必须备份需要保留的流程和分类数据。
+Warm-Flow 引擎表；后者是常规幂等增量脚本，只在缺失时创建 `workflow_category` 和业务扩展表，并按业务编码补齐默认分类与 RBAC 数据，不删除已有分类或报销单。执行破坏性引擎重建前必须备份需要保留的流程数据。
 
 ## 8. 第二阶段衔接
 

@@ -14,8 +14,12 @@ import com.vita.system.sysRole.entity.SysRole;
 import com.vita.system.sysRole.service.ISysRoleService;
 import com.vita.system.sysUser.entity.SysUser;
 import com.vita.system.sysUser.service.ISysUserService;
+import com.vita.workflow.api.WorkflowHandlerSource;
 import com.vita.workflow.config.ConditionalOnWorkflowEnabled;
 import com.vita.workflow.constant.WorkflowConstants;
+import com.vita.workflow.flow.rule.service.WorkflowAssigneeRuleService;
+import com.vita.workflow.flow.rule.vo.WorkflowAssigneeRuleVo;
+import jakarta.annotation.Resource;
 import org.dromara.warm.flow.core.dto.Tree;
 import org.dromara.warm.flow.ui.dto.HandlerQuery;
 import org.dromara.warm.flow.ui.service.HandlerSelectService;
@@ -29,9 +33,12 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * Warm-Flow 设计器办理人选择器，候选用户、角色和部门均来自系统表。
- *
- * @author Codex
+ * @BelongsProject: be-vita
+ * @BelongsPackage: com.vita.workflow.service.handler
+ * @Author: znk
+ * @CreateTime: 2026-07-23
+ * @Description: Warm-Flow设计器办理人聚合选择器
+ * @Version: 1.0
  */
 @Component
 @ConditionalOnWorkflowEnabled
@@ -47,18 +54,32 @@ public class HandlerSelectServiceImpl implements HandlerSelectService {
 
     private static final String NO_DEPT_GROUP_NAME = "未分配部门";
 
+    private static final String RULE_GROUP_NAME = "受控规则";
+
     private final ISysRoleService sysRoleService;
 
     private final ISysDeptService sysDeptService;
 
     private final ISysUserService sysUserService;
 
+    private final Map<String, java.util.function.Function<HandlerQuery, HandlerSelectVo>> handlerSources;
+
+    @Resource
+    private WorkflowAssigneeRuleService workflowAssigneeRuleService;
+
     public HandlerSelectServiceImpl(ISysRoleService sysRoleService,
                                     ISysDeptService sysDeptService,
-                                    ISysUserService sysUserService) {
+                                    ISysUserService sysUserService,
+                                    List<WorkflowHandlerSource> extensionSources) {
         this.sysRoleService = sysRoleService;
         this.sysDeptService = sysDeptService;
         this.sysUserService = sysUserService;
+        this.handlerSources = new LinkedHashMap<>();
+        handlerSources.put(WorkflowConstants.USER_HANDLER_TYPE, this::queryUsers);
+        handlerSources.put(WorkflowConstants.ROLE_HANDLER_TYPE, this::queryRoles);
+        handlerSources.put(WorkflowConstants.DEPT_HANDLER_TYPE, this::queryDepts);
+        handlerSources.put(WorkflowConstants.RULE_HANDLER_TYPE, this::queryRules);
+        registerExtensionSources(extensionSources);
     }
 
     /**
@@ -68,9 +89,7 @@ public class HandlerSelectServiceImpl implements HandlerSelectService {
      */
     @Override
     public List<String> getHandlerType() {
-        return CollUtil.newArrayList(WorkflowConstants.USER_HANDLER_TYPE,
-                WorkflowConstants.ROLE_HANDLER_TYPE,
-                WorkflowConstants.DEPT_HANDLER_TYPE);
+        return new ArrayList<>(handlerSources.keySet());
     }
 
     /**
@@ -82,13 +101,52 @@ public class HandlerSelectServiceImpl implements HandlerSelectService {
     @Override
     public HandlerSelectVo getHandlerSelect(HandlerQuery query) {
         String handlerType = resolveHandlerType(query);
-        if (WorkflowConstants.USER_HANDLER_TYPE.equals(handlerType)) {
-            return queryUsers(query);
+        return handlerSources.getOrDefault(
+                handlerType, handlerSources.get(WorkflowConstants.ROLE_HANDLER_TYPE)).apply(query);
+    }
+
+    /**
+     * 注册业务模块提供的办理人来源。内置类型优先，重复编码直接拒绝启动。
+     *
+     * @param extensionSources 扩展办理人来源
+     */
+    private void registerExtensionSources(List<WorkflowHandlerSource> extensionSources) {
+        if (extensionSources == null) {
+            return;
         }
-        if (WorkflowConstants.DEPT_HANDLER_TYPE.equals(handlerType)) {
-            return queryDepts(query);
+        for (WorkflowHandlerSource source : extensionSources) {
+            if (source == null || CharSequenceUtil.isBlank(source.type())) {
+                continue;
+            }
+            if (handlerSources.putIfAbsent(source.type(), query -> queryExtension(source, query)) != null) {
+                throw new IllegalStateException("工作流办理人来源编码重复: " + source.type());
+            }
         }
-        return queryRoles(query);
+    }
+
+    /**
+     * 调用扩展来源并校验其返回值可供 Warm-Flow 设计器使用。
+     *
+     * @param source 扩展办理人来源
+     * @param query Warm-Flow查询条件
+     * @return 办理人选择结果
+     */
+    private HandlerSelectVo queryExtension(WorkflowHandlerSource source, HandlerQuery query) {
+        Map<String, Object> sourceQuery = new LinkedHashMap<>();
+        if (query != null) {
+            sourceQuery.put("handlerType", query.getHandlerType());
+            sourceQuery.put("handlerCode", query.getHandlerCode());
+            sourceQuery.put("handlerName", query.getHandlerName());
+            sourceQuery.put("groupId", query.getGroupId());
+            sourceQuery.put("pageNum", query.getPageNum());
+            sourceQuery.put("pageSize", query.getPageSize());
+        }
+        Object result = source.query(sourceQuery);
+        if (result instanceof HandlerSelectVo handlerSelectVo) {
+            return handlerSelectVo;
+        }
+        throw new IllegalStateException(
+                "工作流办理人来源返回类型无效: " + source.type());
     }
 
     /**
@@ -133,11 +191,46 @@ public class HandlerSelectServiceImpl implements HandlerSelectService {
         Map<Long, String> userNameMap = queryUserNameMap(userIds);
         Map<String, String> roleNameMap = queryRoleNameMap(roleCodes);
         Map<Long, String> deptNameMap = queryDeptNameMap(deptIds);
+        Map<String, String> ruleNameMap = queryRuleNameMap();
 
         return storageIds.stream()
                 .map(storageId -> new HandlerFeedBackVo(storageId,
-                        resolveFeedbackName(storageId, userNameMap, roleNameMap, deptNameMap)))
+                        resolveFeedbackName(
+                                storageId, userNameMap, roleNameMap, deptNameMap, ruleNameMap)))
                 .toList();
+    }
+
+    /**
+     * 查询平台注册的受控办理人规则。返回的存储值只能由平台固定模板生成，
+     * 管理端不能向流程定义写入任意表达式。
+     *
+     * @param query 查询条件
+     * @return 受控规则选择结果
+     */
+    private HandlerSelectVo queryRules(HandlerQuery query) {
+        if (workflowAssigneeRuleService == null) {
+            return getResult(List.of(), 0);
+        }
+        List<WorkflowAssigneeRuleVo> filtered = workflowAssigneeRuleService.list(true)
+                .stream()
+                .filter(rule -> matchesKeyword(
+                        query == null ? null : query.getHandlerCode(), rule.getRuleCode()))
+                .filter(rule -> matchesKeyword(
+                        query == null ? null : query.getHandlerName(), rule.getRuleName()))
+                .toList();
+        int pageNum = resolvePageNum(query);
+        int pageSize = resolvePageSize(query);
+        int fromIndex = Math.min((pageNum - 1) * pageSize, filtered.size());
+        int toIndex = Math.min(fromIndex + pageSize, filtered.size());
+        List<HandlerAuth> handlers = filtered.subList(fromIndex, toIndex)
+                .stream()
+                .map(rule -> new HandlerAuth()
+                        .setStorageId(rule.getExpression())
+                        .setHandlerCode(rule.getRuleCode())
+                        .setHandlerName(rule.getRuleName())
+                        .setGroupName(RULE_GROUP_NAME))
+                .toList();
+        return getResult(handlers, filtered.size());
     }
 
     /**
@@ -320,7 +413,8 @@ public class HandlerSelectServiceImpl implements HandlerSelectService {
     private String resolveFeedbackName(String storageId,
                                        Map<Long, String> userNameMap,
                                        Map<String, String> roleNameMap,
-                                       Map<Long, String> deptNameMap) {
+                                       Map<Long, String> deptNameMap,
+                                       Map<String, String> ruleNameMap) {
         if (CharSequenceUtil.isBlank(storageId)) {
             return "";
         }
@@ -340,7 +434,19 @@ public class HandlerSelectServiceImpl implements HandlerSelectService {
             Long deptId = parseLong(removePrefix(storageId, WorkflowConstants.DEPT_PERMISSION_PREFIX));
             return deptId == null ? "" : deptNameMap.getOrDefault(deptId, "");
         }
-        return "";
+        return ruleNameMap.getOrDefault(storageId, "");
+    }
+
+    private Map<String, String> queryRuleNameMap() {
+        if (workflowAssigneeRuleService == null) {
+            return Map.of();
+        }
+        return workflowAssigneeRuleService.list(false)
+                .stream()
+                .collect(Collectors.toMap(
+                        WorkflowAssigneeRuleVo::getExpression,
+                        WorkflowAssigneeRuleVo::getRuleName,
+                        (left, right) -> left));
     }
 
     /**

@@ -46,6 +46,8 @@ public class WorkflowLoginUserSupport {
             return List.of();
         }
         Set<String> permissions = new LinkedHashSet<>();
+        // Warm-Flow 协作操作使用原始办理人ID，设计节点继续使用带类型前缀的权限标识。
+        permissions.add(String.valueOf(userId));
         permissions.add(WorkflowConstants.buildUserPermission(userId));
         for (String roleCode : getCurrentRoleCodes()) {
             String rolePermission = WorkflowConstants.buildRolePermission(roleCode);

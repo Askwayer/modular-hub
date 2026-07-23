@@ -376,6 +376,13 @@ List<RouterVo>           // 前端路由树
 - `system:workflow:definition:view`
 - `system:workflow:definition:manage`
 - `system:workflow:instance:view`
+- `system:workflow:instance:manage`
+- `system:workflow:task:view`
+- `system:workflow:task:manage`
+- `system:workflow:category:view`
+- `system:workflow:category:manage`
+- `system:workflow:assignee-rule:view`
+- `system:workflow:assignee-rule:manage`
 - `system:workflow:reimbursement:view`
 - `system:workflow:reimbursement:resync`
 - `system:oper-log:view/delete`
@@ -397,10 +404,17 @@ List<RouterVo>           // 前端路由树
 - `PUT /system/workflow/definitions/{id}/publish`、`PUT /system/workflow/definitions/{id}/unpublish` -> `system:workflow:definition:manage`
 - `POST /system/workflow/definitions/{id}/copy`、`DELETE /system/workflow/definitions/{id}` -> `system:workflow:definition:manage`
 - `GET /system/workflow/instances/**` -> `system:workflow:instance:view`
+- `PUT /system/workflow/instances/{id}/activity`、`POST /system/workflow/instances/{id}/invalidate` -> `system:workflow:instance:manage`
+- `GET /system/workflow/tasks/**` -> `system:workflow:task:view`
+- `PUT /system/workflow/tasks/{id}/handlers` -> `system:workflow:task:manage`
+- `GET /system/workflow/categories/**` -> `system:workflow:category:view`
+- `POST/PUT/DELETE /system/workflow/categories/**` -> `system:workflow:category:manage`
+- `GET /system/workflow/assignee-rules/**` -> `system:workflow:assignee-rule:view`
+- `POST/PUT/DELETE /system/workflow/assignee-rules/**` -> `system:workflow:assignee-rule:manage`
 - `GET /system/workflow/reimbursements/**` -> `system:workflow:reimbursement:view`
 - `POST /system/workflow/reimbursements/resync` -> `system:workflow:reimbursement:resync`
 
-已有环境通过 `sql/upgrade/vita_workflow_upgrade.sql` 按角色码和权限码幂等补齐工作流 RBAC 数据。该脚本同时会重建 `workflow_category`，执行前必须备份自定义分类。
+已有环境通过 `sql/upgrade/vita_workflow_upgrade.sql` 按角色码和权限码幂等补齐工作流 RBAC 数据。该脚本以增量方式补齐 `workflow_category` 和默认分类，不删除已有自定义分类。
 
 工作流补充边界：
 
@@ -409,7 +423,8 @@ List<RouterVo>           // 前端路由树
 - 其余 `/warm-flow/**` 内置设计和管理接口只允许 `SUB_ADMIN` / `SUPER_ADMIN`
 - `/workflow/**` 统一要求登录，实例查看和任务办理还必须通过 service 层归属检查
 - `/system/workflow/**` 是管理端接口，必须同时具备对应 `system:workflow:*` 权限和 `SUB_ADMIN` / `SUPER_ADMIN` 角色
-- 定义管理支持查看、发布、取消发布、复制和安全删除；实例监控只读，不提供修改状态或变量接口
+- 定义管理支持查看、导出、发布、取消发布、复制、激活、挂起和安全删除
+- 实例管理只提供激活、挂起和作废，不提供删除、管理员强改办理人或任意变量修改
 
 ---
 

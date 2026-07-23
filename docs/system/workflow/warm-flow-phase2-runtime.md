@@ -89,12 +89,12 @@ sql/upgrade/warm_flow_upgrade.sql
 sql/upgrade/vita_workflow_upgrade.sql
 ```
 
-`warm_flow_upgrade.sql` 会删除并重建全部 Warm-Flow 引擎表，永久清空流程定义、实例、任务、历史、办理人和表单数据；`vita_workflow_upgrade.sql` 会删除并重建 `workflow_category`，仅恢复默认分类，并通过 `CREATE TABLE IF NOT EXISTS` 补齐报销表，不删除已有报销数据。角色、权限和管理员授权不清空，按业务编码幂等补齐。引擎表继续使用 `sql/init/workflow.sql` 的原始索引，不增加增强索引。
+`warm_flow_upgrade.sql` 会删除并重建全部 Warm-Flow 引擎表，永久清空流程定义、实例、任务、历史、办理人和表单数据，仅限明确接受清空风险时人工执行；`vita_workflow_upgrade.sql` 是常规幂等增量脚本，通过 `CREATE TABLE IF NOT EXISTS` 补齐分类和扩展表，并按业务编码补齐默认分类、角色、权限及管理员授权，不删除已有数据。引擎表继续使用 `sql/init/workflow.sql` 的原始索引，不增加增强索引。
 
 ## 8. 启停与发布
 
 - 所有自建工作流 Bean 和 Controller 受 `vita.workflow.enabled` 控制。
-- 通用 Controller 默认实现由 `WorkflowControllerConfiguration` 自动装配；存在同接口自定义 Bean 时默认实现自动退让，不提供额外 YAML 分组开关。
+- 七个具体工作流 Controller 位于 `vita-workflow` 并由组件扫描直接注册；不保留 API/默认实现替换层，也不提供额外 YAML 分组开关。
 - 设计器静态资源和 `/warm-flow-ui/config` 公开；Warm-Flow 表单加载和办理接口要求登录；其余 `/warm-flow/**` 限管理员角色；`/system/workflow/**` 执行权限码与管理员角色双重校验。
 - 发布前备份需要保留的数据，再按文档顺序执行两个重建脚本并重新导入流程定义。
 

@@ -22,4 +22,8 @@ public class WorkflowDefinitionSearchDto extends PageRequest {
 
     @Size(max = 64, message = "流程分类长度不能超过64")
     private String category;
+
+    private Integer isPublish;
+
+    private Integer activityStatus;
 }

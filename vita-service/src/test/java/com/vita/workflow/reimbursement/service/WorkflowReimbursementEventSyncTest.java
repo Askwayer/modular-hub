@@ -58,6 +58,30 @@ class WorkflowReimbursementEventSyncTest {
     }
 
     @Test
+    void terminateShouldMarkReimbursementTerminated() {
+        assertEventStatus(WorkflowOperation.TERMINATE, "dept_leader_approve",
+                "4", ReimbursementStatus.TERMINATED);
+    }
+
+    @Test
+    void invalidateShouldMarkReimbursementInvalidated() {
+        assertEventStatus(WorkflowOperation.INVALIDATE, "dept_leader_approve",
+                "5", ReimbursementStatus.INVALIDATED);
+    }
+
+    @Test
+    void suspendAndActivateShouldNotChangeBusinessStatus() {
+        AtomicReference<WorkflowReimbursement> stored = new AtomicReference<>(reimbursement());
+        WorkflowReimbursementService service = new WorkflowReimbursementServiceImpl(mapper(stored), null);
+
+        service.syncFromEvent(event(stored.get(), WorkflowOperation.SUSPEND, "7"));
+        service.syncFromEvent(event(stored.get(), WorkflowOperation.ACTIVATE, "1"));
+
+        assertThat(stored.get().getBusinessStatus()).isEqualTo(ReimbursementStatus.APPROVING);
+        assertThat(stored.get().getInstanceId()).isNull();
+    }
+
+    @Test
     void nonParticipantShouldNotReadReimbursement() {
         AtomicReference<WorkflowReimbursement> stored = new AtomicReference<>(reimbursement());
         stored.get().setApplicantId(100L);
@@ -108,14 +132,27 @@ class WorkflowReimbursementEventSyncTest {
         AtomicReference<WorkflowReimbursement> stored = new AtomicReference<>(reimbursement());
         WorkflowReimbursementService service = new WorkflowReimbursementServiceImpl(mapper(stored), null);
 
-        service.syncFromEvent(new WorkflowChangedEvent(
-                UUID.randomUUID(), Instant.now(), operation, ReimbursementConstants.FLOW_CODE,
-                1L, 2L, stored.get().getBusinessId(), 3L, 4L,
-                "source", targetNodeCode, flowStatus
-        ));
+        service.syncFromEvent(event(stored.get(), operation, targetNodeCode, flowStatus));
 
         assertThat(stored.get().getBusinessStatus()).isEqualTo(expectedStatus);
         assertThat(stored.get().getInstanceId()).isEqualTo(2L);
+    }
+
+    private WorkflowChangedEvent event(WorkflowReimbursement reimbursement,
+                                       WorkflowOperation operation,
+                                       String flowStatus) {
+        return event(reimbursement, operation, "dept_leader_approve", flowStatus);
+    }
+
+    private WorkflowChangedEvent event(WorkflowReimbursement reimbursement,
+                                       WorkflowOperation operation,
+                                       String targetNodeCode,
+                                       String flowStatus) {
+        return new WorkflowChangedEvent(
+                UUID.randomUUID(), Instant.now(), operation, ReimbursementConstants.FLOW_CODE,
+                1L, 2L, reimbursement.getBusinessId(), 3L, 4L,
+                "source", targetNodeCode, flowStatus
+        );
     }
 
     private WorkflowReimbursement reimbursement() {

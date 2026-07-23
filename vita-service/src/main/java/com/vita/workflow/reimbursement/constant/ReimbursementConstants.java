@@ -11,6 +11,7 @@ package com.vita.workflow.reimbursement.constant;
 public final class ReimbursementConstants {
 
     public static final String FLOW_CODE = "REIMBURSE_APPROVAL_V1";
+    public static final String BUSINESS_CODE = "REIMBURSEMENT";
     public static final String BUSINESS_ID_PREFIX = "REIMBURSE:";
     public static final String APPLICANT_NODE_CODE = "submit_apply";
     public static final String END_NODE_CODE = "end";

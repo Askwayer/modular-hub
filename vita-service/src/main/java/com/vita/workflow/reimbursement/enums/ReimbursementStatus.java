@@ -13,7 +13,9 @@ public enum ReimbursementStatus {
     APPROVING,
     RETURNED,
     APPROVED,
-    CANCELLED;
+    CANCELLED,
+    TERMINATED,
+    INVALIDATED;
 
     /**
      * 判断是否允许申请人编辑和提交。

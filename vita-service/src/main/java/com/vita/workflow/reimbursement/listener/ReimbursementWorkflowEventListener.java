@@ -17,7 +17,11 @@ import org.springframework.stereotype.Component;
  * @Version: 1.0
  */
 @Component
-@ConditionalOnProperty(prefix = "vita.workflow", name = "enabled", havingValue = "true")
+@ConditionalOnProperty(
+        prefix = "vita.workflow",
+        name = "enabled",
+        havingValue = "true",
+        matchIfMissing = true)
 public class ReimbursementWorkflowEventListener {
 
     private static final Logger LOG = LoggerFactory.getLogger(ReimbursementWorkflowEventListener.class);

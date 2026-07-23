@@ -216,7 +216,35 @@ VALUES (2001, '用户管理查看', 'system:user:view', 'MENU_ACTION', 1001, NUL
        (2037, '报销工作流状态重同步', 'system:workflow:reimbursement:resync', 'MENU_ACTION', NULL, 'POST',
         '/system/workflow/reimbursements/resync', 'system:workflow:reimbursement:resync', 106, 1, 1, 0, 0,
         '2026-07-20 00:00:00', 1, 'system', '2026-07-20 00:00:00', 1, 'system',
-        0, '根据流程实例补偿同步报销业务状态');
+        0, '根据流程实例补偿同步报销业务状态'),
+       (2038, '工作流实例管理', 'system:workflow:instance:manage', 'MENU_ACTION', NULL, NULL,
+        '/system/workflow/instances/**', 'system:workflow:instance:manage', 107, 1, 1, 0, 0,
+        '2026-07-23 00:00:00', 1, 'system', '2026-07-23 00:00:00', 1, 'system',
+        0, '激活、挂起和作废工作流实例'),
+       (2039, '工作流任务查看', 'system:workflow:task:view', 'MENU_ACTION', NULL, 'GET',
+        '/system/workflow/tasks/**', 'system:workflow:task:view', 108, 1, 1, 0, 0,
+        '2026-07-23 00:00:00', 1, 'system', '2026-07-23 00:00:00', 1, 'system',
+        0, '查看全局待办和已办任务'),
+       (2040, '工作流分类查看', 'system:workflow:category:view', 'MENU_ACTION', NULL, 'GET',
+        '/system/workflow/categories/**', 'system:workflow:category:view', 109, 1, 1, 0, 0,
+        '2026-07-23 00:00:00', 1, 'system', '2026-07-23 00:00:00', 1, 'system',
+        0, '查看工作流分类'),
+       (2041, '工作流分类管理', 'system:workflow:category:manage', 'MENU_ACTION', NULL, NULL,
+        '/system/workflow/categories/**', 'system:workflow:category:manage', 110, 1, 1, 0, 0,
+        '2026-07-23 00:00:00', 1, 'system', '2026-07-23 00:00:00', 1, 'system',
+        0, '新增、修改和安全删除工作流分类'),
+       (2042, '办理人规则查看', 'system:workflow:assignee-rule:view', 'MENU_ACTION', NULL, 'GET',
+        '/system/workflow/assignee-rules/**', 'system:workflow:assignee-rule:view', 111, 1, 1, 0, 0,
+        '2026-07-23 00:00:00', 1, 'system', '2026-07-23 00:00:00', 1, 'system',
+        0, '查看受控办理人规则'),
+       (2043, '办理人规则管理', 'system:workflow:assignee-rule:manage', 'MENU_ACTION', NULL, NULL,
+        '/system/workflow/assignee-rules/**', 'system:workflow:assignee-rule:manage', 112, 1, 1, 0, 0,
+        '2026-07-23 00:00:00', 1, 'system', '2026-07-23 00:00:00', 1, 'system',
+        0, '管理受控办理人规则'),
+       (2044, '工作流任务管理', 'system:workflow:task:manage', 'MENU_ACTION', NULL, 'PUT',
+        '/system/workflow/tasks/**', 'system:workflow:task:manage', 113, 1, 1, 0, 0,
+        '2026-07-23 00:00:00', 1, 'system', '2026-07-23 00:00:00', 1, 'system',
+        0, '修改运行中任务办理人');
 
 -- ----------------------------
 -- Records of sys_user_role
@@ -352,7 +380,35 @@ VALUES (5001, 1, 2001, 0, 0, '2026-04-02 00:00:00',
        (5047, 3, 2036, 0, 0, '2026-07-20 00:00:00',
         1, 'system', '2026-07-20 00:00:00', 1, 'system', 0),
        (5048, 3, 2037, 0, 0, '2026-07-20 00:00:00',
-        1, 'system', '2026-07-20 00:00:00', 1, 'system', 0);
+        1, 'system', '2026-07-20 00:00:00', 1, 'system', 0),
+       (5049, 1, 2038, 0, 0, '2026-07-23 00:00:00',
+        1, 'system', '2026-07-23 00:00:00', 1, 'system', 0),
+       (5050, 1, 2039, 0, 0, '2026-07-23 00:00:00',
+        1, 'system', '2026-07-23 00:00:00', 1, 'system', 0),
+       (5051, 1, 2040, 0, 0, '2026-07-23 00:00:00',
+        1, 'system', '2026-07-23 00:00:00', 1, 'system', 0),
+       (5052, 1, 2041, 0, 0, '2026-07-23 00:00:00',
+        1, 'system', '2026-07-23 00:00:00', 1, 'system', 0),
+       (5053, 1, 2042, 0, 0, '2026-07-23 00:00:00',
+        1, 'system', '2026-07-23 00:00:00', 1, 'system', 0),
+       (5054, 1, 2043, 0, 0, '2026-07-23 00:00:00',
+        1, 'system', '2026-07-23 00:00:00', 1, 'system', 0),
+       (5055, 3, 2038, 0, 0, '2026-07-23 00:00:00',
+        1, 'system', '2026-07-23 00:00:00', 1, 'system', 0),
+       (5056, 3, 2039, 0, 0, '2026-07-23 00:00:00',
+        1, 'system', '2026-07-23 00:00:00', 1, 'system', 0),
+       (5057, 3, 2040, 0, 0, '2026-07-23 00:00:00',
+        1, 'system', '2026-07-23 00:00:00', 1, 'system', 0),
+       (5058, 3, 2041, 0, 0, '2026-07-23 00:00:00',
+        1, 'system', '2026-07-23 00:00:00', 1, 'system', 0),
+       (5059, 3, 2042, 0, 0, '2026-07-23 00:00:00',
+        1, 'system', '2026-07-23 00:00:00', 1, 'system', 0),
+       (5060, 3, 2043, 0, 0, '2026-07-23 00:00:00',
+        1, 'system', '2026-07-23 00:00:00', 1, 'system', 0),
+       (5061, 1, 2044, 0, 0, '2026-07-23 00:00:00',
+        1, 'system', '2026-07-23 00:00:00', 1, 'system', 0),
+       (5062, 3, 2044, 0, 0, '2026-07-23 00:00:00',
+        1, 'system', '2026-07-23 00:00:00', 1, 'system', 0);
 
 -- ----------------------------
 -- Records of workflow_category
@@ -372,6 +428,16 @@ VALUES (7001, 0, 'FINANCE', '财务类', NULL, 10,
        (7004, 0, 'ADMIN', '行政类', NULL, 30,
         1, '2026-07-07 00:00:00', '2026-07-07 00:00:00', 0, 1, 'system',
         1, 'system', 0, '工作流默认分类');
+
+-- ----------------------------
+-- Records of workflow_assignee_rule
+-- ----------------------------
+INSERT INTO `workflow_assignee_rule` (`id`, `tenant_id`, `rule_code`, `rule_name`, `resolver_code`,
+                                      `argument_names`, `status`, `create_time`, `update_time`, `is_deleted`,
+                                      `create_by_id`, `create_by`, `update_by_id`, `update_by`, `version`, `remark`)
+VALUES (7101, 0, 'DEPT_LEADER', '部门负责人', 'DEPARTMENT_LEADER',
+        'deptId', 1, '2026-07-23 00:00:00', '2026-07-23 00:00:00', 0,
+        1, 'system', 1, 'system', 0, '平台内置受控办理人规则');
 
 SET
 FOREIGN_KEY_CHECKS = 1;

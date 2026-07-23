@@ -232,3 +232,73 @@ CREATE TABLE `workflow_reimbursement`
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_workflow_reimbursement_business_id` (`business_id`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT ='工作流报销单';
+
+CREATE TABLE IF NOT EXISTS `workflow_instance_metadata`
+(
+    `id`             bigint       NOT NULL COMMENT '元数据ID',
+    `tenant_id`      bigint                DEFAULT NULL COMMENT '租户ID',
+    `business_id`    varchar(40)  NOT NULL COMMENT '全局业务ID',
+    `instance_id`    bigint       NOT NULL COMMENT '流程实例ID',
+    `flow_code`      varchar(100) NOT NULL COMMENT '流程编码',
+    `business_code`  varchar(100)          DEFAULT NULL COMMENT '业务类型编码',
+    `business_title` varchar(500)          DEFAULT NULL COMMENT '业务标题快照',
+    `create_time`    datetime     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '新增时间',
+    `update_time`    datetime              DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `is_deleted`     tinyint(1)            DEFAULT '0' COMMENT '是否删除(0-否,1-是)',
+    `create_by_id`   bigint                DEFAULT NULL COMMENT '新增用户ID',
+    `create_by`      varchar(50)           DEFAULT NULL COMMENT '新增用户名称',
+    `update_by_id`   bigint                DEFAULT NULL COMMENT '更新用户ID',
+    `update_by`      varchar(50)           DEFAULT NULL COMMENT '更新用户名称',
+    `version`        bigint                DEFAULT '0' COMMENT '乐观锁',
+    `remark`         varchar(500)          DEFAULT NULL COMMENT '备注',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_workflow_metadata_business` (`business_id`),
+    UNIQUE KEY `uk_workflow_metadata_instance` (`instance_id`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT ='工作流实例业务元数据';
+
+CREATE TABLE IF NOT EXISTS `workflow_task_copy`
+(
+    `id`                bigint       NOT NULL COMMENT '抄送记录ID',
+    `tenant_id`         bigint                DEFAULT NULL COMMENT '租户ID',
+    `instance_id`       bigint       NOT NULL COMMENT '流程实例ID',
+    `history_task_id`   bigint       NOT NULL COMMENT '来源历史任务ID',
+    `business_id`       varchar(40)  NOT NULL COMMENT '全局业务ID',
+    `recipient_user_id` bigint       NOT NULL COMMENT '抄送接收用户ID',
+    `source_node_code`  varchar(100)          DEFAULT NULL COMMENT '来源节点编码',
+    `source_node_name`  varchar(100)          DEFAULT NULL COMMENT '来源节点名称',
+    `message`           varchar(500)          DEFAULT NULL COMMENT '抄送意见',
+    `attachment_ref`    varchar(500)          DEFAULT NULL COMMENT '附件不透明引用',
+    `create_time`       datetime     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '新增时间',
+    `update_time`       datetime              DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `is_deleted`        tinyint(1)            DEFAULT '0' COMMENT '是否删除(0-否,1-是)',
+    `create_by_id`      bigint                DEFAULT NULL COMMENT '新增用户ID',
+    `create_by`         varchar(50)           DEFAULT NULL COMMENT '新增用户名称',
+    `update_by_id`      bigint                DEFAULT NULL COMMENT '更新用户ID',
+    `update_by`         varchar(50)           DEFAULT NULL COMMENT '更新用户名称',
+    `version`           bigint                DEFAULT '0' COMMENT '乐观锁',
+    `remark`            varchar(500)          DEFAULT NULL COMMENT '备注',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_workflow_copy_task_user` (`history_task_id`, `recipient_user_id`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT ='工作流任务抄送记录';
+
+CREATE TABLE IF NOT EXISTS `workflow_assignee_rule`
+(
+    `id`             bigint       NOT NULL COMMENT '规则ID',
+    `tenant_id`      bigint                DEFAULT NULL COMMENT '租户ID',
+    `rule_code`      varchar(64)  NOT NULL COMMENT '规则编码',
+    `rule_name`      varchar(100) NOT NULL COMMENT '规则名称',
+    `resolver_code`  varchar(64)  NOT NULL COMMENT '平台注册解析器编码',
+    `argument_names` varchar(500)          DEFAULT NULL COMMENT '受控参数名，逗号分隔',
+    `status`         tinyint      NOT NULL DEFAULT 1 COMMENT '状态 1启用 0禁用',
+    `create_time`    datetime     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '新增时间',
+    `update_time`    datetime              DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `is_deleted`     tinyint(1)            DEFAULT '0' COMMENT '是否删除(0-否,1-是)',
+    `create_by_id`   bigint                DEFAULT NULL COMMENT '新增用户ID',
+    `create_by`      varchar(50)           DEFAULT NULL COMMENT '新增用户名称',
+    `update_by_id`   bigint                DEFAULT NULL COMMENT '更新用户ID',
+    `update_by`      varchar(50)           DEFAULT NULL COMMENT '更新用户名称',
+    `version`        bigint                DEFAULT '0' COMMENT '乐观锁',
+    `remark`         varchar(500)          DEFAULT NULL COMMENT '备注',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_workflow_assignee_rule_code` (`rule_code`, `is_deleted`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT ='工作流受控办理人规则';
