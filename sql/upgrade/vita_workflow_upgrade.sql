@@ -358,7 +358,7 @@ INSERT INTO `sys_permission` (`id`, `permission_name`, `permission_code`, `permi
                               `create_time`, `create_by_id`, `create_by`, `update_time`, `update_by_id`, `update_by`,
                               `version`, `remark`)
 SELECT @next_permission_id := @next_permission_id + 1, '工作流任务管理', 'system:workflow:task:manage',
-       'MENU_ACTION', NULL, 'PUT', '/system/workflow/tasks/**', 'system:workflow:task:manage',
+       'MENU_ACTION', NULL, 'POST', '/system/workflow/tasks/**', 'system:workflow:task:manage',
        113, 1, 1, 0, 0, '2026-07-23 00:00:00', 1, 'system',
        '2026-07-23 00:00:00', 1, 'system', 0, '修改运行中任务办理人'
 WHERE NOT EXISTS (

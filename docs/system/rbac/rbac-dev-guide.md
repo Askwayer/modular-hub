@@ -84,6 +84,8 @@
 
 ## 3. 返回模型设计建议
 
+用户和角色管理端列表、详情模型必须返回主键 `id`，供编辑、删除与后续授权使用；用户响应模型不得包含密码字段。
+
 ### 3.1 Redis 缓存对象
 
 用途：
@@ -401,16 +403,16 @@ List<RouterVo>           // 前端路由树
 - `POST /system/hot/cache/refreshAll` -> `system:hot-cache:refresh`
 - `POST /system/workflow/importJson` -> `system:workflow:import`
 - `GET /system/workflow/definitions/page`、`GET /system/workflow/definitions/{id}` -> `system:workflow:definition:view`
-- `PUT /system/workflow/definitions/{id}/publish`、`PUT /system/workflow/definitions/{id}/unpublish` -> `system:workflow:definition:manage`
-- `POST /system/workflow/definitions/{id}/copy`、`DELETE /system/workflow/definitions/{id}` -> `system:workflow:definition:manage`
+- `POST /system/workflow/definitions/{id}/publish`、`POST /system/workflow/definitions/{id}/unpublish` -> `system:workflow:definition:manage`
+- `POST /system/workflow/definitions/{id}/copy`、`POST /system/workflow/definitions/{id}` -> `system:workflow:definition:manage`
 - `GET /system/workflow/instances/**` -> `system:workflow:instance:view`
-- `PUT /system/workflow/instances/{id}/activity`、`POST /system/workflow/instances/{id}/invalidate` -> `system:workflow:instance:manage`
+- `POST /system/workflow/instances/{id}/activity`、`POST /system/workflow/instances/{id}/invalidate` -> `system:workflow:instance:manage`
 - `GET /system/workflow/tasks/**` -> `system:workflow:task:view`
-- `PUT /system/workflow/tasks/{id}/handlers` -> `system:workflow:task:manage`
+- `POST /system/workflow/tasks/{id}/handlers` -> `system:workflow:task:manage`
 - `GET /system/workflow/categories/**` -> `system:workflow:category:view`
-- `POST/PUT/DELETE /system/workflow/categories/**` -> `system:workflow:category:manage`
+- `POST /system/workflow/categories/**` -> `system:workflow:category:manage`
 - `GET /system/workflow/assignee-rules/**` -> `system:workflow:assignee-rule:view`
-- `POST/PUT/DELETE /system/workflow/assignee-rules/**` -> `system:workflow:assignee-rule:manage`
+- `POST /system/workflow/assignee-rules/**` -> `system:workflow:assignee-rule:manage`
 - `GET /system/workflow/reimbursements/**` -> `system:workflow:reimbursement:view`
 - `POST /system/workflow/reimbursements/resync` -> `system:workflow:reimbursement:resync`
 

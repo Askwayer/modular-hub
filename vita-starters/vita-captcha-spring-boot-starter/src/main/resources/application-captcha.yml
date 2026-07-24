@@ -1,8 +1,8 @@
 vita:
   captcha:
-    enabled: false
+    enabled: true
     # 验证码类型 char=图形文本验证码 math=图形答案验证码 slide=拼图滑动验证码 all_slide=全滑动验证码
-    captcha-type: all_slide
+    captcha-type: char
     # AES 密钥，必须为 16 位
     aes-secret: vita123456789012
     # AES IV，必须为 16 位

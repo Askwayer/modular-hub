@@ -100,7 +100,7 @@ Warm-Flow `1.8.8`，所有引擎状态写操作继续调用官方 `TaskService`�
 流程图只返回节点、连线、当前节点和历史状态投影，不返回候选表达式、跳转条件、原始变量或定义 JSON。
 
 `GET /workflow/tasks/{taskId}/handlers` 返回当前任务候选人。管理员通过
-`PUT /system/workflow/tasks/{taskId}/handlers` 将候选人替换为启用用户，至少保留一名办理人，并在
+`POST /system/workflow/tasks/{taskId}/handlers` 将候选人替换为启用用户，至少保留一名办理人，并在
 任务锁内复核用户状态后调用 `TaskService.updateHandler`。
 
 ## 6. 数据边界

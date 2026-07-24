@@ -88,7 +88,7 @@ public class WorkflowCategoryController {
      */
     @RepeatSubmit
     @Log(module = "工作流分类", businessType = "UPDATE")
-    @PutMapping("/system/workflow/categories/{categoryId}")
+    @PostMapping("/system/workflow/categories/{categoryId}")
     @SaCheckPermission(WorkflowConstants.WORKFLOW_CATEGORY_MANAGE_PERMISSION)
     public CommonResult<Boolean> update(
             @PathVariable("categoryId") Long categoryId,
@@ -106,7 +106,7 @@ public class WorkflowCategoryController {
      */
     @RepeatSubmit
     @Log(module = "工作流分类", businessType = "DELETE")
-    @DeleteMapping("/system/workflow/categories/{categoryId}")
+    @PostMapping("/system/workflow/categories/{categoryId}/delete")
     @SaCheckPermission(WorkflowConstants.WORKFLOW_CATEGORY_MANAGE_PERMISSION)
     public CommonResult<Boolean> delete(@PathVariable("categoryId") Long categoryId) {
         WorkflowAdminAccessChecker.check();

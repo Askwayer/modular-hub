@@ -36,7 +36,10 @@ import org.springframework.test.context.web.ServletTestExecutionListener;
 import org.springframework.test.context.web.WebAppConfiguration;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 
@@ -138,11 +141,11 @@ class WorkflowRouteSecurityTest {
         assertUnauthorized(adminGet("/system/workflow/instances/running"));
         assertUnauthorized(adminGet("/system/workflow/instances/by-business/TEST:1"));
         assertUnauthorized(adminGet("/system/workflow/instances/1/variables"));
-        assertUnauthorized(adminPut("/system/workflow/instances/1/variables"));
-        assertUnauthorized(adminDelete("/system/workflow/instances/1"));
+        assertUnauthorized(adminPost("/system/workflow/instances/1/variables"));
+        assertUnauthorized(adminPost("/system/workflow/instances/1"));
         assertUnauthorized(adminPost("/system/workflow/instances/1/invalidate"));
         assertUnauthorized(adminGet("/system/workflow/tasks/pending"));
-        assertUnauthorized(adminPut("/system/workflow/tasks/1/handlers"));
+        assertUnauthorized(adminPost("/system/workflow/tasks/1/handlers"));
         assertUnauthorized(adminGet("/system/workflow/categories/tree"));
         assertUnauthorized(adminGet("/system/workflow/assignee-rules"));
         assertUnauthorized(adminGet("/system/workflow/reimbursements/page"));
@@ -201,13 +204,13 @@ class WorkflowRouteSecurityTest {
         assertForbidden(withToken(adminGet("/system/workflow/definitions/page"), login(PERMISSION_ONLY_USER_ID)));
         assertForbidden(withToken(adminGet("/system/workflow/instances/running"), login(NORMAL_USER_ID)));
         assertForbidden(withToken(adminGet("/system/workflow/instances/1/variables"), login(NORMAL_USER_ID)));
-        assertForbidden(withToken(adminPut("/system/workflow/instances/1/variables"), login(NORMAL_USER_ID)));
-        assertForbidden(withToken(adminDelete("/system/workflow/instances/1"), login(NORMAL_USER_ID)));
+        assertForbidden(withToken(adminPost("/system/workflow/instances/1/variables"), login(NORMAL_USER_ID)));
+        assertForbidden(withToken(adminPost("/system/workflow/instances/1"), login(NORMAL_USER_ID)));
         assertForbidden(withToken(adminPost("/system/workflow/instances/1/invalidate"), login(NORMAL_USER_ID)));
         assertForbidden(withToken(adminGet("/system/workflow/tasks/pending"), login(NORMAL_USER_ID)));
-        assertForbidden(withToken(adminPut("/system/workflow/tasks/1/handlers"), login(NORMAL_USER_ID)));
-        assertForbidden(withToken(adminPut("/system/workflow/tasks/1/handlers"), login(ROLE_ONLY_ADMIN_ID)));
-        assertForbidden(withToken(adminPut("/system/workflow/tasks/1/handlers"), login(PERMISSION_ONLY_USER_ID)));
+        assertForbidden(withToken(adminPost("/system/workflow/tasks/1/handlers"), login(NORMAL_USER_ID)));
+        assertForbidden(withToken(adminPost("/system/workflow/tasks/1/handlers"), login(ROLE_ONLY_ADMIN_ID)));
+        assertForbidden(withToken(adminPost("/system/workflow/tasks/1/handlers"), login(PERMISSION_ONLY_USER_ID)));
         assertForbidden(withToken(adminGet("/system/workflow/categories/tree"), login(NORMAL_USER_ID)));
         assertForbidden(withToken(adminGet("/system/workflow/assignee-rules"), login(NORMAL_USER_ID)));
         assertForbidden(withToken(adminGet("/system/workflow/reimbursements/page"), login(NORMAL_USER_ID)));
@@ -223,16 +226,16 @@ class WorkflowRouteSecurityTest {
         assertEntered(adminGet("/system/workflow/instances/running"), login(SUPER_ADMIN_ID));
         assertEntered(adminGet("/system/workflow/instances/1/variables"), login(SUB_ADMIN_ID));
         assertEntered(adminGet("/system/workflow/instances/1/variables"), login(SUPER_ADMIN_ID));
-        assertEntered(adminPut("/system/workflow/instances/1/variables"), login(SUB_ADMIN_ID));
-        assertEntered(adminPut("/system/workflow/instances/1/variables"), login(SUPER_ADMIN_ID));
-        assertEntered(adminDelete("/system/workflow/instances/1"), login(SUB_ADMIN_ID));
-        assertEntered(adminDelete("/system/workflow/instances/1"), login(SUPER_ADMIN_ID));
+        assertEntered(adminPost("/system/workflow/instances/1/variables"), login(SUB_ADMIN_ID));
+        assertEntered(adminPost("/system/workflow/instances/1/variables"), login(SUPER_ADMIN_ID));
+        assertEntered(adminPost("/system/workflow/instances/1"), login(SUB_ADMIN_ID));
+        assertEntered(adminPost("/system/workflow/instances/1"), login(SUPER_ADMIN_ID));
         assertEntered(adminPost("/system/workflow/instances/1/invalidate"), login(SUB_ADMIN_ID));
         assertEntered(adminPost("/system/workflow/instances/1/invalidate"), login(SUPER_ADMIN_ID));
         assertEntered(adminGet("/system/workflow/tasks/pending"), login(SUB_ADMIN_ID));
         assertEntered(adminGet("/system/workflow/tasks/pending"), login(SUPER_ADMIN_ID));
-        assertEntered(adminPut("/system/workflow/tasks/1/handlers"), login(SUB_ADMIN_ID));
-        assertEntered(adminPut("/system/workflow/tasks/1/handlers"), login(SUPER_ADMIN_ID));
+        assertEntered(adminPost("/system/workflow/tasks/1/handlers"), login(SUB_ADMIN_ID));
+        assertEntered(adminPost("/system/workflow/tasks/1/handlers"), login(SUPER_ADMIN_ID));
         assertEntered(adminGet("/system/workflow/categories/tree"), login(SUB_ADMIN_ID));
         assertEntered(adminGet("/system/workflow/categories/tree"), login(SUPER_ADMIN_ID));
         assertEntered(adminGet("/system/workflow/assignee-rules"), login(SUB_ADMIN_ID));
@@ -256,6 +259,21 @@ class WorkflowRouteSecurityTest {
 
         assertImportSucceeded(login(SUB_ADMIN_ID));
         assertImportSucceeded(login(SUPER_ADMIN_ID));
+    }
+
+    /**
+     * 迁移后的工作流写接口不再接受 PUT 和 DELETE。
+     *
+     * @throws Exception 请求异常
+     */
+    @Test
+    void legacyWriteMethodsShouldNotBeMapped() throws Exception {
+        String token = login(SUPER_ADMIN_ID);
+
+        mockMvc.perform(withToken(adminPut("/system/workflow/instances/1/variables"), token))
+                .andExpect(status().isMethodNotAllowed());
+        mockMvc.perform(withToken(adminDelete("/system/workflow/instances/1"), token))
+                .andExpect(status().isMethodNotAllowed());
     }
 
     private void assertPublic(String path) throws Exception {
@@ -454,14 +472,14 @@ class WorkflowRouteSecurityTest {
             return "entered";
         }
 
-        @PutMapping("/system/workflow/instances/1/variables")
+        @PostMapping("/system/workflow/instances/1/variables")
         @SaCheckPermission(WorkflowConstants.WORKFLOW_INSTANCE_MANAGE_PERMISSION)
         String instanceVariableUpdateRoute() {
             WorkflowAdminAccessChecker.check();
             return "entered";
         }
 
-        @DeleteMapping("/system/workflow/instances/1")
+        @PostMapping("/system/workflow/instances/1")
         @SaCheckPermission(WorkflowConstants.WORKFLOW_INSTANCE_MANAGE_PERMISSION)
         String instanceDeleteRoute() {
             WorkflowAdminAccessChecker.check();
@@ -482,7 +500,7 @@ class WorkflowRouteSecurityTest {
             return "entered";
         }
 
-        @PutMapping("/system/workflow/tasks/1/handlers")
+        @PostMapping("/system/workflow/tasks/1/handlers")
         @SaCheckPermission(WorkflowConstants.WORKFLOW_TASK_MANAGE_PERMISSION)
         String taskHandlerManagementRoute() {
             WorkflowAdminAccessChecker.check();

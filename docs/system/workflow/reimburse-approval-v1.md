@@ -96,7 +96,7 @@
 - 流程定义使用 Warm-Flow `DefJson` 结构留档
 - 可通过 `POST /admin/api/system/workflow/importJson` 直接导入当前 JSON
 - 调用时携带 `Authorization: Bearer <token>`，并要求 `system:workflow:import` 权限和 `SUB_ADMIN` 或 `SUPER_ADMIN` 角色
-- 导入不会自动发布；管理员通过 `PUT /admin/api/system/workflow/definitions/{definitionId}/publish` 发布
+- 导入不会自动发布；管理员通过 `POST /admin/api/system/workflow/definitions/{definitionId}/publish` 发布
 - 新环境创建前执行 `sql/init/workflow.sql`；已有环境重建时依次执行
   `sql/upgrade/warm_flow_upgrade.sql` 和 `sql/upgrade/vita_workflow_upgrade.sql`
 - `warm_flow_upgrade.sql` 会永久清空全部流程定义、实例、任务、历史和表单数据
@@ -120,7 +120,7 @@ Content-Type: application/json
 }
 ```
 
-草稿创建后由服务端生成 `businessId=REIMBURSE:<报销单ID>`。`DRAFT` 和 `RETURNED` 可通过 `PUT /admin/api/workflow/reimbursements/{id}` 修改，其余状态只读。
+草稿创建后由服务端生成 `businessId=REIMBURSE:<报销单ID>`。`DRAFT` 和 `RETURNED` 可通过 `POST /admin/api/workflow/reimbursements/{id}` 修改，其余状态只读。
 
 首次提交在同一事务中创建实例并办理员工首任务：
 

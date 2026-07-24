@@ -88,7 +88,7 @@ public class WorkflowAssigneeRuleController {
      */
     @RepeatSubmit
     @Log(module = "工作流办理人规则", businessType = "UPDATE")
-    @PutMapping("/system/workflow/assignee-rules/{ruleId}")
+    @PostMapping("/system/workflow/assignee-rules/{ruleId}")
     @SaCheckPermission(WorkflowConstants.WORKFLOW_ASSIGNEE_RULE_MANAGE_PERMISSION)
     public CommonResult<Boolean> update(
             @PathVariable("ruleId") Long ruleId,
@@ -106,7 +106,7 @@ public class WorkflowAssigneeRuleController {
      */
     @RepeatSubmit
     @Log(module = "工作流办理人规则", businessType = "DELETE")
-    @DeleteMapping("/system/workflow/assignee-rules/{ruleId}")
+    @PostMapping("/system/workflow/assignee-rules/{ruleId}/delete")
     @SaCheckPermission(WorkflowConstants.WORKFLOW_ASSIGNEE_RULE_MANAGE_PERMISSION)
     public CommonResult<Boolean> delete(@PathVariable("ruleId") Long ruleId) {
         WorkflowAdminAccessChecker.check();

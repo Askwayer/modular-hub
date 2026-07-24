@@ -78,7 +78,7 @@ public class SysUserController extends BaseController {
      */
     @Log(module = "admin", businessType = "DELETE", saveResponseData = false)
     @RepeatSubmit
-    @GetMapping("/delete" )
+    @PostMapping("/delete" )
     @SaCheckPermission("system:user:delete")
     public CommonResult<Boolean> delete(@RequestParam("id" ) Long id) {
         sysUserService.delete(id);

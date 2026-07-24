@@ -57,7 +57,7 @@ public class SaTokenConfigure implements WebMvcConfigurer {
             res
                     .setHeader("Access-Control-Allow-Origin", origin == null ? "*" : origin)
                     .setHeader("Access-Control-Allow-Credentials", "true")
-                    .setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS")
+                    .setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
                     .setHeader("Access-Control-Max-Age", "3600")
                     // 只保留一次，显式列出需要的头
                     .setHeader("Access-Control-Allow-Headers",

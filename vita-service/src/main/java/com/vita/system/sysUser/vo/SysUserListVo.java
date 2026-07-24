@@ -15,6 +15,11 @@ import java.time.LocalDateTime;
 @Data
 public class SysUserListVo {
     /**
+     * 用户 ID
+     */
+    private Long id;
+
+    /**
      * 部门ID
      */
     private Long deptId;
@@ -28,11 +33,6 @@ public class SysUserListVo {
      * 用户名称
      */
     private String userName;
-
-    /**
-     * 密码
-     */
-    private String password;
 
     /**
      * 手机号
