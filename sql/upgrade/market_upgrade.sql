@@ -91,3 +91,258 @@ CREATE TABLE IF NOT EXISTS `market_daily_summary`
     UNIQUE KEY `uk_market_daily_trade_date` (`trade_date`),
     KEY `idx_market_daily_finalized` (`is_finalized`, `trade_date`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT ='A股市场日汇总';
+
+-- 行情菜单按 route_name 幂等补齐。
+SET @next_menu_id = (SELECT COALESCE(MAX(`id`), 0) + 1 FROM `sys_menu`);
+INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_name`, `menu_type`, `route_name`, `route_link`, `component_path`,
+                        `icon`, `sort_no`, `visible`, `is_cache`, `always_show`, `is_external`, `status`, `is_system`,
+                        `is_deleted`, `tenant_id`, `create_time`, `create_by_id`, `create_by`, `update_time`,
+                        `update_by_id`, `update_by`, `version`, `remark`)
+SELECT @next_menu_id, 0, '行情大屏', 'CONTENTS', 'Market', '/market', 'Layout', 'trend-charts',
+       20, 1, 0, 1, 0, 1, 1, 0, 0, NOW(), 1, 'system', NOW(), 1, 'system', 0, 'A股行情数据大屏目录'
+WHERE NOT EXISTS (SELECT 1 FROM `sys_menu` WHERE `route_name` = 'Market' AND `is_deleted` = 0);
+
+SET @market_root_menu_id = (SELECT `id` FROM `sys_menu` WHERE `route_name` = 'Market' AND `is_deleted` = 0 LIMIT 1);
+SET @next_menu_id = (SELECT COALESCE(MAX(`id`), 0) + 1 FROM `sys_menu`);
+INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_name`, `menu_type`, `route_name`, `route_link`, `component_path`,
+                        `icon`, `sort_no`, `visible`, `is_cache`, `always_show`, `is_external`, `status`, `is_system`,
+                        `is_deleted`, `tenant_id`, `create_time`, `create_by_id`, `create_by`, `update_time`,
+                        `update_by_id`, `update_by`, `version`, `remark`)
+SELECT @next_menu_id, @market_root_menu_id, '大盘与板块总览', 'MENU', 'MarketOverview', '/market/overview',
+       'market/overview/index', 'data-line', 21, 1, 0, 0, 0, 1, 1, 0, 0,
+       NOW(), 1, 'system', NOW(), 1, 'system', 0, '指数、市场和板块行情总览'
+WHERE NOT EXISTS (SELECT 1 FROM `sys_menu` WHERE `route_name` = 'MarketOverview' AND `is_deleted` = 0);
+
+SET @next_menu_id = (SELECT COALESCE(MAX(`id`), 0) + 1 FROM `sys_menu`);
+INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_name`, `menu_type`, `route_name`, `route_link`, `component_path`,
+                        `icon`, `sort_no`, `visible`, `is_cache`, `always_show`, `is_external`, `status`, `is_system`,
+                        `is_deleted`, `tenant_id`, `create_time`, `create_by_id`, `create_by`, `update_time`,
+                        `update_by_id`, `update_by`, `version`, `remark`)
+SELECT @next_menu_id, @market_root_menu_id, '个股资金监控', 'MENU', 'MarketStockMonitor', '/market/stockMonitor',
+       'market/stockMonitor/index', 'money', 22, 1, 0, 0, 0, 1, 1, 0, 0,
+       NOW(), 1, 'system', NOW(), 1, 'system', 0, '启用股票资金监控'
+WHERE NOT EXISTS (SELECT 1 FROM `sys_menu` WHERE `route_name` = 'MarketStockMonitor' AND `is_deleted` = 0);
+
+SET @market_overview_menu_id =
+    (SELECT `id` FROM `sys_menu` WHERE `route_name` = 'MarketOverview' AND `is_deleted` = 0 LIMIT 1);
+SET @market_monitor_menu_id =
+    (SELECT `id` FROM `sys_menu` WHERE `route_name` = 'MarketStockMonitor' AND `is_deleted` = 0 LIMIT 1);
+
+-- 权限按 permission_code 幂等补齐。
+SET @next_permission_id = (SELECT COALESCE(MAX(`id`), 0) + 1 FROM `sys_permission`);
+INSERT INTO `sys_permission` (`id`, `permission_name`, `permission_code`, `permission_type`, `menu_id`, `api_method`,
+                              `api_path`, `auth_tag`, `sort_no`, `status`, `is_system`, `is_deleted`, `tenant_id`,
+                              `create_time`, `create_by_id`, `create_by`, `update_time`, `update_by_id`, `update_by`,
+                              `version`, `remark`)
+SELECT @next_permission_id, '行情大屏查看', 'market:dashboard:view', 'MENU_ACTION', @market_overview_menu_id, NULL,
+       '/market/**', 'market:dashboard:view', 201, 1, 1, 0, 0, NOW(), 1, 'system', NOW(), 1, 'system', 0,
+       '查看行情大屏并触发受限频刷新'
+WHERE NOT EXISTS (
+    SELECT 1 FROM `sys_permission` WHERE `permission_code` = 'market:dashboard:view' AND `is_deleted` = 0
+);
+
+SET @next_permission_id = (SELECT COALESCE(MAX(`id`), 0) + 1 FROM `sys_permission`);
+INSERT INTO `sys_permission` (`id`, `permission_name`, `permission_code`, `permission_type`, `menu_id`, `api_method`,
+                              `api_path`, `auth_tag`, `sort_no`, `status`, `is_system`, `is_deleted`, `tenant_id`,
+                              `create_time`, `create_by_id`, `create_by`, `update_time`, `update_by_id`, `update_by`,
+                              `version`, `remark`)
+SELECT @next_permission_id, '监控股票管理', 'market:stock:manage', 'MENU_ACTION', @market_monitor_menu_id, 'POST',
+       '/market/stock/enable,/market/stock/disable,/market/stock/reorder', 'market:stock:manage',
+       202, 1, 1, 0, 0, NOW(), 1, 'system', NOW(), 1, 'system', 0, '启用、停用和排序监控股票'
+WHERE NOT EXISTS (
+    SELECT 1 FROM `sys_permission` WHERE `permission_code` = 'market:stock:manage' AND `is_deleted` = 0
+);
+
+SET @next_permission_id = (SELECT COALESCE(MAX(`id`), 0) + 1 FROM `sys_permission`);
+INSERT INTO `sys_permission` (`id`, `permission_name`, `permission_code`, `permission_type`, `menu_id`, `api_method`,
+                              `api_path`, `auth_tag`, `sort_no`, `status`, `is_system`, `is_deleted`, `tenant_id`,
+                              `create_time`, `create_by_id`, `create_by`, `update_time`, `update_by_id`, `update_by`,
+                              `version`, `remark`)
+SELECT @next_permission_id, '股票字典同步', 'market:stock:sync', 'MENU_ACTION', @market_monitor_menu_id, 'POST',
+       '/market/stock/dictionary/sync', 'market:stock:sync',
+       203, 1, 1, 0, 0, NOW(), 1, 'system', NOW(), 1, 'system', 0, '手动同步沪深京股票字典'
+WHERE NOT EXISTS (
+    SELECT 1 FROM `sys_permission` WHERE `permission_code` = 'market:stock:sync' AND `is_deleted` = 0
+);
+
+SET @market_view_permission_id =
+    (SELECT `id` FROM `sys_permission` WHERE `permission_code` = 'market:dashboard:view' AND `is_deleted` = 0 LIMIT 1);
+SET @market_manage_permission_id =
+    (SELECT `id` FROM `sys_permission` WHERE `permission_code` = 'market:stock:manage' AND `is_deleted` = 0 LIMIT 1);
+SET @market_sync_permission_id =
+    (SELECT `id` FROM `sys_permission` WHERE `permission_code` = 'market:stock:sync' AND `is_deleted` = 0 LIMIT 1);
+
+-- 三类角色均可读取行情，只有超级管理员和子管理员拥有写权限。
+SET @super_admin_role_id =
+    (SELECT `id` FROM `sys_role` WHERE `role_code` = 'SUPER_ADMIN' AND `is_deleted` = 0 LIMIT 1);
+SET @common_user_role_id =
+    (SELECT `id` FROM `sys_role` WHERE `role_code` = 'COMMON_USER' AND `is_deleted` = 0 LIMIT 1);
+SET @sub_admin_role_id =
+    (SELECT `id` FROM `sys_role` WHERE `role_code` = 'SUB_ADMIN' AND `is_deleted` = 0 LIMIT 1);
+
+SET @market_root_menu_id = (SELECT `id` FROM `sys_menu` WHERE `route_name` = 'Market' AND `is_deleted` = 0 LIMIT 1);
+SET @market_overview_menu_id =
+    (SELECT `id` FROM `sys_menu` WHERE `route_name` = 'MarketOverview' AND `is_deleted` = 0 LIMIT 1);
+SET @market_monitor_menu_id =
+    (SELECT `id` FROM `sys_menu` WHERE `route_name` = 'MarketStockMonitor' AND `is_deleted` = 0 LIMIT 1);
+
+-- 菜单树必须显式授予根目录和两个子菜单。
+SET @next_role_menu_id = (SELECT COALESCE(MAX(`id`), 0) + 1 FROM `sys_role_menu`);
+INSERT INTO `sys_role_menu` (`id`, `role_id`, `menu_id`, `is_deleted`, `tenant_id`, `create_time`, `create_by_id`,
+                             `create_by`, `update_time`, `update_by_id`, `update_by`, `version`)
+SELECT @next_role_menu_id, @super_admin_role_id, @market_root_menu_id,
+       0, 0, NOW(), 1, 'system', NOW(), 1, 'system', 0
+WHERE @super_admin_role_id IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM `sys_role_menu`
+    WHERE `role_id` = @super_admin_role_id AND `menu_id` = @market_root_menu_id AND `is_deleted` = 0
+);
+
+SET @next_role_menu_id = (SELECT COALESCE(MAX(`id`), 0) + 1 FROM `sys_role_menu`);
+INSERT INTO `sys_role_menu` (`id`, `role_id`, `menu_id`, `is_deleted`, `tenant_id`, `create_time`, `create_by_id`,
+                             `create_by`, `update_time`, `update_by_id`, `update_by`, `version`)
+SELECT @next_role_menu_id, @super_admin_role_id, @market_overview_menu_id,
+       0, 0, NOW(), 1, 'system', NOW(), 1, 'system', 0
+WHERE @super_admin_role_id IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM `sys_role_menu`
+    WHERE `role_id` = @super_admin_role_id AND `menu_id` = @market_overview_menu_id AND `is_deleted` = 0
+);
+
+SET @next_role_menu_id = (SELECT COALESCE(MAX(`id`), 0) + 1 FROM `sys_role_menu`);
+INSERT INTO `sys_role_menu` (`id`, `role_id`, `menu_id`, `is_deleted`, `tenant_id`, `create_time`, `create_by_id`,
+                             `create_by`, `update_time`, `update_by_id`, `update_by`, `version`)
+SELECT @next_role_menu_id, @super_admin_role_id, @market_monitor_menu_id,
+       0, 0, NOW(), 1, 'system', NOW(), 1, 'system', 0
+WHERE @super_admin_role_id IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM `sys_role_menu`
+    WHERE `role_id` = @super_admin_role_id AND `menu_id` = @market_monitor_menu_id AND `is_deleted` = 0
+);
+
+SET @next_role_menu_id = (SELECT COALESCE(MAX(`id`), 0) + 1 FROM `sys_role_menu`);
+INSERT INTO `sys_role_menu` (`id`, `role_id`, `menu_id`, `is_deleted`, `tenant_id`, `create_time`, `create_by_id`,
+                             `create_by`, `update_time`, `update_by_id`, `update_by`, `version`)
+SELECT @next_role_menu_id, @common_user_role_id, @market_root_menu_id,
+       0, 0, NOW(), 1, 'system', NOW(), 1, 'system', 0
+WHERE @common_user_role_id IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM `sys_role_menu`
+    WHERE `role_id` = @common_user_role_id AND `menu_id` = @market_root_menu_id AND `is_deleted` = 0
+);
+
+SET @next_role_menu_id = (SELECT COALESCE(MAX(`id`), 0) + 1 FROM `sys_role_menu`);
+INSERT INTO `sys_role_menu` (`id`, `role_id`, `menu_id`, `is_deleted`, `tenant_id`, `create_time`, `create_by_id`,
+                             `create_by`, `update_time`, `update_by_id`, `update_by`, `version`)
+SELECT @next_role_menu_id, @common_user_role_id, @market_overview_menu_id,
+       0, 0, NOW(), 1, 'system', NOW(), 1, 'system', 0
+WHERE @common_user_role_id IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM `sys_role_menu`
+    WHERE `role_id` = @common_user_role_id AND `menu_id` = @market_overview_menu_id AND `is_deleted` = 0
+);
+
+SET @next_role_menu_id = (SELECT COALESCE(MAX(`id`), 0) + 1 FROM `sys_role_menu`);
+INSERT INTO `sys_role_menu` (`id`, `role_id`, `menu_id`, `is_deleted`, `tenant_id`, `create_time`, `create_by_id`,
+                             `create_by`, `update_time`, `update_by_id`, `update_by`, `version`)
+SELECT @next_role_menu_id, @common_user_role_id, @market_monitor_menu_id,
+       0, 0, NOW(), 1, 'system', NOW(), 1, 'system', 0
+WHERE @common_user_role_id IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM `sys_role_menu`
+    WHERE `role_id` = @common_user_role_id AND `menu_id` = @market_monitor_menu_id AND `is_deleted` = 0
+);
+
+SET @next_role_menu_id = (SELECT COALESCE(MAX(`id`), 0) + 1 FROM `sys_role_menu`);
+INSERT INTO `sys_role_menu` (`id`, `role_id`, `menu_id`, `is_deleted`, `tenant_id`, `create_time`, `create_by_id`,
+                             `create_by`, `update_time`, `update_by_id`, `update_by`, `version`)
+SELECT @next_role_menu_id, @sub_admin_role_id, @market_root_menu_id,
+       0, 0, NOW(), 1, 'system', NOW(), 1, 'system', 0
+WHERE @sub_admin_role_id IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM `sys_role_menu`
+    WHERE `role_id` = @sub_admin_role_id AND `menu_id` = @market_root_menu_id AND `is_deleted` = 0
+);
+
+SET @next_role_menu_id = (SELECT COALESCE(MAX(`id`), 0) + 1 FROM `sys_role_menu`);
+INSERT INTO `sys_role_menu` (`id`, `role_id`, `menu_id`, `is_deleted`, `tenant_id`, `create_time`, `create_by_id`,
+                             `create_by`, `update_time`, `update_by_id`, `update_by`, `version`)
+SELECT @next_role_menu_id, @sub_admin_role_id, @market_overview_menu_id,
+       0, 0, NOW(), 1, 'system', NOW(), 1, 'system', 0
+WHERE @sub_admin_role_id IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM `sys_role_menu`
+    WHERE `role_id` = @sub_admin_role_id AND `menu_id` = @market_overview_menu_id AND `is_deleted` = 0
+);
+
+SET @next_role_menu_id = (SELECT COALESCE(MAX(`id`), 0) + 1 FROM `sys_role_menu`);
+INSERT INTO `sys_role_menu` (`id`, `role_id`, `menu_id`, `is_deleted`, `tenant_id`, `create_time`, `create_by_id`,
+                             `create_by`, `update_time`, `update_by_id`, `update_by`, `version`)
+SELECT @next_role_menu_id, @sub_admin_role_id, @market_monitor_menu_id,
+       0, 0, NOW(), 1, 'system', NOW(), 1, 'system', 0
+WHERE @sub_admin_role_id IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM `sys_role_menu`
+    WHERE `role_id` = @sub_admin_role_id AND `menu_id` = @market_monitor_menu_id AND `is_deleted` = 0
+);
+
+SET @next_role_permission_id = (SELECT COALESCE(MAX(`id`), 0) + 1 FROM `sys_role_permission`);
+INSERT INTO `sys_role_permission` (`id`, `role_id`, `permission_id`, `is_deleted`, `tenant_id`, `create_time`,
+                                   `create_by_id`, `create_by`, `update_time`, `update_by_id`, `update_by`, `version`)
+SELECT @next_role_permission_id, @super_admin_role_id, @market_view_permission_id,
+       0, 0, NOW(), 1, 'system', NOW(), 1, 'system', 0
+WHERE @super_admin_role_id IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM `sys_role_permission`
+    WHERE `role_id` = @super_admin_role_id AND `permission_id` = @market_view_permission_id AND `is_deleted` = 0
+);
+
+SET @next_role_permission_id = (SELECT COALESCE(MAX(`id`), 0) + 1 FROM `sys_role_permission`);
+INSERT INTO `sys_role_permission` (`id`, `role_id`, `permission_id`, `is_deleted`, `tenant_id`, `create_time`,
+                                   `create_by_id`, `create_by`, `update_time`, `update_by_id`, `update_by`, `version`)
+SELECT @next_role_permission_id, @common_user_role_id, @market_view_permission_id,
+       0, 0, NOW(), 1, 'system', NOW(), 1, 'system', 0
+WHERE @common_user_role_id IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM `sys_role_permission`
+    WHERE `role_id` = @common_user_role_id AND `permission_id` = @market_view_permission_id AND `is_deleted` = 0
+);
+
+SET @next_role_permission_id = (SELECT COALESCE(MAX(`id`), 0) + 1 FROM `sys_role_permission`);
+INSERT INTO `sys_role_permission` (`id`, `role_id`, `permission_id`, `is_deleted`, `tenant_id`, `create_time`,
+                                   `create_by_id`, `create_by`, `update_time`, `update_by_id`, `update_by`, `version`)
+SELECT @next_role_permission_id, @sub_admin_role_id, @market_view_permission_id,
+       0, 0, NOW(), 1, 'system', NOW(), 1, 'system', 0
+WHERE @sub_admin_role_id IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM `sys_role_permission`
+    WHERE `role_id` = @sub_admin_role_id AND `permission_id` = @market_view_permission_id AND `is_deleted` = 0
+);
+
+SET @next_role_permission_id = (SELECT COALESCE(MAX(`id`), 0) + 1 FROM `sys_role_permission`);
+INSERT INTO `sys_role_permission` (`id`, `role_id`, `permission_id`, `is_deleted`, `tenant_id`, `create_time`,
+                                   `create_by_id`, `create_by`, `update_time`, `update_by_id`, `update_by`, `version`)
+SELECT @next_role_permission_id, @super_admin_role_id, @market_manage_permission_id,
+       0, 0, NOW(), 1, 'system', NOW(), 1, 'system', 0
+WHERE @super_admin_role_id IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM `sys_role_permission`
+    WHERE `role_id` = @super_admin_role_id AND `permission_id` = @market_manage_permission_id AND `is_deleted` = 0
+);
+
+SET @next_role_permission_id = (SELECT COALESCE(MAX(`id`), 0) + 1 FROM `sys_role_permission`);
+INSERT INTO `sys_role_permission` (`id`, `role_id`, `permission_id`, `is_deleted`, `tenant_id`, `create_time`,
+                                   `create_by_id`, `create_by`, `update_time`, `update_by_id`, `update_by`, `version`)
+SELECT @next_role_permission_id, @super_admin_role_id, @market_sync_permission_id,
+       0, 0, NOW(), 1, 'system', NOW(), 1, 'system', 0
+WHERE @super_admin_role_id IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM `sys_role_permission`
+    WHERE `role_id` = @super_admin_role_id AND `permission_id` = @market_sync_permission_id AND `is_deleted` = 0
+);
+
+SET @next_role_permission_id = (SELECT COALESCE(MAX(`id`), 0) + 1 FROM `sys_role_permission`);
+INSERT INTO `sys_role_permission` (`id`, `role_id`, `permission_id`, `is_deleted`, `tenant_id`, `create_time`,
+                                   `create_by_id`, `create_by`, `update_time`, `update_by_id`, `update_by`, `version`)
+SELECT @next_role_permission_id, @sub_admin_role_id, @market_manage_permission_id,
+       0, 0, NOW(), 1, 'system', NOW(), 1, 'system', 0
+WHERE @sub_admin_role_id IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM `sys_role_permission`
+    WHERE `role_id` = @sub_admin_role_id AND `permission_id` = @market_manage_permission_id AND `is_deleted` = 0
+);
+
+SET @next_role_permission_id = (SELECT COALESCE(MAX(`id`), 0) + 1 FROM `sys_role_permission`);
+INSERT INTO `sys_role_permission` (`id`, `role_id`, `permission_id`, `is_deleted`, `tenant_id`, `create_time`,
+                                   `create_by_id`, `create_by`, `update_time`, `update_by_id`, `update_by`, `version`)
+SELECT @next_role_permission_id, @sub_admin_role_id, @market_sync_permission_id,
+       0, 0, NOW(), 1, 'system', NOW(), 1, 'system', 0
+WHERE @sub_admin_role_id IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM `sys_role_permission`
+    WHERE `role_id` = @sub_admin_role_id AND `permission_id` = @market_sync_permission_id AND `is_deleted` = 0
+);

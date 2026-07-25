@@ -415,8 +415,14 @@ List<RouterVo>           // 前端路由树
 - `POST /system/workflow/assignee-rules/**` -> `system:workflow:assignee-rule:manage`
 - `GET /system/workflow/reimbursements/**` -> `system:workflow:reimbursement:view`
 - `POST /system/workflow/reimbursements/resync` -> `system:workflow:reimbursement:resync`
+- `GET /market/**`、`POST /market/dashboard/refresh` -> `market:dashboard:view`
+- `POST /market/stock/enable`、`POST /market/stock/disable`、`POST /market/stock/reorder` -> `market:stock:manage`
+- `POST /market/stock/dictionary/sync` -> `market:stock:sync`
 
 已有环境通过 `sql/upgrade/vita_workflow_upgrade.sql` 按角色码和权限码幂等补齐工作流 RBAC 数据。该脚本以增量方式补齐 `workflow_category` 和默认分类，不删除已有自定义分类。
+
+行情权限通过 `sql/upgrade/market_upgrade.sql` 幂等补齐。普通用户、子管理员和超级管理员拥有
+`market:dashboard:view`；`market:stock:manage`、`market:stock:sync` 仅授予子管理员和超级管理员。
 
 工作流补充边界：
 

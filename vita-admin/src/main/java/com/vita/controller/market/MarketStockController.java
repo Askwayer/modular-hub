@@ -1,110 +1,125 @@
 package com.vita.controller.market;
 
+import cn.dev33.satoken.annotation.SaCheckPermission;
 import com.vita.core.CommonResult;
-import com.vita.core.controller.BaseController;
 import com.vita.core.page.PageResponse;
-import com.vita.market.
+import com.vita.log.annotation.Log;
+import com.vita.market.dto.MarketStockCodeRequest;
+import com.vita.market.dto.MarketStockReorderRequest;
+import com.vita.market.dto.MarketStockSearchDto;
+import com.vita.market.model.MarketDataModels;
+import com.vita.market.service.IMarketRefreshService;
+import com.vita.market.service.IMarketStockService;
+import com.vita.repeat.annotation.RepeatSubmit;
 import jakarta.validation.Valid;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-
-.dto.MarketStockCreateDto;
-.dto.MarketStockSearchDto;
-.dto.MarketStockUpdateDto;
-.service.IMarketStockService;
-.vo.MarketStockDetailVo;
-.vo.MarketStockListVo;
-.vo.MarketStockPageVo;
-
 /**
- * @BelongsProject: vita
+ * @BelongsProject: be-vita
  * @BelongsPackage: com.vita.controller.market
- * @Author znk
- * @CreateTime 2026-07-25 09:42:04
- * @Description: A股股票字典 控制器
- * @version 1.0
+ * @Author: znk
+ * @CreateTime: 2026-07-25
+ * @Description: A股股票字典和资金监控管理接口
+ * @Version: 1.0
  */
 @Validated
 @RestController
-@RequestMapping("/market/marketStock")
-public class MarketStockController extends BaseController {
+@RequestMapping("/market/stock")
+public class MarketStockController {
 
-    /**
-     * A股股票字典 服务。
-     */
-    private final IMarketStockService marketStockService;
+    private final IMarketStockService stockService;
+    private final IMarketRefreshService refreshService;
 
-    public MarketStockController(IMarketStockService marketStockService) {
-        this.marketStockService = marketStockService;
+    public MarketStockController(IMarketStockService stockService,
+                                 IMarketRefreshService refreshService) {
+        this.stockService = stockService;
+        this.refreshService = refreshService;
     }
 
     /**
-     * 新增数据。
-     *
-     * @param createDto 创建请求对象
-     * @return 新增记录ID
-     */
-    @PostMapping("/add")
-    public CommonResult<Long> create(@RequestBody @Valid MarketStockCreateDto createDto) {
-        return CommonResult.success(marketStockService.create(createDto));
-    }
-
-    /**
-     * 更新数据。
-     *
-     * @param updateDto 更新请求对象
-     * @return 更新结果
-     */
-    @PostMapping("/update")
-    public CommonResult<Boolean> update(@RequestBody @Valid MarketStockUpdateDto updateDto) {
-        marketStockService.update(updateDto);
-        return CommonResult.success(true);
-    }
-
-    /**
-     * 删除数据。
-     *
-     * @param id 主键ID
-     * @return 删除结果
-     */
-    @GetMapping("/delete")
-    public CommonResult<Boolean> delete(@RequestParam("id") Long id) {
-        marketStockService.delete(id);
-        return CommonResult.success(true);
-    }
-
-    /**
-     * 查询详情。
-     *
-     * @param id 主键ID
-     * @return 详情对象
-     */
-    @GetMapping("/getDetail")
-    public CommonResult<MarketStockDetailVo> getDetail(@RequestParam("id") Long id) {
-        return CommonResult.success(marketStockService.get(id));
-    }
-
-    /**
-     * 列表查询。
+     * 分页查询股票字典。
      *
      * @param searchDto 查询条件
-     * @return 列表数据
+     * @return 股票字典分页
      */
-    @GetMapping("/list")
-    public CommonResult<List<MarketStockListVo>> list(@Valid MarketStockSearchDto searchDto) {
-        return CommonResult.success(marketStockService.list(searchDto));
+    @GetMapping("/dictionary/page")
+    @SaCheckPermission("market:dashboard:view")
+    public CommonResult<PageResponse<MarketDataModels.StockDictionaryView>> dictionaryPage(
+            @Valid MarketStockSearchDto searchDto) {
+        return CommonResult.success(stockService.pageDictionary(searchDto));
     }
 
     /**
-     * 分页查询。
+     * 每页查询4只当前启用股票及资金曲线。
      *
-     * @param searchDto 分页查询条件
-     * @return 分页数据
+     * @param keyword 名称或编号
+     * @param pageNum 页码
+     * @return 监控股票分页
      */
-    @GetMapping("/page")
-    public CommonResult<PageResponse<MarketStockPageVo>> page(@Valid MarketStockSearchDto searchDto) {
-        return CommonResult.success(marketStockService.page(searchDto));
+    @GetMapping("/monitor/page")
+    @SaCheckPermission("market:dashboard:view")
+    public CommonResult<PageResponse<MarketDataModels.StockMonitorItem>> monitorPage(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(defaultValue = "1") Integer pageNum) {
+        return CommonResult.success(stockService.pageMonitor(keyword, pageNum));
+    }
+
+    /**
+     * 启用一只正常上市股票。
+     *
+     * @param request 股票编号
+     * @return 操作结果
+     */
+    @Log(module = "行情股票监控", businessType = "ENABLE", saveResponseData = false)
+    @RepeatSubmit
+    @PostMapping("/enable")
+    @SaCheckPermission("market:stock:manage")
+    public CommonResult<Boolean> enable(@RequestBody @Valid MarketStockCodeRequest request) {
+        stockService.enable(request.getStockCode());
+        return CommonResult.success(true);
+    }
+
+    /**
+     * 停用股票但保留历史资金点。
+     *
+     * @param request 股票编号
+     * @return 操作结果
+     */
+    @Log(module = "行情股票监控", businessType = "DISABLE", saveResponseData = false)
+    @RepeatSubmit
+    @PostMapping("/disable")
+    @SaCheckPermission("market:stock:manage")
+    public CommonResult<Boolean> disable(@RequestBody @Valid MarketStockCodeRequest request) {
+        stockService.disable(request.getStockCode());
+        return CommonResult.success(true);
+    }
+
+    /**
+     * 原子更新全部启用股票排序。
+     *
+     * @param request 完整股票编号顺序
+     * @return 操作结果
+     */
+    @Log(module = "行情股票监控", businessType = "REORDER", saveResponseData = false)
+    @RepeatSubmit
+    @PostMapping("/reorder")
+    @SaCheckPermission("market:stock:manage")
+    public CommonResult<Boolean> reorder(@RequestBody @Valid MarketStockReorderRequest request) {
+        stockService.reorder(request.getStockCodes());
+        return CommonResult.success(true);
+    }
+
+    /**
+     * 管理员手动同步沪深京股票字典。
+     *
+     * @return 同步记录数
+     */
+    @Log(module = "行情股票字典", businessType = "SYNC", saveResponseData = false)
+    @RepeatSubmit
+    @PostMapping("/dictionary/sync")
+    @SaCheckPermission("market:stock:sync")
+    public CommonResult<Integer> syncDictionary() {
+        return CommonResult.success(refreshService.syncStockDictionary());
     }
 }

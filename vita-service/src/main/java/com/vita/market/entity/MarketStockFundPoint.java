@@ -1,4 +1,4 @@
-package com.vita.market.
+package com.vita.market.entity;
 
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
@@ -10,15 +10,13 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
-.entity;
-
 /**
- * @BelongsProject: vita
- * @BelongsPackage: com.vita.market..entity
- * @Author znk
- * @CreateTime 2026-07-25 09:42:04
+ * @BelongsProject: be-vita
+ * @BelongsPackage: com.vita.market.entity
+ * @Author: znk
+ * @CreateTime: 2026-07-25 09:42:04
  * @Description: A股个股资金40秒采样点 实体类
- * @version 1.0
+ * @Version: 1.0
  */
 @Data
 @TableName("market_stock_fund_point")
@@ -91,9 +89,4 @@ public class MarketStockFundPoint extends BaseEntity {
     @TableField("turnover_rate")
     private BigDecimal turnoverRate;
 
-    /**
-     * 备注
-     */
-    @TableField("remark")
-    private String remark;
 }

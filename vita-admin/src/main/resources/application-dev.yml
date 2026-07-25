@@ -52,3 +52,12 @@ vita:
       base-url: http://127.0.0.1:18000
       api-key: 4gqTA4cx5X*#I6QG
       timeout-ms: 8000
+  market:
+    aktools-base-url: ${AKTOOLS_BASE_URL:http://127.0.0.1:18001}
+    connect-timeout-ms: 3000
+    read-timeout-ms: 8000
+    retry-times: 2
+    snapshot-ttl-days: 35
+    fund-point-retention-days: 30
+    manual-refresh-interval-seconds: 30
+    refresh-lock-lease-seconds: 35

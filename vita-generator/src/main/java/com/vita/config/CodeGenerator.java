@@ -118,7 +118,9 @@ public class CodeGenerator {
         // mapper.xml 输出目录，放在 resources 目录下，按照业务模块进行分组
         String outputMapperDir = moduleConfig.targetModule() + "/src/main/resources/mapper/" + moduleConfig.businessModule();
         // 领域包配置，格式为 basePackage.businessModule.domainModule，如 com.vita.system.sysUser
-        String domainPackagePrefix = moduleConfig.businessModule() + "." + moduleConfig.domainModule();
+        String domainPackagePrefix = moduleConfig.domainModule().isBlank()
+                ? moduleConfig.businessModule()
+                : moduleConfig.businessModule() + "." + moduleConfig.domainModule();
         String modulePackage = moduleConfig.basePackage() + "." + domainPackagePrefix;
         // 控制器包配置，格式为 basePackage.controller.businessModule，如 com.vita.controller.system
         String controllerPackage = "controller." + moduleConfig.businessModule();

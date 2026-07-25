@@ -1,4 +1,4 @@
-package com.vita.market.
+package com.vita.market.entity;
 
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
@@ -8,15 +8,13 @@ import lombok.EqualsAndHashCode;
 
 import java.time.LocalDateTime;
 
-.entity;
-
 /**
- * @BelongsProject: vita
- * @BelongsPackage: com.vita.market..entity
- * @Author znk
- * @CreateTime 2026-07-25 09:42:04
+ * @BelongsProject: be-vita
+ * @BelongsPackage: com.vita.market.entity
+ * @Author: znk
+ * @CreateTime: 2026-07-25 09:42:04
  * @Description: A股股票字典 实体类
- * @version 1.0
+ * @Version: 1.0
  */
 @Data
 @TableName("market_stock")
@@ -71,9 +69,4 @@ public class MarketStock extends BaseEntity {
     @TableField("source_update_time")
     private LocalDateTime sourceUpdateTime;
 
-    /**
-     * 备注
-     */
-    @TableField("remark")
-    private String remark;
 }

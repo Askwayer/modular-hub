@@ -1,72 +1,40 @@
-package com.vita.market.
+package com.vita.market.service;
 
-import com.baomidou.mybatisplus.extension.service.IService;
 import com.vita.core.page.PageResponse;
+import com.vita.market.dto.MarketStockSearchDto;
+import com.vita.market.entity.MarketStock;
+import com.vita.market.model.MarketDataModels;
 
+import java.time.LocalDate;
 import java.util.List;
 
-.service;
-.dto.MarketStockCreateDto;
-.dto.MarketStockSearchDto;
-.dto.MarketStockUpdateDto;
-.entity.MarketStock;
-.vo.MarketStockDetailVo;
-.vo.MarketStockListVo;
-.vo.MarketStockPageVo;
-
 /**
- * @BelongsProject: vita
- * @BelongsPackage: com.vita.market..service
- * @Author znk
- * @CreateTime 2026-07-25 09:42:04
- * @Description: A股股票字典 Service 接口
- * @version 1.0
+ * @BelongsProject: be-vita
+ * @BelongsPackage: com.vita.market.service
+ * @Author: znk
+ * @CreateTime: 2026-07-25
+ * @Description: 股票字典、监控配置和采样持久化服务
+ * @Version: 1.0
  */
-public interface IMarketStockService extends IService<MarketStock> {
+public interface IMarketStockService {
 
-    /**
-     * 新增数据。
-     *
-     * @param createDto 创建请求对象
-     * @return 新增记录ID
-     */
-    Long create(MarketStockCreateDto createDto);
+    PageResponse<MarketDataModels.StockDictionaryView> pageDictionary(MarketStockSearchDto searchDto);
 
-    /**
-     * 更新数据。
-     *
-     * @param updateDto 更新请求对象
-     */
-    void update(MarketStockUpdateDto updateDto);
+    PageResponse<MarketDataModels.StockMonitorItem> pageMonitor(String keyword, Integer pageNum);
 
-    /**
-     * 删除数据。
-     *
-     * @param id 主键ID
-     */
-    void delete(Long id);
+    void enable(String stockCode);
 
-    /**
-     * 查询单条数据。
-     *
-     * @param id 主键ID
-     * @return 详情对象
-     */
-    MarketStockDetailVo get(Long id);
+    void disable(String stockCode);
 
-    /**
-     * 列表查询。
-     *
-     * @param searchDto 查询条件
-     * @return 列表VO
-     */
-    List<MarketStockListVo> list(MarketStockSearchDto searchDto);
+    void reorder(List<String> stockCodes);
 
-    /**
-     * 分页查询。
-     *
-     * @param searchDto 分页查询条件
-     * @return 分页VO结果
-     */
-    PageResponse<MarketStockPageVo> page(MarketStockSearchDto searchDto);
+    int syncDictionary();
+
+    List<MarketStock> listEnabledStocks();
+
+    void saveFundPoints(List<MarketDataModels.StockFundSnapshot> points);
+
+    void saveDailySummary(MarketDataModels.DailySummaryData summary);
+
+    List<MarketDataModels.StockFundSnapshot> listFundPoints(String stockCode, LocalDate tradeDate);
 }
