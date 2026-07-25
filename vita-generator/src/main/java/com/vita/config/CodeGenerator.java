@@ -68,7 +68,7 @@ public class CodeGenerator {
     /**
      * 生成器配置 - TABLE NAME
      */
-    private static final String[] TABLE_NAMES = {"workflow_category"};
+    private static final String[] TABLE_NAMES = {"market_stock","market_stock_fund_point","market_daily_summary"};
 
     /**
      * Warm-Flow 官方引擎表，禁止生成业务 CRUD。
@@ -81,22 +81,22 @@ public class CodeGenerator {
     /**
      * 默认目标模块（兼容旧配置）
      */
-    private static final String DEFAULT_TARGET_MODULE = "vita-workflow";
+    private static final String DEFAULT_TARGET_MODULE = "vita-service";
 
     /**
      * 默认控制器模块（与当前 sysUser 模块保持一致）
      */
-    private static final String DEFAULT_CONTROLLER_MODULE = "vita-workflow";
+    private static final String DEFAULT_CONTROLLER_MODULE = "vita-admin";
 
     /**
      * 默认业务模块（用于父包、路由和 mapper 目录）
      */
-    private static final String DEFAULT_BUSINESS_MODULE = "workflow";
+    private static final String DEFAULT_BUSINESS_MODULE = "market";
 
     /**
      * 默认领域模块（用于 packageConfig.moduleName）
      */
-    private static final String DEFAULT_DOMAIN_MODULE = "flow";
+    private static final String DEFAULT_DOMAIN_MODULE = "";
 
     /**
      * 默认基础包（兼容旧配置 com.vita.system + sysUser）
