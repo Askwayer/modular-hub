@@ -2,6 +2,7 @@ package com.vita.market.service;
 
 import com.vita.core.page.PageResponse;
 import com.vita.market.dto.MarketStockSearchDto;
+import com.vita.market.entity.MarketDailySummary;
 import com.vita.market.entity.MarketStock;
 import com.vita.market.model.MarketDataModels;
 
@@ -35,6 +36,8 @@ public interface IMarketStockService {
     void saveFundPoints(List<MarketDataModels.StockFundSnapshot> points);
 
     void saveDailySummary(MarketDataModels.DailySummaryData summary);
+
+    MarketDailySummary findPreviousDailySummary(LocalDate tradeDate);
 
     List<MarketDataModels.StockFundSnapshot> listFundPoints(String stockCode, LocalDate tradeDate);
 }

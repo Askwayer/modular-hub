@@ -41,7 +41,7 @@ public class MarketFundController {
     @SaCheckPermission("market:dashboard:view")
     public CommonResult<MarketModuleResult<List<MarketDataModels.FundTrendPoint>>> trend(
             @RequestParam(name = "days", defaultValue = "20") Integer days,
-            @RequestParam(name = "indexCode", defaultValue = "000300") String indexCode) {
+            @RequestParam(name = "indexCode", defaultValue = "000001") String indexCode) {
         return CommonResult.success(dashboardService.fundTrend(days, indexCode));
     }
 }

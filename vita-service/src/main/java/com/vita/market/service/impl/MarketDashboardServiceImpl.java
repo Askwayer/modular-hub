@@ -4,12 +4,14 @@ import cn.hutool.core.text.CharSequenceUtil;
 import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
 import com.vita.market.constant.MarketConstants;
+import com.vita.market.enums.MarketDataStatus;
 import com.vita.market.enums.MarketModule;
 import com.vita.market.model.MarketDataModels;
 import com.vita.market.model.MarketModuleState;
 import com.vita.market.model.MarketTradeContext;
 import com.vita.market.property.MarketProperty;
 import com.vita.market.service.IMarketDashboardService;
+import com.vita.market.service.IMarketStockService;
 import com.vita.market.service.MarketTradeCalendarService;
 import com.vita.market.support.AkToolsMarketClient;
 import com.vita.market.support.MarketSnapshotStore;
@@ -20,30 +22,24 @@ import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.time.ZoneId;
-import java.util.List;
-import java.util.Locale;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 /**
- * @BelongsProject: be-vita
- * @BelongsPackage: com.vita.market.service.impl
- * @Author: znk
- * @CreateTime: 2026-07-25
- * @Description: A股行情大屏缓存读取与降级服务
- * @Version: 1.0
+ * A股行情大屏缓存读取、筛选和按需关联服务。
  */
 @Service
 public class MarketDashboardServiceImpl implements IMarketDashboardService {
 
-    private static final ZoneId SHANGHAI = ZoneId.of("Asia/Shanghai");
-
     private final MarketTradeCalendarService tradeCalendarService;
     private final MarketSnapshotStore snapshotStore;
     private final AkToolsMarketClient marketClient;
+    private final IMarketStockService stockService;
     private final RedisCache redisCache;
     private final RedissonClient redissonClient;
     private final MarketProperty property;
@@ -51,12 +47,14 @@ public class MarketDashboardServiceImpl implements IMarketDashboardService {
     public MarketDashboardServiceImpl(MarketTradeCalendarService tradeCalendarService,
                                       MarketSnapshotStore snapshotStore,
                                       AkToolsMarketClient marketClient,
+                                      IMarketStockService stockService,
                                       RedisCache redisCache,
                                       RedissonClient redissonClient,
                                       MarketProperty property) {
         this.tradeCalendarService = tradeCalendarService;
         this.snapshotStore = snapshotStore;
         this.marketClient = marketClient;
+        this.stockService = stockService;
         this.redisCache = redisCache;
         this.redissonClient = redissonClient;
         this.property = property;
@@ -91,38 +89,41 @@ public class MarketDashboardServiceImpl implements IMarketDashboardService {
     }
 
     @Override
-    public MarketModuleResult<List<MarketDataModels.SectorQuote>> heatmap(
+    public MarketModuleResult<MarketDataModels.SectorHeatmapData> heatmap(
             String sectorType, String areaMetric, String direction, String keyword) {
         String normalizedType = normalizeSectorType(sectorType);
-        if (!List.of("turnover", "marketCap").contains(defaultValue(areaMetric, "turnover"))) {
-            throw badRequest("面积口径仅支持 turnover 或 marketCap");
-        }
-        String normalizedDirection = defaultValue(direction, "all");
+        String normalizedMetric = normalizeAreaMetric(areaMetric, normalizedType);
+        String normalizedDirection = defaultValue(direction, "all").toLowerCase(Locale.ROOT);
         if (!List.of("all", "up", "down").contains(normalizedDirection)) {
             throw badRequest("方向仅支持 all、up 或 down");
         }
-        MarketModuleResult<List<MarketDataModels.SectorQuote>> result = result(MarketModule.SECTORS);
-        if (result.getData() == null) {
-            return result;
+        MarketModuleResult<List<MarketDataModels.SectorQuote>> source = result(MarketModule.SECTORS);
+        MarketModuleResult<MarketDataModels.SectorHeatmapData> response = copyMetadata(source);
+        List<String> availableMetrics = "concept".equals(normalizedType)
+                ? List.of("marketCap") : List.of("turnover", "marketCap");
+        if (source.getData() == null) {
+            response.setData(new MarketDataModels.SectorHeatmapData(availableMetrics, List.of()));
+            return response;
         }
-        String filterKeyword = CharSequenceUtil.blankToDefault(keyword, "").trim().toLowerCase(Locale.ROOT);
-        result.setData(result.getData().stream()
+        String normalizedKeyword = CharSequenceUtil.blankToDefault(keyword, "")
+                .trim()
+                .toLowerCase(Locale.ROOT);
+        List<MarketDataModels.SectorQuote> items = source.getData().stream()
                 .filter(item -> normalizedType.equals(item.sectorType()))
-                .filter(item -> filterKeyword.isEmpty()
-                        || item.name().toLowerCase(Locale.ROOT).contains(filterKeyword)
-                        || item.sectorCode().toLowerCase(Locale.ROOT).contains(filterKeyword))
+                .filter(item -> normalizedKeyword.isEmpty()
+                        || item.name().toLowerCase(Locale.ROOT).contains(normalizedKeyword)
+                        || item.sectorCode() != null
+                        && item.sectorCode().toLowerCase(Locale.ROOT).contains(normalizedKeyword))
                 .filter(item -> "all".equals(normalizedDirection)
-                        || ("up".equals(normalizedDirection) && item.changePercent() != null
-                        && item.changePercent().signum() > 0)
-                        || ("down".equals(normalizedDirection) && item.changePercent() != null
-                        && item.changePercent().signum() < 0))
-                .toList());
-        return result;
+                        || ("up".equals(normalizedDirection)
+                        && item.changePercent() != null && item.changePercent().signum() > 0)
+                        || ("down".equals(normalizedDirection)
+                        && item.changePercent() != null && item.changePercent().signum() < 0))
+                .toList();
+        response.setData(new MarketDataModels.SectorHeatmapData(availableMetrics, items));
+        return response;
     }
 
-    /**
-     * 板块成分按板块独立缓存；缓存缺失时在细粒度锁内拉取，失败沿用旧值。
-     */
     @Override
     public MarketModuleResult<List<MarketDataModels.SectorTopStock>> topStocks(
             String sectorType, String sectorCode, String metric) {
@@ -136,7 +137,7 @@ public class MarketDashboardServiceImpl implements IMarketDashboardService {
         }
         MarketTradeContext context = tradeCalendarService.current();
         LocalDate effectiveDate = resolveEffectiveDate(context, MarketModule.SECTORS);
-        MarketModuleResult<List<MarketDataModels.SectorTopStock>> result =
+        MarketModuleResult<List<MarketDataModels.SectorTopStock>> response =
                 snapshotStore.buildResult(
                         MarketModule.SECTORS,
                         context.tradeStatus(),
@@ -147,63 +148,204 @@ public class MarketDashboardServiceImpl implements IMarketDashboardService {
                 String.valueOf(effectiveDate), normalizedType, sectorCode, normalizedMetric);
         List<MarketDataModels.SectorTopStock> data = redisCache.getCacheObject(key);
         if (data == null) {
-            data = loadSectorTopStocks(key, normalizedType, sectorCode, normalizedMetric);
+            data = loadSectorTopStocks(key, normalizedType, sectorCode, normalizedMetric, effectiveDate);
         }
-        result.setData(data);
-        return result;
+        response.setData(data);
+        return response;
     }
 
     @Override
-    public MarketModuleResult<List<MarketDataModels.SectorRanking>> rankings(String period, String sectorType) {
-        MarketModuleResult<List<MarketDataModels.SectorRanking>> result = result(MarketModule.SECTOR_RANKINGS);
-        if (result.getData() == null) {
-            return result;
+    public MarketModuleResult<List<MarketDataModels.SectorRanking>> rankings(
+            String period, String sectorType) {
+        MarketModuleResult<List<MarketDataModels.SectorRanking>> response =
+                result(MarketModule.SECTOR_RANKINGS);
+        if (response.getData() == null) {
+            return response;
         }
         String normalizedPeriod = normalizePeriod(period);
         String normalizedType = normalizeSectorType(sectorType);
-        result.setData(result.getData().stream()
+        response.setData(response.getData().stream()
                 .filter(item -> normalizedPeriod.equals(item.period()))
                 .filter(item -> normalizedType.equals(item.sectorType()))
                 .toList());
-        return result;
+        return response;
     }
 
     @Override
     public MarketModuleResult<List<MarketDataModels.MarketMutation>> mutations() {
-        return result(MarketModule.MUTATIONS);
+        MarketModuleResult<List<MarketDataModels.MarketMutation>> response = result(MarketModule.MUTATIONS);
+        if (response.getData() != null && response.getData().size() > 5) {
+            response.setData(response.getData().subList(0, 5));
+        }
+        return response;
     }
 
     @Override
-    public MarketModuleResult<List<MarketDataModels.FundTrendPoint>> fundTrend(Integer days, String indexCode) {
+    public MarketModuleResult<List<MarketDataModels.FundTrendPoint>> fundTrend(
+            Integer days, String indexCode) {
         int normalizedDays = days == null ? 20 : days;
         if (!List.of(5, 10, 20).contains(normalizedDays)) {
             throw badRequest("资金趋势仅支持5、10、20日");
         }
-        String normalizedIndex = CharSequenceUtil.blankToDefault(indexCode, "000300").trim();
-        if (!MarketConstants.INDEX_NAMES.containsKey(normalizedIndex)) {
-            throw badRequest("不支持的指数代码");
+        String normalizedIndex = CharSequenceUtil.blankToDefault(indexCode, "000001").trim();
+        MarketConstants.IndexDefinition definition = MarketConstants.INDEX_DEFINITIONS.stream()
+                .filter(item -> item.code().equals(normalizedIndex))
+                .findFirst()
+                .orElseThrow(() -> badRequest("不支持的指数代码"));
+
+        MarketModuleResult<List<MarketDataModels.MarketFundPoint>> source = result(MarketModule.FUND_TREND);
+        MarketModuleResult<List<MarketDataModels.FundTrendPoint>> response = copyMetadata(source);
+        if (source.getData() == null) {
+            response.setData(null);
+            return response;
         }
-        MarketModuleResult<List<MarketDataModels.FundTrendPoint>> result = result(MarketModule.FUND_TREND);
-        List<MarketDataModels.FundTrendPoint> data = result.getData();
-        if (!"000300".equals(normalizedIndex)) {
-            data = loadIndexFundTrend(normalizedIndex);
+        try {
+            List<MarketDataModels.FundTrendPoint> enriched =
+                    loadIndexFundTrend(source.getData(), definition);
+            response.setData(tail(enriched, normalizedDays));
+        } catch (RuntimeException error) {
+            response.setData(tail(source.getData().stream()
+                    .map(item -> new MarketDataModels.FundTrendPoint(
+                            item.tradeDate(), item.mainNetInflow(), item.superLargeNetInflow(),
+                            item.largeNetInflow(), item.mediumNetInflow(), item.smallNetInflow(),
+                            normalizedIndex, null, null))
+                    .toList(), normalizedDays));
+            response.setDataStatus(MarketDataStatus.STALE);
+            response.setMessage("指数对照线获取失败，市场资金数据继续可用");
         }
-        if (data != null && data.size() > normalizedDays) {
-            data = data.subList(data.size() - normalizedDays, data.size());
+        return response;
+    }
+
+    private List<MarketDataModels.SectorTopStock> loadSectorTopStocks(
+            String key, String sectorType, String sectorCode, String metric, LocalDate effectiveDate) {
+        RLock lock = redissonClient.getLock("vita:market:lock:sector-top:" + sectorType + ":" + sectorCode);
+        boolean locked = false;
+        try {
+            locked = lock.tryLock(0, property.getRefreshLockLeaseSeconds(), TimeUnit.SECONDS);
+            if (!locked) {
+                return redisCache.getCacheObject(key);
+            }
+            List<MarketDataModels.SectorTopStock> cached = redisCache.getCacheObject(key);
+            if (cached != null) {
+                return cached;
+            }
+            List<MarketDataModels.SectorTopStock> constituents =
+                    marketClient.fetchSectorConstituents(sectorType, sectorCode);
+            List<MarketDataModels.StockFundSnapshot> funds =
+                    snapshotStore.getSnapshot(MarketModule.STOCK_FUNDS, effectiveDate);
+            Map<String, MarketDataModels.StockFundSnapshot> fundByCode = new HashMap<>();
+            if (funds != null) {
+                funds.forEach(item -> fundByCode.put(item.stockCode(), item));
+            }
+            Set<String> enabledCodes = new HashSet<>();
+            stockService.listEnabledStocks().forEach(item -> enabledCodes.add(item.getStockCode()));
+            List<MarketDataModels.SectorTopStock> enriched = constituents.stream()
+                    .map(item -> enrichTopStock(item, fundByCode.get(item.stockCode()), enabledCodes))
+                    .sorted(topStockComparator(metric))
+                    .limit(5)
+                    .toList();
+            List<MarketDataModels.SectorTopStock> ranked = new ArrayList<>();
+            for (int index = 0; index < enriched.size(); index++) {
+                MarketDataModels.SectorTopStock item = enriched.get(index);
+                ranked.add(new MarketDataModels.SectorTopStock(
+                        item.stockCode(), item.stockName(), item.latestPrice(), item.changePercent(),
+                        item.turnoverAmount(), item.turnoverRate(), item.mainNetInflow(),
+                        item.mainNetInflowRatio(), index + 1, item.monitorEnabled()));
+            }
+            redisCache.setCacheObject(
+                    key, ranked, MarketConstants.SAMPLE_BUCKET_SECONDS, TimeUnit.SECONDS);
+            return ranked;
+        } catch (InterruptedException error) {
+            Thread.currentThread().interrupt();
+            throw new ServiceException(GlobalErrorCode.LOCKED);
+        } finally {
+            if (locked && lock.isHeldByCurrentThread()) {
+                lock.unlock();
+            }
         }
-        result.setData(data);
+    }
+
+    private MarketDataModels.SectorTopStock enrichTopStock(
+            MarketDataModels.SectorTopStock item,
+            MarketDataModels.StockFundSnapshot fund,
+            Set<String> enabledCodes) {
+        BigDecimal turnover = fund == null || fund.turnoverAmount() == null
+                ? item.turnoverAmount() : fund.turnoverAmount();
+        BigDecimal mainNet = fund == null ? null : fund.netAmount();
+        BigDecimal ratio = mainNet == null || turnover == null || turnover.signum() == 0
+                ? null : mainNet.multiply(new BigDecimal("100"))
+                .divide(turnover, 4, RoundingMode.HALF_UP);
+        return new MarketDataModels.SectorTopStock(
+                item.stockCode(),
+                item.stockName(),
+                fund == null || fund.latestPrice() == null ? item.latestPrice() : fund.latestPrice(),
+                fund == null || fund.changePercent() == null ? item.changePercent() : fund.changePercent(),
+                turnover,
+                fund == null || fund.turnoverRate() == null ? item.turnoverRate() : fund.turnoverRate(),
+                mainNet,
+                ratio,
+                null,
+                enabledCodes.contains(item.stockCode())
+        );
+    }
+
+    private Comparator<MarketDataModels.SectorTopStock> topStockComparator(String metric) {
+        Comparator<BigDecimal> values = Comparator.nullsLast(Comparator.reverseOrder());
+        return switch (metric) {
+            case "mainNetInflow" -> Comparator.comparing(
+                    MarketDataModels.SectorTopStock::mainNetInflow, values);
+            case "turnover" -> Comparator.comparing(
+                    MarketDataModels.SectorTopStock::turnoverAmount, values);
+            default -> Comparator.comparing(
+                    MarketDataModels.SectorTopStock::changePercent, values);
+        };
+    }
+
+    private List<MarketDataModels.FundTrendPoint> loadIndexFundTrend(
+            List<MarketDataModels.MarketFundPoint> funds,
+            MarketConstants.IndexDefinition definition) {
+        MarketTradeContext context = tradeCalendarService.current();
+        String key = "vita:market:fund-trend:" + context.effectiveTradeDate() + ":" + definition.code();
+        List<MarketDataModels.FundTrendPoint> cached = redisCache.getCacheObject(key);
+        if (cached != null) {
+            return cached;
+        }
+        List<MarketDataModels.IndexDailyPoint> indexHistory =
+                marketClient.fetchIndexDaily(definition.sourceSymbol());
+        Map<LocalDate, MarketDataModels.IndexDailyPoint> indexByDate = new HashMap<>();
+        Map<LocalDate, BigDecimal> previousClose = new HashMap<>();
+        MarketDataModels.IndexDailyPoint previous = null;
+        for (MarketDataModels.IndexDailyPoint point : indexHistory) {
+            indexByDate.put(point.tradeDate(), point);
+            previousClose.put(point.tradeDate(), previous == null ? null : previous.close());
+            previous = point;
+        }
+        List<MarketDataModels.FundTrendPoint> result = funds.stream().map(item -> {
+            MarketDataModels.IndexDailyPoint index = indexByDate.get(item.tradeDate());
+            BigDecimal base = previousClose.get(item.tradeDate());
+            BigDecimal changePercent = index == null || base == null || base.signum() == 0
+                    ? null : index.close().subtract(base)
+                    .multiply(new BigDecimal("100"))
+                    .divide(base, 4, RoundingMode.HALF_UP);
+            return new MarketDataModels.FundTrendPoint(
+                    item.tradeDate(), item.mainNetInflow(), item.superLargeNetInflow(),
+                    item.largeNetInflow(), item.mediumNetInflow(), item.smallNetInflow(),
+                    definition.code(), index == null ? null : index.close(), changePercent);
+        }).toList();
+        redisCache.setCacheObject(
+                key, result, MarketConstants.SAMPLE_BUCKET_SECONDS, TimeUnit.SECONDS);
         return result;
+    }
+
+    private <T> List<T> tail(List<T> values, int size) {
+        return values.size() <= size ? values : values.subList(values.size() - size, values.size());
     }
 
     private <T> MarketModuleResult<T> result(MarketModule module) {
         MarketTradeContext context = tradeCalendarService.current();
         LocalDate effectiveDate = resolveEffectiveDate(context, module);
         return snapshotStore.buildResult(
-                module,
-                context.tradeStatus(),
-                context.tradeDate(),
-                effectiveDate,
-                nextRefreshAt(context));
+                module, context.tradeStatus(), context.tradeDate(), effectiveDate, nextRefreshAt(context));
     }
 
     private LocalDate resolveEffectiveDate(MarketTradeContext context, MarketModule module) {
@@ -218,7 +360,7 @@ public class MarketDashboardServiceImpl implements IMarketDashboardService {
     }
 
     private LocalDateTime nextRefreshAt(MarketTradeContext context) {
-        LocalDateTime now = LocalDateTime.now(SHANGHAI);
+        LocalDateTime now = LocalDateTime.now(MarketConstants.SHANGHAI_ZONE);
         return switch (context.tradeStatus()) {
             case TRADING -> now.plusSeconds(MarketConstants.SAMPLE_BUCKET_SECONDS);
             case PRE_OPEN -> LocalDateTime.of(context.tradeDate(), LocalTime.of(9, 30));
@@ -227,70 +369,54 @@ public class MarketDashboardServiceImpl implements IMarketDashboardService {
         };
     }
 
-    @SuppressWarnings("unchecked")
-    private List<MarketDataModels.SectorTopStock> loadSectorTopStocks(String key,
-                                                                      String sectorType,
-                                                                      String sectorCode,
-                                                                      String metric) {
-        RLock lock = redissonClient.getLock("vita:market:lock:sector-top:" + sectorType + ":" + sectorCode);
-        boolean locked = false;
-        try {
-            locked = lock.tryLock(0, property.getRefreshLockLeaseSeconds(), TimeUnit.SECONDS);
-            if (!locked) {
-                return redisCache.getCacheObject(key);
-            }
-            List<MarketDataModels.SectorTopStock> cached = redisCache.getCacheObject(key);
-            if (cached != null) {
-                return cached;
-            }
-            List<MarketDataModels.SectorTopStock> data =
-                    marketClient.fetchSectorTopStocks(sectorType, sectorCode, metric);
-            redisCache.setCacheObject(key, data, property.getSnapshotTtlDays(), TimeUnit.DAYS);
-            return data;
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new ServiceException(GlobalErrorCode.LOCKED);
-        } finally {
-            if (locked && lock.isHeldByCurrentThread()) {
-                lock.unlock();
-            }
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    private List<MarketDataModels.FundTrendPoint> loadIndexFundTrend(String indexCode) {
-        MarketTradeContext context = tradeCalendarService.current();
-        String key = "vita:market:fund-trend:" + context.effectiveTradeDate() + ":" + indexCode;
-        List<MarketDataModels.FundTrendPoint> cached = redisCache.getCacheObject(key);
-        if (cached != null) {
-            return cached;
-        }
-        List<MarketDataModels.FundTrendPoint> data = marketClient.fetchFundTrend(indexCode);
-        redisCache.setCacheObject(key, data, property.getSnapshotTtlDays(), TimeUnit.DAYS);
-        return data;
-    }
-
     private String normalizeSectorType(String sectorType) {
-        String value = defaultValue(sectorType, "industry");
+        String value = defaultValue(sectorType, "industry").toLowerCase(Locale.ROOT);
         if (!List.of("industry", "concept").contains(value)) {
             throw badRequest("板块类型仅支持 industry 或 concept");
         }
         return value;
     }
 
+    private String normalizeAreaMetric(String areaMetric, String sectorType) {
+        String fallback = "concept".equals(sectorType) ? "marketCap" : "turnover";
+        String raw = defaultValue(areaMetric, fallback);
+        String value = switch (raw.toLowerCase(Locale.ROOT)) {
+            case "turnover" -> "turnover";
+            case "marketcap" -> "marketCap";
+            default -> throw badRequest("面积口径仅支持 turnover 或 marketCap");
+        };
+        if ("concept".equals(sectorType) && "turnover".equals(value)) {
+            throw badRequest("概念板块仅支持 marketCap 面积口径");
+        }
+        return value;
+    }
+
     private String normalizePeriod(String period) {
-        String value = defaultValue(period, "今日");
+        String value = defaultValue(period, "今日").toLowerCase(Locale.ROOT);
         return switch (value) {
-            case "today" -> "今日";
-            case "5d" -> "5日";
-            case "10d" -> "10日";
-            case "今日", "5日", "10日" -> value;
+            case "today", "今日" -> "今日";
+            case "5d", "5日" -> "5日";
+            case "10d", "10日" -> "10日";
             default -> throw badRequest("排行周期仅支持今日、5日或10日");
         };
     }
 
-    private String defaultValue(String value, String defaultValue) {
-        return CharSequenceUtil.blankToDefault(value, defaultValue).trim();
+    private String defaultValue(String value, String fallback) {
+        return CharSequenceUtil.blankToDefault(value, fallback).trim();
+    }
+
+    private <T, S> MarketModuleResult<T> copyMetadata(MarketModuleResult<S> source) {
+        MarketModuleResult<T> target = new MarketModuleResult<>();
+        target.setDataStatus(source.getDataStatus());
+        target.setTradeStatus(source.getTradeStatus());
+        target.setTradeDate(source.getTradeDate());
+        target.setRecentValidDate(source.getRecentValidDate());
+        target.setSourceDataTime(source.getSourceDataTime());
+        target.setLastSuccessAt(source.getLastSuccessAt());
+        target.setLastAttemptAt(source.getLastAttemptAt());
+        target.setNextRefreshAt(source.getNextRefreshAt());
+        target.setMessage(source.getMessage());
+        return target;
     }
 
     private ServiceException badRequest(String message) {

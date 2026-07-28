@@ -49,7 +49,7 @@ public class MarketDashboardController {
     }
 
     /**
-     * 查询固定十大指数及当日曲线。
+     * 查询固定九个指数及当日曲线。
      *
      * @return 指数行情
      */

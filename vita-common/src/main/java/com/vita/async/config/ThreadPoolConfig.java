@@ -1,9 +1,6 @@
 package com.vita.async.config;
 
-import com.vita.async.property.AsyncExecutorProperty;
-import com.vita.async.property.DefaultAsyncExecutorProperty;
-import com.vita.async.property.HotRefreshAsyncExecutorProperty;
-import com.vita.async.property.MarketRefreshAsyncExecutorProperty;
+import com.vita.async.property.*;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
@@ -27,6 +24,8 @@ public class ThreadPoolConfig {
             new HotRefreshAsyncExecutorProperty();
     private static final MarketRefreshAsyncExecutorProperty MARKET_REFRESH_EXECUTOR_PROPERTY =
             new MarketRefreshAsyncExecutorProperty();
+    private static final MarketSourceAsyncExecutorProperty MARKET_SOURCE_EXECUTOR_PROPERTY =
+            new MarketSourceAsyncExecutorProperty();
 
     /**
      * 非核心异步默认线程池，同时保留旧别名避免 Bean 名立即断裂。
@@ -55,6 +54,14 @@ public class ThreadPoolConfig {
     @Bean(name = "marketRefreshTaskExecutor")
     public ThreadPoolTaskExecutor marketRefreshTaskExecutor() {
         return createExecutor(MARKET_REFRESH_EXECUTOR_PROPERTY, new ThreadPoolExecutor.CallerRunsPolicy());
+    }
+
+    /**
+     * 行情外部数据源并发请求专用线程池，避免指数子任务反向占满模块刷新线程。
+     */
+    @Bean(name = "marketSourceTaskExecutor")
+    public ThreadPoolTaskExecutor marketSourceTaskExecutor() {
+        return createExecutor(MARKET_SOURCE_EXECUTOR_PROPERTY, new ThreadPoolExecutor.CallerRunsPolicy());
     }
 
     /**

@@ -1,5 +1,7 @@
 package com.vita.market.model;
 
+import com.vita.market.enums.MarketDataStatus;
+
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -28,12 +30,21 @@ public final class MarketDataModels {
 
     public record StockQuote(String stockCode, String stockName, String market, BigDecimal latestPrice,
                              BigDecimal changePercent, BigDecimal turnoverAmount, BigDecimal turnoverRate,
+                             BigDecimal limitUpPrice, BigDecimal limitDownPrice,
                              LocalDateTime sourceDataTime) implements Serializable {
     }
 
     public record IndexQuote(String indexCode, String indexName, BigDecimal latestValue,
-                             BigDecimal changePercent, BigDecimal turnoverAmount,
-                             LocalDateTime sourceDataTime, List<CurvePoint> curve) implements Serializable {
+                             BigDecimal changeAmount, BigDecimal changePercent, BigDecimal turnoverAmount,
+                             LocalDateTime sourceDataTime, String dataSource,
+                             MarketDataStatus dataStatus, List<CurvePoint> curve) implements Serializable {
+    }
+
+    public record IndexSpot(String indexCode, BigDecimal latestValue, BigDecimal changeAmount,
+                            BigDecimal changePercent, BigDecimal turnoverAmount) implements Serializable {
+    }
+
+    public record IndexDailyPoint(LocalDate tradeDate, BigDecimal close) implements Serializable {
     }
 
     public record SectorQuote(String sectorType, String sectorCode, String name, BigDecimal changePercent,
@@ -42,30 +53,48 @@ public final class MarketDataModels {
                               BigDecimal mainNetInflow) implements Serializable {
     }
 
-    public record SectorTopStock(String stockCode, String stockName, BigDecimal changePercent,
-                                 BigDecimal mainNetInflow, BigDecimal turnoverAmount) implements Serializable {
+    public record SectorHeatmapData(List<String> availableAreaMetrics,
+                                    List<SectorQuote> list) implements Serializable {
+    }
+
+    public record SectorTopStock(String stockCode, String stockName, BigDecimal latestPrice,
+                                 BigDecimal changePercent, BigDecimal turnoverAmount, BigDecimal turnoverRate,
+                                 BigDecimal mainNetInflow, BigDecimal mainNetInflowRatio,
+                                 Integer rank, boolean monitorEnabled) implements Serializable {
     }
 
     public record SectorRanking(String period, String sectorType, String sectorCode, String sectorName,
                                 BigDecimal changePercent, BigDecimal mainNetInflow) implements Serializable {
     }
 
-    public record MarketMutation(String sectorCode, String sectorName, String mutationType,
+    public record MarketMutation(String sectorCode, String sectorName, String direction,
+                                 Integer mutationCount, BigDecimal changePercent,
+                                 BigDecimal mainNetInflow, String frequentStock,
                                  String description, LocalDateTime occurredAt) implements Serializable {
     }
 
+    public record MarketFundPoint(LocalDate tradeDate, BigDecimal mainNetInflow,
+                                  BigDecimal superLargeNetInflow, BigDecimal largeNetInflow,
+                                  BigDecimal mediumNetInflow, BigDecimal smallNetInflow) implements Serializable {
+    }
+
     public record FundTrendPoint(LocalDate tradeDate, BigDecimal mainNetInflow,
-                                 BigDecimal indexValue, String indexCode) implements Serializable {
+                                 BigDecimal superLargeNetInflow, BigDecimal largeNetInflow,
+                                 BigDecimal mediumNetInflow, BigDecimal smallNetInflow,
+                                 String indexCode, BigDecimal indexValue,
+                                 BigDecimal indexChangePercent) implements Serializable {
     }
 
     public record StockFundSnapshot(String stockCode, LocalDate tradeDate, LocalDateTime sampleTime,
                                     BigDecimal inflowAmount, BigDecimal outflowAmount, BigDecimal netAmount,
                                     BigDecimal latestPrice, BigDecimal changePercent,
-                                    BigDecimal turnoverAmount, BigDecimal turnoverRate) implements Serializable {
+                                    BigDecimal turnoverAmount, BigDecimal turnoverRate,
+                                    LocalDateTime sourceDataTime) implements Serializable {
     }
 
     public record DailySummaryData(LocalDate tradeDate, BigDecimal shTurnoverAmount,
                                    BigDecimal szTurnoverAmount, BigDecimal bjTurnoverAmount,
+                                   BigDecimal totalTurnoverAmount, BigDecimal turnoverChangePercent,
                                    Integer upCount, Integer downCount, Integer flatCount,
                                    Integer limitUpCount, Integer limitDownCount,
                                    BigDecimal mainNetInflow, LocalDateTime lastValidTime,

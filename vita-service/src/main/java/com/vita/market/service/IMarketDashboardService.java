@@ -22,7 +22,7 @@ public interface IMarketDashboardService {
 
     MarketModuleResult<MarketDataModels.DailySummaryData> summary();
 
-    MarketModuleResult<List<MarketDataModels.SectorQuote>> heatmap(
+    MarketModuleResult<MarketDataModels.SectorHeatmapData> heatmap(
             String sectorType, String areaMetric, String direction, String keyword);
 
     MarketModuleResult<List<MarketDataModels.SectorTopStock>> topStocks(

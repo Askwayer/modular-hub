@@ -20,7 +20,7 @@ public class MarketProperty {
     private String aktoolsBaseUrl = "http://127.0.0.1:18001";
     private int connectTimeoutMs = 3000;
     private int readTimeoutMs = 8000;
-    private int retryTimes = 2;
+    private int retryTimes = 1;
     private int snapshotTtlDays = 35;
     private int fundPointRetentionDays = 30;
     private int manualRefreshIntervalSeconds = 30;

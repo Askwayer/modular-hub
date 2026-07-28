@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
@@ -31,18 +32,14 @@ import java.time.format.DateTimeParseException;
 import java.util.*;
 
 /**
- * @BelongsProject: be-vita
- * @BelongsPackage: com.vita.market.support
- * @Author: znk
- * @CreateTime: 2026-07-25
- * @Description: AKTools A股行情固定接口适配器
- * @Version: 1.0
+ * AKTools公开函数适配器。该组件只负责HTTP调用和单接口字段标准化，跨源合并由采集器完成。
  */
 @Component
 public class AkToolsMarketClient {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AkToolsMarketClient.class);
-    private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final DateTimeFormatter DATE_TIME_FORMATTER =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final List<String> RANKING_PERIODS = List.of("今日", "5日", "10日");
 
     private final MarketProperty property;
@@ -65,7 +62,6 @@ public class AkToolsMarketClient {
 
     static HttpClient createHttpClient(MarketProperty property) {
         return HttpClient.newBuilder()
-                // AKTools 使用 Uvicorn HTTP/1.1；禁止 JDK 客户端发送明文 h2c Upgrade。
                 .version(HttpClient.Version.HTTP_1_1)
                 .connectTimeout(Duration.ofMillis(property.getConnectTimeoutMs()))
                 .build();
@@ -76,124 +72,128 @@ public class AkToolsMarketClient {
         this.transport = transport;
     }
 
-    /**
-     * 同步沪深京股票字典。方法名固定在服务端，前端无法注入 AKShare 函数。
-     *
-     * @return 全量股票字典
-     */
     public List<MarketDataModels.StockDictionaryItem> fetchStockDictionary() {
         Map<String, MarketDataModels.StockDictionaryItem> items = new LinkedHashMap<>();
-        appendDictionary(items, fetchRows("/api/public/stock_info_sh_name_code", Map.of("symbol", "主板A股")),
-                "SH", MarketConstants.LISTED);
-        appendDictionary(items, fetchRows("/api/public/stock_info_sh_name_code", Map.of("symbol", "科创板")),
-                "SH", MarketConstants.LISTED);
-        appendDictionary(items, fetchRows("/api/public/stock_info_sz_name_code", Map.of("symbol", "A股列表")),
-                "SZ", MarketConstants.LISTED);
-        appendDictionary(items, fetchRows("/api/public/stock_info_bj_name_code", Map.of()),
-                "BJ", MarketConstants.LISTED);
-        appendDictionary(items, fetchRows("/api/public/stock_info_sh_delist", Map.of("symbol", "暂停上市")),
-                "SH", MarketConstants.SUSPENDED);
-        appendDictionary(items, fetchRows("/api/public/stock_info_sz_delist", Map.of("symbol", "暂停上市公司")),
-                "SZ", MarketConstants.SUSPENDED);
-        appendDictionary(items, fetchRows("/api/public/stock_info_sh_delist", Map.of("symbol", "终止上市")),
-                "SH", MarketConstants.DELISTED);
-        appendDictionary(items, fetchRows("/api/public/stock_info_sz_delist", Map.of("symbol", "终止上市公司")),
-                "SZ", MarketConstants.DELISTED);
-        return new ArrayList<>(items.values());
+        LocalDateTime synchronizedAt = LocalDateTime.now(MarketConstants.SHANGHAI_ZONE);
+        appendDictionary(items, fetchRows("stock_info_sh_name_code", Map.of("symbol", "主板A股")),
+                "SH", MarketConstants.LISTED, synchronizedAt);
+        appendDictionary(items, fetchRows("stock_info_sh_name_code", Map.of("symbol", "科创板")),
+                "SH", MarketConstants.LISTED, synchronizedAt);
+        appendDictionary(items, fetchRows("stock_info_sz_name_code", Map.of("symbol", "A股列表")),
+                "SZ", MarketConstants.LISTED, synchronizedAt);
+        appendDictionary(items, fetchRows("stock_info_bj_name_code", Map.of()),
+                "BJ", MarketConstants.LISTED, synchronizedAt);
+        appendDictionary(items, fetchRows("stock_info_sh_delist", Map.of("symbol", "暂停上市")),
+                "SH", MarketConstants.SUSPENDED, synchronizedAt);
+        appendDictionary(items, fetchRows("stock_info_sz_delist", Map.of("symbol", "暂停上市公司")),
+                "SZ", MarketConstants.SUSPENDED, synchronizedAt);
+        appendDictionary(items, fetchRows("stock_info_sh_delist", Map.of("symbol", "终止上市")),
+                "SH", MarketConstants.DELISTED, synchronizedAt);
+        appendDictionary(items, fetchRows("stock_info_sz_delist", Map.of("symbol", "终止上市公司")),
+                "SZ", MarketConstants.DELISTED, synchronizedAt);
+        return requireNotEmpty(new ArrayList<>(items.values()), "股票字典");
     }
 
-    /**
-     * 查询全市场实时行情。
-     *
-     * @return 标准化股票行情
-     */
     public List<MarketDataModels.StockQuote> fetchMarketSnapshot() {
         List<MarketDataModels.StockQuote> result = new ArrayList<>();
-        LocalDateTime sourceTime = LocalDateTime.now(MarketConstants.SHANGHAI_ZONE);
-        for (JSONObject row : fetchRows("/api/public/stock_zh_a_spot_em", Map.of())) {
-            String code = stockCode(required(row, "代码", "股票代码"));
+        for (JSONObject row : fetchRows("stock_zh_a_spot_em", Map.of())) {
+            String code = stockCode(value(row, "代码", "股票代码"));
+            if (code == null) {
+                continue;
+            }
             result.add(new MarketDataModels.StockQuote(
                     code,
-                    text(required(row, "名称", "股票简称")),
+                    text(value(row, "名称", "股票简称")),
                     marketOf(code),
-                    decimal(required(row, "最新价")),
-                    decimal(required(row, "涨跌幅")),
-                    decimal(required(row, "成交额")),
-                    decimal(required(row, "换手率")),
-                    parseDateTime(value(row, "更新时间", "时间"), sourceTime)
+                    decimal(value(row, "最新价")),
+                    decimal(value(row, "涨跌幅")),
+                    money(value(row, "成交额")),
+                    decimal(value(row, "换手率")),
+                    decimal(value(row, "涨停", "涨停价")),
+                    decimal(value(row, "跌停", "跌停价")),
+                    parseDateTime(value(row, "更新时间", "时间"), null)
             ));
         }
         return requireNotEmpty(result, "全市场行情");
     }
 
-    /**
-     * 查询固定十大指数及日内曲线。
-     *
-     * @return 指数快照
-     */
-    public List<MarketDataModels.IndexQuote> fetchIndices() {
-        Map<String, JSONObject> spotByCode = new LinkedHashMap<>();
-        for (JSONObject row : fetchRows("/api/public/index_zh_a_spot", Map.of())) {
-            String code = stockCode(required(row, "代码", "指数代码"));
-            if (MarketConstants.INDEX_NAMES.containsKey(code)) {
-                spotByCode.put(code, row);
+    public Map<String, MarketDataModels.IndexSpot> fetchIndexSpots() {
+        Map<String, MarketDataModels.IndexSpot> result = new LinkedHashMap<>();
+        for (JSONObject row : fetchRows("stock_zh_index_spot_sina", Map.of())) {
+            String code = stockCode(value(row, "代码", "指数代码", "symbol"));
+            if (code == null || !MarketConstants.INDEX_NAMES.containsKey(code)) {
+                continue;
             }
-        }
-        List<MarketDataModels.IndexQuote> result = new ArrayList<>();
-        for (Map.Entry<String, String> index : MarketConstants.INDEX_NAMES.entrySet()) {
-            JSONObject spot = spotByCode.get(index.getKey());
-            if (spot == null) {
-                throw unavailable("指数实时列表缺少 " + index.getKey());
-            }
-            List<MarketDataModels.CurvePoint> curve = fetchIndexCurve(index.getKey());
-            result.add(new MarketDataModels.IndexQuote(
-                    index.getKey(),
-                    index.getValue(),
-                    decimal(required(spot, "最新价", "最新")),
-                    decimal(required(spot, "涨跌幅")),
-                    decimal(value(spot, "成交额")),
-                    parseDateTime(value(spot, "时间", "更新时间"),
-                            LocalDateTime.now(MarketConstants.SHANGHAI_ZONE)),
-                    curve
+            result.put(code, new MarketDataModels.IndexSpot(
+                    code,
+                    decimal(value(row, "最新价", "最新")),
+                    decimal(value(row, "涨跌额", "涨跌")),
+                    decimal(value(row, "涨跌幅")),
+                    money(value(row, "成交额", "amount"))
             ));
         }
         return result;
     }
 
-    /**
-     * 查询行业或概念板块快照，成交额由 AKTools 稳定适配接口补齐。
-     *
-     * @param sectorType industry 或 concept
-     * @return 板块快照
-     */
-    public List<MarketDataModels.SectorQuote> fetchSectorSnapshot(String sectorType) {
-        if (!List.of("industry", "concept").contains(sectorType)) {
-            throw new ServiceException(GlobalErrorCode.BAD_REQUEST.getCode(), "板块类型仅支持 industry 或 concept");
+    public List<MarketDataModels.CurvePoint> fetchIndexCurve(String indexCode) {
+        Map<LocalDateTime, MarketDataModels.CurvePoint> minutePoints = new LinkedHashMap<>();
+        for (JSONObject row : fetchRows("index_zh_a_hist_min_em",
+                Map.of("symbol", indexCode, "period", "1"))) {
+            LocalDateTime time = parseDateTime(value(row, "时间", "datetime"), null);
+            BigDecimal close = decimal(value(row, "收盘", "close"));
+            if (time == null || close == null) {
+                continue;
+            }
+            LocalDateTime minute = time.withSecond(0).withNano(0);
+            minutePoints.put(minute, new MarketDataModels.CurvePoint(minute, close));
         }
-        List<MarketDataModels.SectorQuote> result = new ArrayList<>();
-        for (JSONObject row : fetchRows("/api/market/sector/snapshot", Map.of("sectorType", sectorType))) {
-            result.add(new MarketDataModels.SectorQuote(
-                    sectorType,
-                    text(required(row, "sectorCode", "板块代码", "代码")),
-                    text(required(row, "name", "板块名称", "名称")),
-                    decimal(required(row, "changePercent", "涨跌幅")),
-                    decimal(required(row, "turnover", "成交额")),
-                    decimal(value(row, "marketCap", "总市值")),
-                    decimal(value(row, "turnoverRate", "换手率")),
-                    integer(value(row, "upCount", "上涨家数")),
-                    integer(value(row, "downCount", "下跌家数")),
-                    text(value(row, "leader", "领涨股票")),
-                    decimal(value(row, "mainNetInflow", "主力净流入"))
-            ));
-        }
-        return requireNotEmpty(result, sectorType + "板块快照");
+        return minutePoints.values().stream()
+                .sorted(Comparator.comparing(MarketDataModels.CurvePoint::time))
+                .toList();
     }
 
-    /**
-     * 查询板块今日、5日和10日资金强弱榜。
-     *
-     * @return 板块排行
-     */
+    public List<MarketDataModels.IndexDailyPoint> fetchIndexDaily(String sourceSymbol) {
+        List<MarketDataModels.IndexDailyPoint> result = new ArrayList<>();
+        LocalDate today = LocalDate.now(MarketConstants.SHANGHAI_ZONE);
+        for (JSONObject row : fetchRows("stock_zh_index_daily_tx", Map.of(
+                "symbol", sourceSymbol,
+                "start_date", today.minusDays(45).format(DateTimeFormatter.BASIC_ISO_DATE),
+                "end_date", today.format(DateTimeFormatter.BASIC_ISO_DATE)))) {
+            LocalDate date = parseDate(value(row, "date", "日期"));
+            BigDecimal close = decimal(value(row, "close", "收盘"));
+            if (date != null && close != null) {
+                result.add(new MarketDataModels.IndexDailyPoint(date, close));
+            }
+        }
+        return result.stream()
+                .sorted(Comparator.comparing(MarketDataModels.IndexDailyPoint::tradeDate))
+                .toList();
+    }
+
+    public List<MarketDataModels.SectorQuote> fetchIndustryMarketSectors() {
+        List<MarketDataModels.SectorQuote> result = new ArrayList<>();
+        appendSectorRows(
+                result, fetchRows("stock_board_industry_name_em", Map.of()),
+                "industry", BigDecimal.ONE);
+        return result;
+    }
+
+    public List<MarketDataModels.SectorQuote> fetchIndustrySummarySectors() {
+        List<MarketDataModels.SectorQuote> result = new ArrayList<>();
+        appendSectorRows(
+                result, fetchRows("stock_board_industry_summary_ths", Map.of()),
+                "industry", new BigDecimal("100000000"));
+        return result;
+    }
+
+    public List<MarketDataModels.SectorQuote> fetchConceptSectors() {
+        List<MarketDataModels.SectorQuote> result = new ArrayList<>();
+        appendSectorRows(
+                result, fetchRows("stock_board_concept_name_em", Map.of()),
+                "concept", BigDecimal.ONE);
+        return result;
+    }
+
     public List<MarketDataModels.SectorRanking> fetchSectorRankings() {
         List<MarketDataModels.SectorRanking> result = new ArrayList<>();
         for (String period : RANKING_PERIODS) {
@@ -203,160 +203,154 @@ public class AkToolsMarketClient {
         return requireNotEmpty(result, "板块资金排行");
     }
 
-    /**
-     * 查询板块异动。
-     *
-     * @return 最近异动记录
-     */
     public List<MarketDataModels.MarketMutation> fetchMutations() {
         List<MarketDataModels.MarketMutation> result = new ArrayList<>();
-        for (JSONObject row : fetchRows("/api/public/stock_board_change_em", Map.of())) {
+        for (JSONObject row : fetchRows("stock_board_change_em", Map.of())) {
+            String name = text(value(row, "板块名称", "名称"));
+            if (name == null) {
+                continue;
+            }
             result.add(new MarketDataModels.MarketMutation(
                     text(value(row, "板块代码", "代码")),
-                    text(required(row, "板块名称", "名称")),
-                    text(required(row, "异动类型", "涨跌幅")),
-                    text(value(row, "异动描述", "相关信息")),
-                    parseDateTime(value(row, "异动时间", "时间"),
-                            LocalDateTime.now(MarketConstants.SHANGHAI_ZONE))
+                    name,
+                    text(value(row,
+                            "板块异动最频繁个股及所属类型-买卖方向", "异动方向", "异动类型")),
+                    integer(value(row, "板块异动总次数", "异动次数")),
+                    decimal(value(row, "涨跌幅")),
+                    money(value(row, "主力净流入"), new BigDecimal("10000")),
+                    text(value(row,
+                            "板块异动最频繁个股及所属类型-股票名称", "异动最频繁股票", "相关股票")),
+                    text(value(row, "板块具体异动类型列表及出现次数", "异动描述", "相关信息")),
+                    parseDateTime(value(row, "异动时间", "时间"), null)
             ));
         }
         return requireNotEmpty(result, "板块异动");
     }
 
-    /**
-     * 查询市场资金趋势，并使用固定指数作为对照线。
-     *
-     * @param indexCode 固定十大指数中的代码
-     * @return 最近20日资金趋势
-     */
-    public List<MarketDataModels.FundTrendPoint> fetchFundTrend(String indexCode) {
-        if (!MarketConstants.INDEX_NAMES.containsKey(indexCode)) {
-            throw new ServiceException(GlobalErrorCode.BAD_REQUEST.getCode(), "不支持的指数代码");
-        }
-        Map<LocalDate, BigDecimal> indexValues = new LinkedHashMap<>();
-        for (JSONObject row : fetchRows("/api/public/index_zh_a_hist",
-                Map.of("symbol", indexCode, "period", "daily"))) {
-            LocalDate date = parseDate(required(row, "日期", "date"));
-            indexValues.put(date, decimal(required(row, "收盘", "close")));
-        }
-        List<MarketDataModels.FundTrendPoint> result = new ArrayList<>();
-        for (JSONObject row : fetchRows("/api/public/stock_market_fund_flow", Map.of())) {
-            LocalDate date = parseDate(required(row, "日期", "date"));
-            result.add(new MarketDataModels.FundTrendPoint(
+    public List<MarketDataModels.MarketFundPoint> fetchMarketFundFlow() {
+        List<MarketDataModels.MarketFundPoint> result = new ArrayList<>();
+        for (JSONObject row : fetchRows("stock_market_fund_flow", Map.of())) {
+            LocalDate date = parseDate(value(row, "日期", "date"));
+            if (date == null) {
+                continue;
+            }
+            result.add(new MarketDataModels.MarketFundPoint(
                     date,
-                    decimal(required(row, "主力净流入-净额", "主力净流入")),
-                    indexValues.get(date),
-                    indexCode
+                    money(value(row, "主力净流入-净额", "主力净流入")),
+                    money(value(row, "超大单净流入-净额", "超大单净流入")),
+                    money(value(row, "大单净流入-净额", "大单净流入")),
+                    money(value(row, "中单净流入-净额", "中单净流入")),
+                    money(value(row, "小单净流入-净额", "小单净流入"))
             ));
         }
-        result.sort(Comparator.comparing(MarketDataModels.FundTrendPoint::tradeDate));
-        if (result.size() > 20) {
-            result = new ArrayList<>(result.subList(result.size() - 20, result.size()));
-        }
-        return requireNotEmpty(result, "市场资金趋势");
+        return requireNotEmpty(result.stream()
+                .sorted(Comparator.comparing(MarketDataModels.MarketFundPoint::tradeDate))
+                .toList(), "市场资金趋势");
     }
 
-    /**
-     * 查询所有个股的即时资金快照。
-     *
-     * @return 个股资金快照
-     */
     public List<MarketDataModels.StockFundSnapshot> fetchIndividualFundFlow() {
         List<MarketDataModels.StockFundSnapshot> result = new ArrayList<>();
-        LocalDateTime now = LocalDateTime.now(MarketConstants.SHANGHAI_ZONE);
-        for (JSONObject row : fetchRows("/api/public/stock_fund_flow_individual", Map.of("symbol", "即时"))) {
-            String code = stockCode(required(row, "股票代码", "代码"));
-            MarketDataModels.StockFundSnapshot point = new MarketDataModels.StockFundSnapshot(
+        LocalDateTime sampledAt = LocalDateTime.now(MarketConstants.SHANGHAI_ZONE);
+        for (JSONObject row : fetchRows("stock_fund_flow_individual", Map.of("symbol", "即时"))) {
+            String code = stockCode(value(row, "股票代码", "代码"));
+            if (code == null) {
+                continue;
+            }
+            LocalDateTime sourceTime = parseDateTime(value(row, "更新时间", "时间"), null);
+            result.add(new MarketDataModels.StockFundSnapshot(
                     code,
-                    now.toLocalDate(),
-                    parseDateTime(value(row, "更新时间", "时间"), now),
-                    decimal(required(row, "流入资金", "主力流入")),
-                    positive(decimal(required(row, "流出资金", "主力流出"))),
-                    decimal(required(row, "净额", "主力净流入")),
-                    decimal(required(row, "最新价")),
-                    decimal(required(row, "涨跌幅")),
-                    decimal(required(row, "成交额")),
-                    decimal(required(row, "换手率"))
-            );
-            result.add(point);
+                    sourceTime == null ? sampledAt.toLocalDate() : sourceTime.toLocalDate(),
+                    sampledAt,
+                    money(value(row, "流入资金", "主力流入")),
+                    positive(money(value(row, "流出资金", "主力流出"))),
+                    money(value(row, "净额", "主力净流入")),
+                    decimal(value(row, "最新价")),
+                    decimal(value(row, "涨跌幅")),
+                    money(value(row, "成交额")),
+                    decimal(value(row, "换手率")),
+                    sourceTime
+            ));
         }
         return requireNotEmpty(result, "个股资金");
     }
 
-    /**
-     * 查询指定板块成分股并按指定口径取前五名。
-     *
-     * @param sectorType industry 或 concept
-     * @param sectorCode 板块代码或名称
-     * @param metric     changePercent、mainNetInflow 或 turnover
-     * @return 前五名成分股
-     */
-    public List<MarketDataModels.SectorTopStock> fetchSectorTopStocks(String sectorType,
-                                                                     String sectorCode,
-                                                                     String metric) {
-        String path = "concept".equals(sectorType)
-                ? "/api/public/stock_board_concept_cons_em"
-                : "/api/public/stock_board_industry_cons_em";
+    public List<MarketDataModels.SectorTopStock> fetchSectorConstituents(String sectorType,
+                                                                        String sectorCode) {
+        String function = "concept".equals(sectorType)
+                ? "stock_board_concept_cons_em"
+                : "stock_board_industry_cons_em";
         List<MarketDataModels.SectorTopStock> result = new ArrayList<>();
-        for (JSONObject row : fetchRows(path, Map.of("symbol", sectorCode))) {
+        for (JSONObject row : fetchRows(function, Map.of("symbol", sectorCode))) {
+            String code = stockCode(value(row, "代码", "股票代码"));
+            if (code == null) {
+                continue;
+            }
             result.add(new MarketDataModels.SectorTopStock(
-                    stockCode(required(row, "代码", "股票代码")),
-                    text(required(row, "名称", "股票名称")),
-                    decimal(required(row, "涨跌幅")),
-                    decimal(value(row, "主力净流入", "净额")),
-                    decimal(required(row, "成交额"))
+                    code,
+                    text(value(row, "名称", "股票名称")),
+                    decimal(value(row, "最新价")),
+                    decimal(value(row, "涨跌幅")),
+                    money(value(row, "成交额")),
+                    decimal(value(row, "换手率")),
+                    null,
+                    null,
+                    null,
+                    false
             ));
         }
-        Comparator<MarketDataModels.SectorTopStock> comparator = switch (metric) {
-            case "mainNetInflow" -> Comparator.comparing(
-                    MarketDataModels.SectorTopStock::mainNetInflow,
-                    Comparator.nullsLast(Comparator.reverseOrder()));
-            case "turnover" -> Comparator.comparing(
-                    MarketDataModels.SectorTopStock::turnoverAmount,
-                    Comparator.nullsLast(Comparator.reverseOrder()));
-            default -> Comparator.comparing(
-                    MarketDataModels.SectorTopStock::changePercent,
-                    Comparator.nullsLast(Comparator.reverseOrder()));
-        };
-        return result.stream().sorted(comparator).limit(5).toList();
+        return requireNotEmpty(result, "板块成分");
     }
 
-    /**
-     * 查询交易日历。
-     *
-     * @return 交易日列表
-     */
     public List<LocalDate> fetchTradeDates() {
         List<LocalDate> dates = new ArrayList<>();
-        for (JSONObject row : fetchRows("/api/public/tool_trade_date_hist_sina", Map.of())) {
-            dates.add(parseDate(required(row, "trade_date", "交易日", "日期")));
+        for (JSONObject row : fetchRows("tool_trade_date_hist_sina", Map.of())) {
+            LocalDate date = parseDate(value(row, "trade_date", "交易日", "日期"));
+            if (date != null) {
+                dates.add(date);
+            }
         }
         return requireNotEmpty(dates, "交易日历");
-    }
-
-    private List<MarketDataModels.CurvePoint> fetchIndexCurve(String indexCode) {
-        List<MarketDataModels.CurvePoint> result = new ArrayList<>();
-        for (JSONObject row : fetchRows("/api/public/index_zh_a_hist_min_em",
-                Map.of("symbol", indexCode, "period", "1"))) {
-            result.add(new MarketDataModels.CurvePoint(
-                    parseDateTime(required(row, "时间", "datetime"),
-                            LocalDateTime.now(MarketConstants.SHANGHAI_ZONE)),
-                    decimal(required(row, "收盘", "close"))
-            ));
-        }
-        return requireNotEmpty(result, indexCode + "指数日内曲线");
     }
 
     private void appendDictionary(Map<String, MarketDataModels.StockDictionaryItem> target,
                                   List<JSONObject> rows,
                                   String market,
-                                  String listingStatus) {
+                                  String listingStatus,
+                                  LocalDateTime synchronizedAt) {
         for (JSONObject row : rows) {
-            String code = stockCode(required(row, "证券代码", "A股代码", "公司代码", "代码"));
-            String name = text(required(row, "证券简称", "A股简称", "公司简称", "名称"));
-            target.put(code, new MarketDataModels.StockDictionaryItem(
-                    code, name, market, listingStatus,
-                    LocalDateTime.now(MarketConstants.SHANGHAI_ZONE)));
+            String code = stockCode(value(row, "证券代码", "A股代码", "公司代码", "代码"));
+            String name = text(value(row, "证券简称", "A股简称", "公司简称", "名称"));
+            if (code != null && name != null) {
+                target.put(code, new MarketDataModels.StockDictionaryItem(
+                        code, name, market, listingStatus, synchronizedAt));
+            }
+        }
+    }
+
+    private void appendSectorRows(List<MarketDataModels.SectorQuote> target,
+                                  List<JSONObject> rows,
+                                  String sectorType,
+                                  BigDecimal sourceMoneyMultiplier) {
+        for (JSONObject row : rows) {
+            String name = text(value(row, "板块名称", "名称", "板块"));
+            if (name == null) {
+                continue;
+            }
+            target.add(new MarketDataModels.SectorQuote(
+                    sectorType,
+                    text(value(row, "板块代码", "代码")),
+                    name,
+                    decimal(value(row, "涨跌幅")),
+                    "industry".equals(sectorType)
+                            ? money(value(row, "成交额", "总成交额"), sourceMoneyMultiplier) : null,
+                    money(value(row, "总市值")),
+                    decimal(value(row, "换手率")),
+                    integer(value(row, "上涨家数", "上涨数")),
+                    integer(value(row, "下跌家数", "下跌数")),
+                    text(value(row, "领涨股票", "领涨股")),
+                    money(value(row, "主力净流入", "主力净流入-净额", "净流入"),
+                            sourceMoneyMultiplier)
+            ));
         }
     }
 
@@ -364,29 +358,42 @@ public class AkToolsMarketClient {
                                String period,
                                String sectorType,
                                String sourceType) {
-        for (JSONObject row : fetchRows("/api/public/stock_sector_fund_flow_rank",
+        for (JSONObject row : fetchRows("stock_sector_fund_flow_rank",
                 Map.of("indicator", period, "sector_type", sourceType))) {
+            String name = text(value(row, "名称", "板块名称"));
+            if (name == null) {
+                continue;
+            }
             target.add(new MarketDataModels.SectorRanking(
                     period,
                     sectorType,
                     text(value(row, "板块代码", "代码")),
-                    text(required(row, "名称", "板块名称")),
-                    decimal(value(row, "涨跌幅")),
-                    decimal(required(row, "主力净流入-净额", "主力净流入"))
+                    name,
+                    decimal(value(row, period + "涨跌幅", "涨跌幅")),
+                    money(value(row,
+                            period + "主力净流入-净额", "主力净流入-净额", "主力净流入"))
             ));
         }
     }
 
     /**
-     * HTTP 错误、空响应和错误 JSON 都在适配器边界转为服务不可用，禁止污染旧缓存。
+     * 仅网络异常和5xx重试；4xx、空响应和字段错误立即失败，避免无意义重复请求。
      */
-    private List<JSONObject> fetchRows(String path, Map<String, ?> query) {
+    private List<JSONObject> fetchRows(String function, Map<String, ?> query) {
+        String path = "/api/public/" + function;
         String url = buildUrl(path, query);
-        RuntimeException lastError = null;
-        int attempts = Math.max(1, property.getRetryTimes() + 1);
+        int attempts = Math.min(2, Math.max(1, property.getRetryTimes() + 1));
+        Exception lastError = null;
         for (int attempt = 1; attempt <= attempts; attempt++) {
             try {
                 MarketHttpResponse response = transport.get(url);
+                if (response.statusCode() >= 400 && response.statusCode() < 500) {
+                    throw unavailable("AKTools HTTP状态异常: " + response.statusCode());
+                }
+                if (response.statusCode() >= 500) {
+                    lastError = unavailable("AKTools HTTP状态异常: " + response.statusCode());
+                    continue;
+                }
                 if (response.statusCode() < 200 || response.statusCode() >= 300) {
                     throw unavailable("AKTools HTTP状态异常: " + response.statusCode());
                 }
@@ -394,14 +401,15 @@ public class AkToolsMarketClient {
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 throw unavailable("AKTools请求被中断");
+            } catch (ServiceException e) {
+                throw e;
             } catch (Exception e) {
-                lastError = e instanceof RuntimeException runtimeException
-                        ? runtimeException : unavailable(e.getMessage());
-                LOGGER.warn("AKTools请求失败，attempt={}/{}, path={}, error={}",
-                        attempt, attempts, path, e.getMessage());
+                lastError = e;
+                LOGGER.warn("AKTools网络请求失败，attempt={}/{}, function={}, error={}",
+                        attempt, attempts, function, e.getMessage());
             }
         }
-        throw lastError == null ? unavailable("AKTools请求失败") : lastError;
+        throw unavailable(lastError == null ? "AKTools请求失败" : lastError.getMessage());
     }
 
     private List<JSONObject> parseRows(String body) {
@@ -413,23 +421,18 @@ public class AkToolsMarketClient {
             JSONArray array;
             if (root instanceof JSONArray jsonArray) {
                 array = jsonArray;
-            } else if (root instanceof JSONObject jsonObject) {
-                Object data = jsonObject.get("data");
-                if (!(data instanceof JSONArray jsonArray)) {
-                    throw unavailable("AKTools响应缺少data数组");
-                }
+            } else if (root instanceof JSONObject jsonObject
+                    && jsonObject.get("data") instanceof JSONArray jsonArray) {
                 array = jsonArray;
             } else {
-                throw unavailable("AKTools响应JSON结构错误");
+                throw unavailable("AKTools响应缺少data数组");
             }
             if (array.isEmpty()) {
                 throw unavailable("AKTools返回空数据");
             }
             List<JSONObject> rows = new ArrayList<>(array.size());
-            for (Object value : array) {
-                JSONObject row = value instanceof JSONObject jsonObject
-                        ? jsonObject : JSONUtil.parseObj(value);
-                rows.add(row);
+            for (Object item : array) {
+                rows.add(item instanceof JSONObject object ? object : JSONUtil.parseObj(item));
             }
             return rows;
         } catch (JSONException e) {
@@ -453,20 +456,11 @@ public class AkToolsMarketClient {
         return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 
-    private Object required(JSONObject row, String... aliases) {
-        Object value = value(row, aliases);
-        if (value == null || CharSequenceUtil.isBlank(String.valueOf(value))
-                || "--".equals(String.valueOf(value).trim())) {
-            throw unavailable("AKTools响应缺少字段: " + String.join("/", aliases));
-        }
-        return value;
-    }
-
     private Object value(JSONObject row, String... aliases) {
         for (String alias : aliases) {
-            Object value = row.get(alias);
-            if (value != null) {
-                return value;
+            Object candidate = row.get(alias);
+            if (candidate != null) {
+                return candidate;
             }
         }
         return null;
@@ -476,18 +470,24 @@ public class AkToolsMarketClient {
         if (value == null) {
             return null;
         }
-        String text = String.valueOf(value).trim();
-        return text.isEmpty() || "--".equals(text) ? null : text;
+        String result = String.valueOf(value).trim();
+        return result.isEmpty() || "--".equals(result)
+                || "null".equalsIgnoreCase(result) || "nan".equalsIgnoreCase(result)
+                ? null : result;
     }
 
     private String stockCode(Object value) {
         String code = text(value);
         if (code == null) {
-            throw unavailable("股票代码为空");
+            return null;
         }
-        code = code.replaceAll("\\.0$", "").replaceAll("^(SH|SZ|BJ)", "").trim();
-        return code.length() < 6 && code.chars().allMatch(Character::isDigit)
-                ? "0".repeat(6 - code.length()) + code : code;
+        code = code.replaceAll("\\.0$", "")
+                .replaceFirst("(?i)^(SH|SZ|BJ)", "")
+                .trim();
+        if (!code.chars().allMatch(Character::isDigit) || code.length() > 6) {
+            return null;
+        }
+        return "0".repeat(6 - code.length()) + code;
     }
 
     private String marketOf(String stockCode) {
@@ -498,24 +498,47 @@ public class AkToolsMarketClient {
     }
 
     private BigDecimal decimal(Object value) {
-        String text = text(value);
-        if (text == null) {
+        String raw = text(value);
+        if (raw == null) {
             return null;
         }
-        String normalized = text.replace(",", "").replace("%", "").replace("元", "");
+        String normalized = raw.replace(",", "").replace("%", "").replace("元", "").trim();
+        try {
+            return new BigDecimal(normalized);
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+    }
+
+    private BigDecimal money(Object value) {
+        String raw = text(value);
+        if (raw == null) {
+            return null;
+        }
+        String normalized = raw.replace(",", "").replace("元", "").trim();
         BigDecimal multiplier = BigDecimal.ONE;
-        if (normalized.endsWith("亿")) {
+        if (normalized.endsWith("亿元") || normalized.endsWith("亿")) {
             multiplier = new BigDecimal("100000000");
-            normalized = normalized.substring(0, normalized.length() - 1);
-        } else if (normalized.endsWith("万")) {
+            normalized = normalized.replaceFirst("亿元?$", "");
+        } else if (normalized.endsWith("万元") || normalized.endsWith("万")) {
             multiplier = new BigDecimal("10000");
-            normalized = normalized.substring(0, normalized.length() - 1);
+            normalized = normalized.replaceFirst("万元?$", "");
         }
         try {
             return new BigDecimal(normalized).multiply(multiplier);
-        } catch (NumberFormatException e) {
-            throw unavailable("AKTools数值无法解析: " + text);
+        } catch (NumberFormatException ignored) {
+            return null;
         }
+    }
+
+    private BigDecimal money(Object value, BigDecimal sourceMultiplier) {
+        String raw = text(value);
+        BigDecimal amount = money(value);
+        if (amount == null || raw == null
+                || raw.contains("万") || raw.contains("亿")) {
+            return amount;
+        }
+        return amount.multiply(sourceMultiplier);
     }
 
     private BigDecimal positive(BigDecimal value) {
@@ -523,31 +546,37 @@ public class AkToolsMarketClient {
     }
 
     private Integer integer(Object value) {
-        BigDecimal number = decimal(value);
-        return number == null ? null : number.intValue();
+        BigDecimal decimal = decimal(value);
+        return decimal == null ? null : decimal.setScale(0, RoundingMode.DOWN).intValue();
     }
 
     private LocalDate parseDate(Object value) {
-        String text = Objects.requireNonNull(text(value), "date");
+        String raw = text(value);
+        if (raw == null || raw.length() < 10) {
+            return null;
+        }
         try {
-            return LocalDate.parse(text.substring(0, Math.min(10, text.length())));
-        } catch (DateTimeParseException e) {
-            throw unavailable("AKTools日期无法解析: " + text);
+            return LocalDate.parse(raw.substring(0, 10));
+        } catch (DateTimeParseException ignored) {
+            return null;
         }
     }
 
-    private LocalDateTime parseDateTime(Object value, LocalDateTime fallback) {
-        String text = text(value);
-        if (text == null) {
-            return fallback;
+    private LocalDateTime parseDateTime(Object value, LocalDate fallbackDate) {
+        String raw = text(value);
+        if (raw == null) {
+            return null;
         }
         try {
-            if (text.length() == 8 && text.charAt(2) == ':') {
-                return LocalDateTime.of(fallback.toLocalDate(), LocalTime.parse(text));
+            if (raw.length() == 8 && raw.charAt(2) == ':' && fallbackDate != null) {
+                return LocalDateTime.of(fallbackDate, LocalTime.parse(raw));
             }
-            return LocalDateTime.parse(text, DATE_TIME_FORMATTER);
-        } catch (DateTimeParseException e) {
-            throw unavailable("AKTools时间无法解析: " + text);
+            if (raw.length() == 16) {
+                return LocalDateTime.parse(raw + ":00", DATE_TIME_FORMATTER);
+            }
+            return LocalDateTime.parse(raw, DATE_TIME_FORMATTER);
+        } catch (DateTimeParseException ignored) {
+            return null;
         }
     }
 
@@ -559,7 +588,8 @@ public class AkToolsMarketClient {
     }
 
     private ServiceException unavailable(String message) {
-        return new ServiceException(GlobalErrorCode.SERVICE_UNAVAILABLE.getCode(), message);
+        return new ServiceException(GlobalErrorCode.SERVICE_UNAVAILABLE.getCode(),
+                CharSequenceUtil.blankToDefault(message, "AKTools服务不可用"));
     }
 
     @FunctionalInterface

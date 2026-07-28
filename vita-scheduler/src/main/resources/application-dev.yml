@@ -56,7 +56,7 @@ vita:
     aktools-base-url: http://127.0.0.1:8080
     connect-timeout-ms: 3000
     read-timeout-ms: 8000
-    retry-times: 2
+    retry-times: 1
     snapshot-ttl-days: 35
     fund-point-retention-days: 30
     manual-refresh-interval-seconds: 30

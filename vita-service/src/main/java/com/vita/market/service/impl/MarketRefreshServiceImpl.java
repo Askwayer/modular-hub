@@ -3,16 +3,19 @@ package com.vita.market.service.impl;
 import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
 import com.vita.market.constant.MarketConstants;
+import com.vita.market.entity.MarketDailySummary;
+import com.vita.market.enums.MarketDataStatus;
 import com.vita.market.enums.MarketModule;
 import com.vita.market.enums.MarketTradeStatus;
+import com.vita.market.model.MarketCollectionResult;
 import com.vita.market.model.MarketDataModels;
+import com.vita.market.model.MarketModuleState;
 import com.vita.market.model.MarketTradeContext;
 import com.vita.market.property.MarketProperty;
 import com.vita.market.service.IMarketRefreshService;
 import com.vita.market.service.IMarketStockService;
 import com.vita.market.service.MarketTradeCalendarService;
-import com.vita.market.support.AkToolsMarketClient;
-import com.vita.market.support.MarketSnapshotStore;
+import com.vita.market.support.*;
 import com.vita.redis.RedisCache;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
@@ -22,11 +25,13 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
@@ -34,20 +39,18 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 /**
- * @BelongsProject: be-vita
- * @BelongsPackage: com.vita.market.service.impl
- * @Author: znk
- * @CreateTime: 2026-07-25
- * @Description: 行情模块化刷新协调器
- * @Version: 1.0
+ * 行情模块化刷新协调器。
  */
 @Service
 public class MarketRefreshServiceImpl implements IMarketRefreshService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(MarketRefreshServiceImpl.class);
-    private static final ZoneId SHANGHAI = ZoneId.of("Asia/Shanghai");
+    private static final Set<MarketModule> CLOSE_MODULES = EnumSet.allOf(MarketModule.class);
 
     private final AkToolsMarketClient marketClient;
+    private final MarketIndexCollector indexCollector;
+    private final MarketSectorCollector sectorCollector;
+    private final MarketFundCollector fundCollector;
     private final MarketSnapshotStore snapshotStore;
     private final MarketTradeCalendarService tradeCalendarService;
     private final IMarketStockService stockService;
@@ -57,6 +60,9 @@ public class MarketRefreshServiceImpl implements IMarketRefreshService {
     private final Executor marketRefreshTaskExecutor;
 
     public MarketRefreshServiceImpl(AkToolsMarketClient marketClient,
+                                    MarketIndexCollector indexCollector,
+                                    MarketSectorCollector sectorCollector,
+                                    MarketFundCollector fundCollector,
                                     MarketSnapshotStore snapshotStore,
                                     MarketTradeCalendarService tradeCalendarService,
                                     IMarketStockService stockService,
@@ -65,6 +71,9 @@ public class MarketRefreshServiceImpl implements IMarketRefreshService {
                                     MarketProperty property,
                                     @Qualifier("marketRefreshTaskExecutor") Executor marketRefreshTaskExecutor) {
         this.marketClient = marketClient;
+        this.indexCollector = indexCollector;
+        this.sectorCollector = sectorCollector;
+        this.fundCollector = fundCollector;
         this.snapshotStore = snapshotStore;
         this.tradeCalendarService = tradeCalendarService;
         this.stockService = stockService;
@@ -74,16 +83,11 @@ public class MarketRefreshServiceImpl implements IMarketRefreshService {
         this.marketRefreshTaskExecutor = marketRefreshTaskExecutor;
     }
 
-    /**
-     * 普通用户手动刷新通过 Redis 限频后异步触发，不阻塞大屏请求。
-     *
-     * @return 是否接受本次刷新
-     */
     @Override
     public boolean triggerManualRefresh() {
         boolean accepted = redisCache.setIfAbsent(
                 MarketConstants.MANUAL_REFRESH_RATE_KEY,
-                LocalDateTime.now(SHANGHAI).toString(),
+                LocalDateTime.now(MarketConstants.SHANGHAI_ZONE).toString(),
                 property.getManualRefreshIntervalSeconds(),
                 TimeUnit.SECONDS);
         if (!accepted) {
@@ -93,9 +97,6 @@ public class MarketRefreshServiceImpl implements IMarketRefreshService {
         return true;
     }
 
-    /**
-     * 40秒调度入口。午休和非交易日只维护状态；收盘后仅执行一次定稿。
-     */
     @Override
     public void refreshScheduled() {
         MarketTradeContext context = tradeCalendarService.current();
@@ -123,7 +124,7 @@ public class MarketRefreshServiceImpl implements IMarketRefreshService {
     }
 
     /**
-     * 全局锁只包围一次刷新周期；每个模块在独立 Future 中自行降级。
+     * 每个模块独立保存状态；收盘时只重试尚未定稿的模块。
      */
     private boolean refreshWithGlobalLock(LocalDate tradeDate, boolean finalized) {
         if (tradeDate == null) {
@@ -139,28 +140,45 @@ public class MarketRefreshServiceImpl implements IMarketRefreshService {
             }
             List<CompletableFuture<Void>> futures = new ArrayList<>();
             AtomicReference<MarketDataModels.DailySummaryData> summaryReference = new AtomicReference<>();
-            AtomicReference<List<MarketDataModels.FundTrendPoint>> fundTrendReference = new AtomicReference<>();
-            futures.add(refreshModule(MarketModule.INDICES, tradeDate, marketClient::fetchIndices));
-            futures.add(refreshSummary(tradeDate, finalized, summaryReference));
-            futures.add(refreshModule(MarketModule.SECTORS, tradeDate, () -> {
-                List<MarketDataModels.SectorQuote> sectors = new ArrayList<>();
-                sectors.addAll(marketClient.fetchSectorSnapshot("industry"));
-                sectors.addAll(marketClient.fetchSectorSnapshot("concept"));
-                return sectors;
-            }));
-            futures.add(refreshModule(MarketModule.SECTOR_RANKINGS, tradeDate, marketClient::fetchSectorRankings));
-            futures.add(refreshModule(MarketModule.MUTATIONS, tradeDate, marketClient::fetchMutations));
-            futures.add(refreshFundTrend(tradeDate, fundTrendReference));
-            futures.add(refreshStockFunds(tradeDate));
-            CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new)).join();
-            enrichSummaryMainNetInflow(tradeDate, summaryReference.get(), fundTrendReference.get());
-            if (!finalized) {
-                return true;
+            AtomicReference<List<MarketDataModels.MarketFundPoint>> fundReference = new AtomicReference<>();
+
+            if (shouldRefresh(MarketModule.INDICES, tradeDate, finalized)) {
+                List<MarketDataModels.IndexQuote> previous =
+                        snapshotStore.getSnapshot(MarketModule.INDICES, tradeDate);
+                futures.add(refreshCollected(
+                        MarketModule.INDICES, tradeDate, finalized, () -> indexCollector.collect(previous)));
             }
-            MarketDataModels.DailySummaryData summary =
-                    snapshotStore.getSnapshot(MarketModule.SUMMARY, tradeDate);
-            return summary != null && summary.finalized();
-        } catch (InterruptedException e) {
+            if (shouldRefresh(MarketModule.SUMMARY, tradeDate, finalized)) {
+                futures.add(refreshSummary(tradeDate, finalized, summaryReference));
+            }
+            if (shouldRefresh(MarketModule.SECTORS, tradeDate, finalized)) {
+                futures.add(refreshCollected(
+                        MarketModule.SECTORS, tradeDate, finalized, sectorCollector::collectSectors));
+            }
+            if (shouldRefresh(MarketModule.SECTOR_RANKINGS, tradeDate, finalized)) {
+                futures.add(refreshCollected(
+                        MarketModule.SECTOR_RANKINGS, tradeDate, finalized, sectorCollector::collectRankings));
+            }
+            if (shouldRefresh(MarketModule.MUTATIONS, tradeDate, finalized)) {
+                futures.add(refreshSimple(
+                        MarketModule.MUTATIONS, tradeDate, finalized, marketClient::fetchMutations,
+                        values -> values.stream()
+                                .map(MarketDataModels.MarketMutation::occurredAt)
+                                .filter(java.util.Objects::nonNull)
+                                .max(LocalDateTime::compareTo)
+                                .orElse(null)));
+            }
+            if (shouldRefresh(MarketModule.FUND_TREND, tradeDate, finalized)) {
+                futures.add(refreshFundTrend(tradeDate, finalized, fundReference));
+            }
+            if (shouldRefresh(MarketModule.STOCK_FUNDS, tradeDate, finalized)) {
+                futures.add(refreshStockFunds(tradeDate, finalized));
+            }
+            CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new)).join();
+            enrichSummaryMainNetInflow(tradeDate, finalized, summaryReference.get(), fundReference.get());
+            return !finalized || CLOSE_MODULES.stream()
+                    .allMatch(module -> isModuleFinalized(module, tradeDate));
+        } catch (InterruptedException error) {
             Thread.currentThread().interrupt();
             throw new ServiceException(GlobalErrorCode.LOCKED);
         } finally {
@@ -180,75 +198,122 @@ public class MarketRefreshServiceImpl implements IMarketRefreshService {
                 MarketDataModels.DailySummaryData summary = summarize(tradeDate, quotes, finalized);
                 summaryReference.set(summary);
                 stockService.saveDailySummary(summary);
-                snapshotStore.saveSuccess(
-                        MarketModule.SUMMARY, tradeDate, summary, summary.lastValidTime());
-            } catch (RuntimeException e) {
-                markFailure(MarketModule.SUMMARY, tradeDate, e);
+                MarketDataStatus status = summary.totalTurnoverAmount() == null
+                        ? MarketDataStatus.STALE : MarketDataStatus.FRESH;
+                snapshotStore.saveSnapshot(
+                        MarketModule.SUMMARY, tradeDate, summary, status,
+                        summary.lastValidTime(),
+                        status == MarketDataStatus.STALE ? "沪深京市场成交额覆盖不完整" : null);
+                if (status == MarketDataStatus.FRESH) {
+                    markModuleFinalized(MarketModule.SUMMARY, tradeDate, finalized);
+                }
+            } catch (RuntimeException error) {
+                markFailure(MarketModule.SUMMARY, tradeDate, error);
             }
         }, marketRefreshTaskExecutor);
     }
 
     private CompletableFuture<Void> refreshFundTrend(
             LocalDate tradeDate,
-            AtomicReference<List<MarketDataModels.FundTrendPoint>> fundTrendReference) {
+            boolean finalized,
+            AtomicReference<List<MarketDataModels.MarketFundPoint>> fundReference) {
         return CompletableFuture.runAsync(() -> {
-            try {
-                List<MarketDataModels.FundTrendPoint> trend = marketClient.fetchFundTrend("000300");
-                fundTrendReference.set(trend);
-                snapshotStore.saveSuccess(
-                        MarketModule.FUND_TREND, tradeDate, trend, LocalDateTime.now(SHANGHAI));
-            } catch (RuntimeException e) {
-                markFailure(MarketModule.FUND_TREND, tradeDate, e);
+            MarketCollectionResult<List<MarketDataModels.MarketFundPoint>> collected =
+                    fundCollector.collect();
+            if (collected.dataStatus() == MarketDataStatus.ERROR || collected.data() == null) {
+                snapshotStore.markFailure(MarketModule.FUND_TREND, tradeDate, collected.message());
+                return;
             }
+            fundReference.set(collected.data());
+            saveCollected(MarketModule.FUND_TREND, tradeDate, finalized, collected);
         }, marketRefreshTaskExecutor);
     }
 
-    private CompletableFuture<Void> refreshStockFunds(LocalDate tradeDate) {
+    private CompletableFuture<Void> refreshStockFunds(LocalDate tradeDate, boolean finalized) {
         return CompletableFuture.runAsync(() -> {
             try {
-                if (stockService.listEnabledStocks().isEmpty()) {
-                    snapshotStore.saveSuccess(
-                            MarketModule.STOCK_FUNDS, tradeDate, List.of(), LocalDateTime.now(SHANGHAI));
-                    return;
-                }
+                // 全市场即时资金用于板块成分关联，数据库保存逻辑再按启用股票过滤。
                 List<MarketDataModels.StockFundSnapshot> points = marketClient.fetchIndividualFundFlow();
                 stockService.saveFundPoints(points);
                 snapshotStore.saveSuccess(
-                        MarketModule.STOCK_FUNDS, tradeDate, points, latestFundTime(points));
-            } catch (RuntimeException e) {
-                markFailure(MarketModule.STOCK_FUNDS, tradeDate, e);
+                        MarketModule.STOCK_FUNDS, tradeDate, points, latestFundSourceTime(points));
+                markModuleFinalized(MarketModule.STOCK_FUNDS, tradeDate, finalized);
+            } catch (RuntimeException error) {
+                markFailure(MarketModule.STOCK_FUNDS, tradeDate, error);
             }
         }, marketRefreshTaskExecutor);
     }
 
-    private <T> CompletableFuture<Void> refreshModule(MarketModule module,
-                                                       LocalDate tradeDate,
-                                                       Supplier<T> supplier) {
+    private <T> CompletableFuture<Void> refreshCollected(
+            MarketModule module,
+            LocalDate tradeDate,
+            boolean finalized,
+            Supplier<MarketCollectionResult<T>> supplier) {
+        return CompletableFuture.runAsync(() -> {
+            try {
+                MarketCollectionResult<T> collected = supplier.get();
+                if (collected.dataStatus() == MarketDataStatus.ERROR || collected.data() == null) {
+                    snapshotStore.markFailure(module, tradeDate, collected.message());
+                    return;
+                }
+                saveCollected(module, tradeDate, finalized, collected);
+            } catch (RuntimeException error) {
+                markFailure(module, tradeDate, error);
+            }
+        }, marketRefreshTaskExecutor);
+    }
+
+    private <T> void saveCollected(MarketModule module,
+                                   LocalDate tradeDate,
+                                   boolean finalized,
+                                   MarketCollectionResult<T> collected) {
+        snapshotStore.saveSnapshot(
+                module, tradeDate, collected.data(), collected.dataStatus(),
+                collected.sourceDataTime(), collected.message());
+        if (collected.dataStatus() == MarketDataStatus.FRESH) {
+            markModuleFinalized(module, tradeDate, finalized);
+        }
+    }
+
+    private <T> CompletableFuture<Void> refreshSimple(
+            MarketModule module,
+            LocalDate tradeDate,
+            boolean finalized,
+            Supplier<T> supplier,
+            SourceTimeResolver<T> timeResolver) {
         return CompletableFuture.runAsync(() -> {
             try {
                 T data = supplier.get();
-                snapshotStore.saveSuccess(
-                        module, tradeDate, data, LocalDateTime.now(SHANGHAI));
-            } catch (RuntimeException e) {
-                markFailure(module, tradeDate, e);
+                snapshotStore.saveSuccess(module, tradeDate, data, timeResolver.resolve(data));
+                markModuleFinalized(module, tradeDate, finalized);
+            } catch (RuntimeException error) {
+                markFailure(module, tradeDate, error);
             }
         }, marketRefreshTaskExecutor);
     }
 
-    /**
-     * 汇总数值只由本次完整市场快照计算，未知值保持 null，不补零。
-     */
-    private MarketDataModels.DailySummaryData summarize(LocalDate tradeDate,
-                                                        List<MarketDataModels.StockQuote> quotes,
-                                                        boolean finalized) {
+    private MarketDataModels.DailySummaryData summarize(
+            LocalDate tradeDate,
+            List<MarketDataModels.StockQuote> quotes,
+            boolean finalized) {
         BigDecimal shTurnover = sumTurnover(quotes, "SH");
         BigDecimal szTurnover = sumTurnover(quotes, "SZ");
         BigDecimal bjTurnover = sumTurnover(quotes, "BJ");
+        BigDecimal total = shTurnover == null || szTurnover == null || bjTurnover == null
+                ? null : shTurnover.add(szTurnover).add(bjTurnover);
+        MarketDailySummary previous = stockService.findPreviousDailySummary(tradeDate);
+        BigDecimal previousTotal = previous == null ? null : totalTurnover(previous);
+        BigDecimal turnoverChange = total == null || previousTotal == null || previousTotal.signum() == 0
+                ? null : total.subtract(previousTotal)
+                .multiply(new BigDecimal("100"))
+                .divide(previousTotal, 4, RoundingMode.HALF_UP);
+
         int up = 0;
         int down = 0;
         int flat = 0;
         int limitUp = 0;
         int limitDown = 0;
+        boolean completeLimitPrices = true;
         LocalDateTime lastValidTime = null;
         for (MarketDataModels.StockQuote quote : quotes) {
             BigDecimal change = quote.changePercent();
@@ -260,10 +325,15 @@ public class MarketRefreshServiceImpl implements IMarketRefreshService {
                 } else {
                     flat++;
                 }
-                if (change.compareTo(new BigDecimal("9.9")) >= 0) {
+            }
+            if (quote.latestPrice() == null
+                    || quote.limitUpPrice() == null || quote.limitDownPrice() == null) {
+                completeLimitPrices = false;
+            } else {
+                if (quote.latestPrice().compareTo(quote.limitUpPrice()) >= 0) {
                     limitUp++;
                 }
-                if (change.compareTo(new BigDecimal("-9.9")) <= 0) {
+                if (quote.latestPrice().compareTo(quote.limitDownPrice()) <= 0) {
                     limitDown++;
                 }
             }
@@ -273,10 +343,11 @@ public class MarketRefreshServiceImpl implements IMarketRefreshService {
             }
         }
         return new MarketDataModels.DailySummaryData(
-                tradeDate, shTurnover, szTurnover, bjTurnover,
-                up, down, flat, limitUp, limitDown, null,
-                lastValidTime == null ? LocalDateTime.now(SHANGHAI) : lastValidTime,
-                finalized);
+                tradeDate, shTurnover, szTurnover, bjTurnover, total, turnoverChange,
+                up, down, flat,
+                completeLimitPrices ? limitUp : null,
+                completeLimitPrices ? limitDown : null,
+                null, lastValidTime, finalized);
     }
 
     private BigDecimal sumTurnover(List<MarketDataModels.StockQuote> quotes, String market) {
@@ -288,19 +359,32 @@ public class MarketRefreshServiceImpl implements IMarketRefreshService {
         return amounts.isEmpty() ? null : amounts.stream().reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
-    /**
-     * 汇总和资金模块均成功时补齐主力净流入；资金失败时保持 null，不用零值伪造。
-     */
+    private BigDecimal totalTurnover(MarketDailySummary summary) {
+        if (summary.getShTurnoverAmount() == null
+                || summary.getSzTurnoverAmount() == null
+                || summary.getBjTurnoverAmount() == null) {
+            return null;
+        }
+        return summary.getShTurnoverAmount()
+                .add(summary.getSzTurnoverAmount())
+                .add(summary.getBjTurnoverAmount());
+    }
+
     private void enrichSummaryMainNetInflow(
             LocalDate tradeDate,
-            MarketDataModels.DailySummaryData summary,
-            List<MarketDataModels.FundTrendPoint> fundTrend) {
-        if (summary == null || fundTrend == null) {
+            boolean finalized,
+            MarketDataModels.DailySummaryData currentSummary,
+            List<MarketDataModels.MarketFundPoint> currentFunds) {
+        MarketDataModels.DailySummaryData summary = currentSummary == null
+                ? snapshotStore.getSnapshot(MarketModule.SUMMARY, tradeDate) : currentSummary;
+        List<MarketDataModels.MarketFundPoint> funds = currentFunds == null
+                ? snapshotStore.getSnapshot(MarketModule.FUND_TREND, tradeDate) : currentFunds;
+        if (summary == null || funds == null) {
             return;
         }
-        BigDecimal mainNetInflow = fundTrend.stream()
+        BigDecimal mainNetInflow = funds.stream()
                 .filter(point -> tradeDate.equals(point.tradeDate()))
-                .map(MarketDataModels.FundTrendPoint::mainNetInflow)
+                .map(MarketDataModels.MarketFundPoint::mainNetInflow)
                 .filter(java.util.Objects::nonNull)
                 .findFirst()
                 .orElse(null);
@@ -308,34 +392,56 @@ public class MarketRefreshServiceImpl implements IMarketRefreshService {
             return;
         }
         MarketDataModels.DailySummaryData enriched = new MarketDataModels.DailySummaryData(
-                summary.tradeDate(),
-                summary.shTurnoverAmount(),
-                summary.szTurnoverAmount(),
-                summary.bjTurnoverAmount(),
-                summary.upCount(),
-                summary.downCount(),
-                summary.flatCount(),
-                summary.limitUpCount(),
-                summary.limitDownCount(),
-                mainNetInflow,
-                summary.lastValidTime(),
-                summary.finalized());
+                summary.tradeDate(), summary.shTurnoverAmount(), summary.szTurnoverAmount(),
+                summary.bjTurnoverAmount(), summary.totalTurnoverAmount(),
+                summary.turnoverChangePercent(), summary.upCount(), summary.downCount(),
+                summary.flatCount(), summary.limitUpCount(), summary.limitDownCount(),
+                mainNetInflow, summary.lastValidTime(), summary.finalized());
         stockService.saveDailySummary(enriched);
-        snapshotStore.saveSuccess(
-                MarketModule.SUMMARY, tradeDate, enriched, enriched.lastValidTime());
+        MarketModuleState state = snapshotStore.getState(MarketModule.SUMMARY);
+        MarketDataStatus status = state == null || state.getDataStatus() == MarketDataStatus.FRESH
+                ? MarketDataStatus.FRESH : MarketDataStatus.STALE;
+        snapshotStore.saveSnapshot(
+                MarketModule.SUMMARY, tradeDate, enriched, status,
+                enriched.lastValidTime(), state == null ? null : state.getMessage());
+        if (status == MarketDataStatus.FRESH) {
+            markModuleFinalized(MarketModule.SUMMARY, tradeDate, finalized);
+        }
     }
 
-    private LocalDateTime latestFundTime(List<MarketDataModels.StockFundSnapshot> points) {
+    private LocalDateTime latestFundSourceTime(List<MarketDataModels.StockFundSnapshot> points) {
         return points.stream()
-                .map(MarketDataModels.StockFundSnapshot::sampleTime)
+                .map(MarketDataModels.StockFundSnapshot::sourceDataTime)
                 .filter(java.util.Objects::nonNull)
                 .max(LocalDateTime::compareTo)
-                .orElse(LocalDateTime.now(SHANGHAI));
+                .orElse(null);
+    }
+
+    private boolean shouldRefresh(MarketModule module, LocalDate tradeDate, boolean finalized) {
+        return !finalized || !isModuleFinalized(module, tradeDate);
+    }
+
+    private boolean isModuleFinalized(MarketModule module, LocalDate tradeDate) {
+        return redisCache.getCacheObject(
+                MarketConstants.closeModuleFinalizedKey(tradeDate.toString(), module.name())) != null;
+    }
+
+    private void markModuleFinalized(MarketModule module, LocalDate tradeDate, boolean finalized) {
+        if (finalized) {
+            redisCache.setCacheObject(
+                    MarketConstants.closeModuleFinalizedKey(tradeDate.toString(), module.name()),
+                    Boolean.TRUE, 2, TimeUnit.DAYS);
+        }
     }
 
     private void markFailure(MarketModule module, LocalDate tradeDate, RuntimeException error) {
         LOGGER.warn("行情模块刷新失败，module={}, tradeDate={}, error={}",
                 module, tradeDate, error.getMessage());
         snapshotStore.markFailure(module, tradeDate, error.getMessage());
+    }
+
+    @FunctionalInterface
+    private interface SourceTimeResolver<T> {
+        LocalDateTime resolve(T data);
     }
 }

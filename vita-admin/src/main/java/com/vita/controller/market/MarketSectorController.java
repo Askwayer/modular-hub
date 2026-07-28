@@ -41,9 +41,9 @@ public class MarketSectorController {
      */
     @GetMapping("/heatmap")
     @SaCheckPermission("market:dashboard:view")
-    public CommonResult<MarketModuleResult<List<MarketDataModels.SectorQuote>>> heatmap(
+    public CommonResult<MarketModuleResult<MarketDataModels.SectorHeatmapData>> heatmap(
             @RequestParam(name = "sectorType", defaultValue = "industry") String sectorType,
-            @RequestParam(name = "areaMetric", defaultValue = "turnover") String areaMetric,
+            @RequestParam(name = "areaMetric", required = false) String areaMetric,
             @RequestParam(name = "direction", defaultValue = "all") String direction,
             @RequestParam(name = "keyword", required = false) String keyword) {
         return CommonResult.success(dashboardService.heatmap(sectorType, areaMetric, direction, keyword));

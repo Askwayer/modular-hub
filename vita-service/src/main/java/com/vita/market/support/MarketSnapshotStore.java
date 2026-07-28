@@ -47,6 +47,21 @@ public class MarketSnapshotStore {
                             LocalDate tradeDate,
                             Object data,
                             LocalDateTime sourceDataTime) {
+        saveSnapshot(module, tradeDate, data, MarketDataStatus.FRESH, sourceDataTime, null);
+    }
+
+    /**
+     * 保存本轮有效数据。部分成功的数据允许以STALE状态落快照，完全失败必须调用markFailure。
+     */
+    public void saveSnapshot(MarketModule module,
+                             LocalDate tradeDate,
+                             Object data,
+                             MarketDataStatus dataStatus,
+                             LocalDateTime sourceDataTime,
+                             String message) {
+        if (dataStatus != MarketDataStatus.FRESH && dataStatus != MarketDataStatus.STALE) {
+            throw new IllegalArgumentException("有效快照状态仅支持FRESH或STALE");
+        }
         LocalDateTime now = LocalDateTime.now(MarketConstants.SHANGHAI_ZONE);
         redisCache.setCacheObject(
                 MarketConstants.snapshotKey(tradeDate.toString(), module.name()),
@@ -55,12 +70,12 @@ public class MarketSnapshotStore {
                 TimeUnit.DAYS);
         MarketModuleState state = new MarketModuleState();
         state.setModule(module.name());
-        state.setDataStatus(MarketDataStatus.FRESH);
+        state.setDataStatus(dataStatus);
         state.setTradeDate(tradeDate);
         state.setSourceDataTime(sourceDataTime);
         state.setLastSuccessAt(now);
         state.setLastAttemptAt(now);
-        state.setMessage(null);
+        state.setMessage(message);
         saveState(state);
         redisCache.setCacheObject(
                 MarketConstants.RECENT_TRADE_DATE_KEY,

@@ -79,6 +79,18 @@ class MarketControllerContractTest {
                 String.class, Integer.class);
     }
 
+    @Test
+    void marketDefaultsShouldUseShanghaiIndexAndDynamicHeatmapMetric() throws NoSuchMethodException {
+        Method trend = MarketFundController.class.getDeclaredMethod("trend", Integer.class, String.class);
+        RequestParam indexCode = trend.getParameters()[1].getAnnotation(RequestParam.class);
+        assertThat(indexCode.defaultValue()).isEqualTo("000001");
+
+        Method heatmap = MarketSectorController.class.getDeclaredMethod(
+                "heatmap", String.class, String.class, String.class, String.class);
+        RequestParam areaMetric = heatmap.getParameters()[1].getAnnotation(RequestParam.class);
+        assertThat(areaMetric.required()).isFalse();
+    }
+
     private void assertPermission(String methodName, String permission, Class<?>... parameters)
             throws NoSuchMethodException {
         Method method = MarketStockController.class.getDeclaredMethod(methodName, parameters);

@@ -315,6 +315,17 @@ public class MarketStockServiceImpl implements IMarketStockService {
     }
 
     @Override
+    public MarketDailySummary findPreviousDailySummary(LocalDate tradeDate) {
+        return dailySummaryMapper.selectList(new LambdaQueryWrapperX<MarketDailySummary>()
+                        .lt(MarketDailySummary::getTradeDate, tradeDate)
+                        .orderByDesc(MarketDailySummary::getTradeDate)
+                        .last("LIMIT 1"))
+                .stream()
+                .findFirst()
+                .orElse(null);
+    }
+
+    @Override
     public List<MarketDataModels.StockFundSnapshot> listFundPoints(String stockCode, LocalDate tradeDate) {
         return fundPointMapper.selectList(new LambdaQueryWrapperX<MarketStockFundPoint>()
                         .eq(MarketStockFundPoint::getStockCode, normalizeCode(stockCode))
@@ -415,7 +426,8 @@ public class MarketStockServiceImpl implements IMarketStockService {
                 point.getLatestPrice(),
                 point.getChangePercent(),
                 point.getTurnoverAmount(),
-                point.getTurnoverRate()
+                point.getTurnoverRate(),
+                null
         );
     }
 
