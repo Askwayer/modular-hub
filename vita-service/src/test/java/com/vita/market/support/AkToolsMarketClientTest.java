@@ -4,6 +4,8 @@ import com.vita.core.exception.ServiceException;
 import com.vita.market.property.MarketProperty;
 import org.junit.jupiter.api.Test;
 
+import java.net.http.HttpClient;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -11,6 +13,15 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * AKTools 中文字段、金额单位和错误响应夹具测试。
  */
 class AkToolsMarketClientTest {
+
+    @Test
+    void shouldUseHttp11ForUvicorn() {
+        MarketProperty property = new MarketProperty();
+
+        HttpClient httpClient = AkToolsMarketClient.createHttpClient(property);
+
+        assertThat(httpClient.version()).isEqualTo(HttpClient.Version.HTTP_1_1);
+    }
 
     @Test
     void shouldNormalizeChineseMoneyUnitsAndPositiveOutflow() {

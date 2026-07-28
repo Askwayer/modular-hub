@@ -50,9 +50,7 @@ public class AkToolsMarketClient {
 
     @Autowired
     public AkToolsMarketClient(MarketProperty property) {
-        HttpClient httpClient = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofMillis(property.getConnectTimeoutMs()))
-                .build();
+        HttpClient httpClient = createHttpClient(property);
         this.property = property;
         this.transport = url -> {
             HttpRequest request = HttpRequest.newBuilder(URI.create(url))
@@ -63,6 +61,14 @@ public class AkToolsMarketClient {
                     request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
             return new MarketHttpResponse(response.statusCode(), response.body());
         };
+    }
+
+    static HttpClient createHttpClient(MarketProperty property) {
+        return HttpClient.newBuilder()
+                // AKTools 使用 Uvicorn HTTP/1.1；禁止 JDK 客户端发送明文 h2c Upgrade。
+                .version(HttpClient.Version.HTTP_1_1)
+                .connectTimeout(Duration.ofMillis(property.getConnectTimeoutMs()))
+                .build();
     }
 
     AkToolsMarketClient(MarketProperty property, MarketHttpTransport transport) {

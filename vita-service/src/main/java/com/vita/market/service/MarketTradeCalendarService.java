@@ -30,6 +30,7 @@ public class MarketTradeCalendarService {
     private final AkToolsMarketClient marketClient;
     private final MarketSnapshotStore snapshotStore;
     private final MarketTradeClock tradeClock;
+    private final Object calendarRefreshMonitor = new Object();
 
     public MarketTradeCalendarService(AkToolsMarketClient marketClient,
                                       MarketSnapshotStore snapshotStore,
@@ -47,7 +48,7 @@ public class MarketTradeCalendarService {
     public MarketTradeContext current() {
         List<LocalDate> tradeDates = snapshotStore.getTradeCalendar();
         if (tradeDates.isEmpty()) {
-            tradeDates = refreshCalendar();
+            tradeDates = loadCalendarIfAbsent();
         }
         return tradeClock.resolve(LocalDateTime.now(SHANGHAI), tradeDates);
     }
@@ -58,6 +59,28 @@ public class MarketTradeCalendarService {
      * @return 当前可用交易日历
      */
     public List<LocalDate> refreshCalendar() {
+        synchronized (calendarRefreshMonitor) {
+            return refreshCalendarLocked();
+        }
+    }
+
+    /**
+     * 冷缓存只允许一个线程访问 AKTools；等待线程复用首个线程保存的结果。
+     */
+    private List<LocalDate> loadCalendarIfAbsent() {
+        synchronized (calendarRefreshMonitor) {
+            List<LocalDate> tradeDates = snapshotStore.getTradeCalendar();
+            if (!tradeDates.isEmpty()) {
+                return tradeDates;
+            }
+            return refreshCalendarLocked();
+        }
+    }
+
+    /**
+     * 调用方必须持有 calendarRefreshMonitor，确保 MiniRacer 接口不会并发执行。
+     */
+    private List<LocalDate> refreshCalendarLocked() {
         try {
             List<LocalDate> tradeDates = marketClient.fetchTradeDates();
             snapshotStore.saveTradeCalendar(tradeDates);
