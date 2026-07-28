@@ -14,6 +14,7 @@ import com.vita.auth.property.AuthProperty;
 import com.vita.core.CommonResult;
 import com.vita.core.exception.ControllerExceptionHandler;
 import com.vita.log.interceptor.RequestTraceInterceptor;
+import com.vita.workflow.config.WorkflowWebMvcConfiguration;
 import com.vita.workflow.constant.WorkflowConstants;
 import com.vita.workflow.controller.support.WorkflowAdminAccessChecker;
 import org.junit.jupiter.api.BeforeEach;
@@ -353,6 +354,7 @@ class WorkflowRouteSecurityTest {
             RequestTraceInterceptor.class,
             ControllerExceptionHandler.class,
             SaTokenExceptionHandler.class,
+            WorkflowWebMvcConfiguration.class,
             WorkflowRouteProbeController.class
     })
     static class RouteTestConfiguration {

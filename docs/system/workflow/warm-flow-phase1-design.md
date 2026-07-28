@@ -30,7 +30,7 @@ warm-flow:
   data-source-type: mysql
 ```
 
-- `vita.workflow.enabled` 是 be-vita 唯一工作流开关，默认启用。
+- `vita.workflow.enabled` 是 be-vita 唯一工作流开关；`vita-admin` 通过 workflow 配置资源默认启用，其他启动模块不依赖 `vita-workflow`。
 - 引擎和设计器 UI 都映射到该开关，避免只关闭引擎但仍暴露 UI 控制器。
 - `@ConditionalOnWorkflowEnabled` 应用于 be-vita 自建 workflow Bean、Advice 和控制器。
 - 关闭后应用仍可启动，不注册本地 workflow 服务、控制器和 Advice，也不装配 Warm-Flow 引擎及 UI。
@@ -65,6 +65,7 @@ warm-flow:
   - `IWorkflowDefinitionService`
 - Warm-Flow 1.8.8 Starter 已在 `BeanConfig.initFlow()` 内设置 `FrameInvoker` 的配置和 Bean 获取函数，be-vita 不重复绑定。
 - `WorkflowDefinitionPermissionNormalizer` 继续在首次导入或首次保存时为人工节点补齐管理员角色办理权限。
+- `/warm-flow/**` 的管理员路由拦截由 `vita-workflow` 的 MVC 配置注册，`vita-common` 只保留模块无关的统一登录校验。
 
 ## 6. 接口范围
 
@@ -100,8 +101,8 @@ Warm-Flow 引擎表；后者是常规幂等增量脚本，只在缺失时创建 
 
 二阶段通用运行时已经独立落地，详细设计见 `docs/system/workflow/warm-flow-phase2-runtime.md`。
 
-- `vita-common` 提供不暴露 Warm-Flow DTO 的中立工作流端口和事件协议。
-- `vita-workflow` 实现定义、实例、任务、访问控制、并发锁和提交后事件编排。
+- `vita-workflow` 提供不暴露 Warm-Flow DTO 的工作流端口和事件协议，并实现定义、实例、任务、访问控制、报销流程域、并发锁和提交后事件编排。
+- `vita-common`、`vita-service` 不承载工作流契约、业务域或实现；`vita-workflow` 仅单向调用 `vita-service` 的系统用户、角色和部门能力。
 - `/workflow/**` 提供普通登录用户运行时接口，service 层校验实例访问权和任务办理权。
 - `/system/workflow/**` 提供定义管理和实例只读监控，执行权限码与管理员角色双重校验。
 - 报销流程已接入最小业务表、提交后状态监听和管理员重同步补偿，不包含通知、委派、转办和会签能力。
@@ -114,5 +115,6 @@ Warm-Flow 引擎表；后者是常规幂等增量脚本，只在缺失时创建 
 - 使用实际 `/admin/api/...` URL 验证匿名、普通登录用户、子管理员和超级管理员访问边界。
 - 验证 `/system/workflow/importJson` 同时执行权限码和角色校验。
 - 验证 `vita.workflow.enabled=false` 时条件 Bean 不注册。
+- 验证 `vita-scheduler`、`vita-openapi` 的依赖与组件扫描范围中不存在报销工作流服务和事件监听器。
 - 验证引擎表生成 CRUD 不再注册，代码生成器拒绝再次生成。
 - 编译全仓并执行 workflow/admin 目标测试。

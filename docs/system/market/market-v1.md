@@ -16,7 +16,7 @@
 ```yaml
 vita:
   market:
-    aktools-base-url: ${AKTOOLS_BASE_URL:http://127.0.0.1:18001}
+    aktools-base-url: http://127.0.0.1:8080
     connect-timeout-ms: 3000
     read-timeout-ms: 8000
     retry-times: 2

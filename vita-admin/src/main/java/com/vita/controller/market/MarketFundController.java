@@ -40,8 +40,8 @@ public class MarketFundController {
     @GetMapping("/trend")
     @SaCheckPermission("market:dashboard:view")
     public CommonResult<MarketModuleResult<List<MarketDataModels.FundTrendPoint>>> trend(
-            @RequestParam(defaultValue = "20") Integer days,
-            @RequestParam(defaultValue = "000300") String indexCode) {
+            @RequestParam(name = "days", defaultValue = "20") Integer days,
+            @RequestParam(name = "indexCode", defaultValue = "000300") String indexCode) {
         return CommonResult.success(dashboardService.fundTrend(days, indexCode));
     }
 }

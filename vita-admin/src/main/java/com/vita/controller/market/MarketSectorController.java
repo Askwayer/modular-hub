@@ -42,10 +42,10 @@ public class MarketSectorController {
     @GetMapping("/heatmap")
     @SaCheckPermission("market:dashboard:view")
     public CommonResult<MarketModuleResult<List<MarketDataModels.SectorQuote>>> heatmap(
-            @RequestParam(defaultValue = "industry") String sectorType,
-            @RequestParam(defaultValue = "turnover") String areaMetric,
-            @RequestParam(defaultValue = "all") String direction,
-            @RequestParam(required = false) String keyword) {
+            @RequestParam(name = "sectorType", defaultValue = "industry") String sectorType,
+            @RequestParam(name = "areaMetric", defaultValue = "turnover") String areaMetric,
+            @RequestParam(name = "direction", defaultValue = "all") String direction,
+            @RequestParam(name = "keyword", required = false) String keyword) {
         return CommonResult.success(dashboardService.heatmap(sectorType, areaMetric, direction, keyword));
     }
 
@@ -60,9 +60,9 @@ public class MarketSectorController {
     @GetMapping("/topStocks")
     @SaCheckPermission("market:dashboard:view")
     public CommonResult<MarketModuleResult<List<MarketDataModels.SectorTopStock>>> topStocks(
-            @RequestParam(defaultValue = "industry") String sectorType,
-            @RequestParam String sectorCode,
-            @RequestParam(defaultValue = "changePercent") String metric) {
+            @RequestParam(name = "sectorType", defaultValue = "industry") String sectorType,
+            @RequestParam(name = "sectorCode") String sectorCode,
+            @RequestParam(name = "metric", defaultValue = "changePercent") String metric) {
         return CommonResult.success(dashboardService.topStocks(sectorType, sectorCode, metric));
     }
 
@@ -76,8 +76,8 @@ public class MarketSectorController {
     @GetMapping("/rankings")
     @SaCheckPermission("market:dashboard:view")
     public CommonResult<MarketModuleResult<List<MarketDataModels.SectorRanking>>> rankings(
-            @RequestParam(defaultValue = "今日") String period,
-            @RequestParam(defaultValue = "industry") String sectorType) {
+            @RequestParam(name = "period", defaultValue = "今日") String period,
+            @RequestParam(name = "sectorType", defaultValue = "industry") String sectorType) {
         return CommonResult.success(dashboardService.rankings(period, sectorType));
     }
 

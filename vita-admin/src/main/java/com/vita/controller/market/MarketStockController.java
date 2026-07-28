@@ -60,8 +60,8 @@ public class MarketStockController {
     @GetMapping("/monitor/page")
     @SaCheckPermission("market:dashboard:view")
     public CommonResult<PageResponse<MarketDataModels.StockMonitorItem>> monitorPage(
-            @RequestParam(required = false) String keyword,
-            @RequestParam(defaultValue = "1") Integer pageNum) {
+            @RequestParam(name = "keyword", required = false) String keyword,
+            @RequestParam(name = "pageNum", defaultValue = "1") Integer pageNum) {
         return CommonResult.success(stockService.pageMonitor(keyword, pageNum));
     }
 

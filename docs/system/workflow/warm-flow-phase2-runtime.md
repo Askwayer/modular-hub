@@ -3,7 +3,7 @@
 ## 1. 目标与边界
 
 - 提供流程发起、我的发起、待办、已办、实例详情、流程轨迹、通过、退回和撤销的通用运行时闭环。
-- `vita-common` 只声明中立工作流协议，不依赖 Warm-Flow 类型；`vita-workflow` 使用 Warm-Flow 官方 Service 实现状态变更。
+- `vita-workflow` 声明不暴露 Warm-Flow 类型的工作流端口协议，并使用 Warm-Flow 官方 Service 实现状态变更；`vita-common`、`vita-service` 不承载工作流代码。
 - Warm-Flow 8 张引擎表不生成 Controller、Entity、Mapper 和写 Service，仅保留专用只读投影 Mapper。
 - 生产验收扩展新增最小报销业务表和状态同步；仍不实现通知、转办、委派、会签、加减签和实例状态人工修改。
 
@@ -11,9 +11,9 @@
 
 | 模块 | 职责 |
 | --- | --- |
-| `vita-common` | `WorkflowPort`、命令、快照、启动上下文扩展点和提交后事件协议 |
-| `vita-workflow` | Warm-Flow 适配、通用定义/实例/任务 Controller、只读关联查询、访问校验、锁、事件发布和报销启动上下文 |
-| `vita-service` | 报销单单表业务域、业务状态监听和状态重同步服务 |
+| `vita-common` | 通用基础设施和基础模型，不放置工作流契约或实现 |
+| `vita-workflow` | `WorkflowPort`、命令、快照与事件协议、报销流程域、Warm-Flow 适配、通用 Controller、只读关联查询、访问校验、锁和事件发布 |
+| `vita-service` | 认证、RBAC、用户、角色、部门等系统业务能力，供 `vita-workflow` 单向查询 |
 | `vita-admin` | 管理端启动配置、报销普通接口和报销管理补偿接口 |
 | `vita-generator` | 阻止 8 张 Warm-Flow 引擎表生成业务 CRUD |
 
@@ -94,6 +94,7 @@ sql/upgrade/vita_workflow_upgrade.sql
 ## 8. 启停与发布
 
 - 所有自建工作流 Bean 和 Controller 受 `vita.workflow.enabled` 控制。
+- 报销服务与监听器位于 `vita-workflow` 并受同一开关控制；scheduler/openapi 不依赖该模块，因此不会扫描或装配工作流 Bean。
 - 七个具体工作流 Controller 位于 `vita-workflow` 并由组件扫描直接注册；不保留 API/默认实现替换层，也不提供额外 YAML 分组开关。
 - 设计器静态资源和 `/warm-flow-ui/config` 公开；Warm-Flow 表单加载和办理接口要求登录；其余 `/warm-flow/**` 限管理员角色；`/system/workflow/**` 执行权限码与管理员角色双重校验。
 - 发布前备份需要保留的数据，再按文档顺序执行两个重建脚本并重新导入流程定义。

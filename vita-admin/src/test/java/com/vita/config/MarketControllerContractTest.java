@@ -8,8 +8,10 @@ import com.vita.controller.market.MarketStockController;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -52,9 +54,51 @@ class MarketControllerContractTest {
         assertPermission("syncDictionary", "market:stock:sync");
     }
 
+    @Test
+    void everyMarketRequestParamShouldDeclareExplicitName() {
+        for (Class<?> controller : marketControllers()) {
+            for (Method method : controller.getDeclaredMethods()) {
+                for (Parameter parameter : method.getParameters()) {
+                    RequestParam requestParam = parameter.getAnnotation(RequestParam.class);
+                    if (requestParam == null) {
+                        continue;
+                    }
+                    assertThat(requestParam.name())
+                            .as(controller.getSimpleName() + "#" + method.getName())
+                            .isNotBlank();
+                }
+            }
+        }
+    }
+
+    @Test
+    void integerRequestParamsShouldNotDependOnCompilerParameterMetadata() throws NoSuchMethodException {
+        assertRequestParamName(MarketFundController.class, "trend", 0, "days",
+                Integer.class, String.class);
+        assertRequestParamName(MarketStockController.class, "monitorPage", 1, "pageNum",
+                String.class, Integer.class);
+    }
+
     private void assertPermission(String methodName, String permission, Class<?>... parameters)
             throws NoSuchMethodException {
         Method method = MarketStockController.class.getDeclaredMethod(methodName, parameters);
         assertThat(method.getAnnotation(SaCheckPermission.class).value()).containsExactly(permission);
+    }
+
+    private void assertRequestParamName(Class<?> controller, String methodName, int parameterIndex,
+                                        String expectedName, Class<?>... parameterTypes)
+            throws NoSuchMethodException {
+        Method method = controller.getDeclaredMethod(methodName, parameterTypes);
+        RequestParam requestParam = method.getParameters()[parameterIndex].getAnnotation(RequestParam.class);
+        assertThat(requestParam).isNotNull();
+        assertThat(requestParam.name()).isEqualTo(expectedName);
+    }
+
+    private List<Class<?>> marketControllers() {
+        return List.of(
+                MarketDashboardController.class,
+                MarketSectorController.class,
+                MarketFundController.class,
+                MarketStockController.class);
     }
 }

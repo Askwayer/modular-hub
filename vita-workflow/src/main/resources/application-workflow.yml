@@ -1,6 +1,6 @@
 vita:
   workflow:
-    enabled: ${VITA_WORKFLOW_ENABLED:true}
+    enabled: false
 
 warm-flow:
   enabled: ${vita.workflow.enabled}
