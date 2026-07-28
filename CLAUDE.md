@@ -6,7 +6,8 @@ This file provides a concise operating summary for Claude Code in this repositor
 
 - 技术栈：Spring Boot 3.5.0、JDK 17、Maven、MyBatis-Plus、Sa-Token、Redisson、MySQL。
 - 核心模块：`vita-common`、`vita-service`、`vita-workflow`、`vita-admin`、`vita-openapi`、`vita-scheduler`、`vita-generator`、`vita-starters`。
-- 依赖主链：`vita-admin -> vita-service -> vita-common`、`vita-admin -> vita-workflow -> vita-common`、`vita-openapi -> vita-service -> vita-common`、`vita-scheduler -> vita-service -> vita-common`。
+- 依赖主链：`vita-admin -> vita-service -> vita-common`、`vita-admin -> vita-workflow -> vita-service -> vita-common`、`vita-openapi -> vita-service -> vita-common`、`vita-scheduler -> vita-service -> vita-common`。
+- `vita-common`、`vita-service` 不承载工作流契约或实现；工作流端口、业务域与实现统一位于 `vita-workflow`。
 - `vita-starters` 是 profile 驱动的聚合父模块，当前包含 `captcha`、`file`、`i18n`、`poi` 四个 starter。
 - 设计文档在 `docs/system/`、`docs/starter/`；初始化与升级脚本在 `sql/init/`、`sql/upgrade/`；运行日志主要落在 `logs/vita-admin/`。
 

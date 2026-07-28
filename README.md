@@ -34,9 +34,9 @@ be-vita
 
 ## 模块职责与依赖
 
-- `vita-common`：公共基础模块，承载统一返回、异常、分页、MyBatis-Plus、Redisson、Sa-Token、工具类和基础模型。
-- `vita-service`：系统业务服务层，承载认证、RBAC、系统管理等核心业务。
-- `vita-workflow`：工作流基础设施模块，承载 Warm-Flow 配置、处理器与资源文件。
+- `vita-common`：公共基础模块，承载统一返回、异常、分页、MyBatis-Plus、Redisson、Sa-Token、工具类和基础模型，不放置工作流契约或实现。
+- `vita-service`：系统业务服务层，承载认证、RBAC、系统管理等核心业务，不放置工作流契约或实现。
+- `vita-workflow`：工作流能力模块，承载端口契约、报销流程域、Warm-Flow 配置、处理器、运行时实现与资源文件，允许单向调用 `vita-service`。
 - `vita-admin`：管理端启动模块，入口类 `com.vita.config.VitaAdminApplication`，上下文路径 `/admin/api`。
 - `vita-openapi`：公开查询接口启动模块，入口类 `com.vita.config.VitaOpenApiApplication`，上下文路径 `/openapi/api`，承载热榜等只读 public 接口。
 - `vita-scheduler`：热榜刷新触发启动模块，入口类 `com.vita.config.VitaSchedulerApplication`，上下文路径 `/scheduler/api`，承载热榜 public 刷新触发接口。
@@ -47,7 +47,7 @@ be-vita
 
 ```text
 vita-admin   -> vita-service -> vita-common
-vita-admin   -> vita-workflow -> vita-common
+vita-admin   -> vita-workflow -> vita-service -> vita-common
 vita-openapi -> vita-service -> vita-common
 vita-scheduler -> vita-service -> vita-common
 ```
