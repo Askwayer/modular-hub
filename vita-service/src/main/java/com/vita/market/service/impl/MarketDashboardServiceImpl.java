@@ -93,14 +93,14 @@ public class MarketDashboardServiceImpl implements IMarketDashboardService {
             String sectorType, String areaMetric, String direction, String keyword) {
         String normalizedType = normalizeSectorType(sectorType);
         String normalizedMetric = normalizeAreaMetric(areaMetric, normalizedType);
-        String normalizedDirection = defaultValue(direction, "all").toLowerCase(Locale.ROOT);
+        String normalizedDirection = defaultValue(direction, "all");
         if (!List.of("all", "up", "down").contains(normalizedDirection)) {
             throw badRequest("方向仅支持 all、up 或 down");
         }
         MarketModuleResult<List<MarketDataModels.SectorQuote>> source = result(MarketModule.SECTORS);
         MarketModuleResult<MarketDataModels.SectorHeatmapData> response = copyMetadata(source);
         List<String> availableMetrics = "concept".equals(normalizedType)
-                ? List.of("marketCap") : List.of("turnover", "marketCap");
+                ? List.of("marketcap") : List.of("turnover", "marketcap");
         if (source.getData() == null) {
             response.setData(new MarketDataModels.SectorHeatmapData(availableMetrics, List.of()));
             return response;
@@ -131,9 +131,9 @@ public class MarketDashboardServiceImpl implements IMarketDashboardService {
         if (CharSequenceUtil.isBlank(sectorCode)) {
             throw badRequest("板块代码不能为空");
         }
-        String normalizedMetric = defaultValue(metric, "changePercent");
-        if (!List.of("changePercent", "mainNetInflow", "turnover").contains(normalizedMetric)) {
-            throw badRequest("排行口径不支持");
+        String normalizedMetric = defaultValue(metric, "changepercent");
+        if (!List.of("changepercent", "mainnetinflow", "turnover").contains(normalizedMetric)) {
+            throw badRequest("排行口径仅支持 changepercent、mainnetinflow 或 turnover");
         }
         MarketTradeContext context = tradeCalendarService.current();
         LocalDate effectiveDate = resolveEffectiveDate(context, MarketModule.SECTORS);
@@ -292,7 +292,7 @@ public class MarketDashboardServiceImpl implements IMarketDashboardService {
     private Comparator<MarketDataModels.SectorTopStock> topStockComparator(String metric) {
         Comparator<BigDecimal> values = Comparator.nullsLast(Comparator.reverseOrder());
         return switch (metric) {
-            case "mainNetInflow" -> Comparator.comparing(
+            case "mainnetinflow" -> Comparator.comparing(
                     MarketDataModels.SectorTopStock::mainNetInflow, values);
             case "turnover" -> Comparator.comparing(
                     MarketDataModels.SectorTopStock::turnoverAmount, values);
@@ -370,7 +370,7 @@ public class MarketDashboardServiceImpl implements IMarketDashboardService {
     }
 
     private String normalizeSectorType(String sectorType) {
-        String value = defaultValue(sectorType, "industry").toLowerCase(Locale.ROOT);
+        String value = defaultValue(sectorType, "industry");
         if (!List.of("industry", "concept").contains(value)) {
             throw badRequest("板块类型仅支持 industry 或 concept");
         }
@@ -378,27 +378,23 @@ public class MarketDashboardServiceImpl implements IMarketDashboardService {
     }
 
     private String normalizeAreaMetric(String areaMetric, String sectorType) {
-        String fallback = "concept".equals(sectorType) ? "marketCap" : "turnover";
-        String raw = defaultValue(areaMetric, fallback);
-        String value = switch (raw.toLowerCase(Locale.ROOT)) {
-            case "turnover" -> "turnover";
-            case "marketcap" -> "marketCap";
-            default -> throw badRequest("面积口径仅支持 turnover 或 marketCap");
-        };
+        String fallback = "concept".equals(sectorType) ? "marketcap" : "turnover";
+        String value = defaultValue(areaMetric, fallback);
+        if (!List.of("turnover", "marketcap").contains(value)) {
+            throw badRequest("面积口径仅支持 turnover 或 marketcap");
+        }
         if ("concept".equals(sectorType) && "turnover".equals(value)) {
-            throw badRequest("概念板块仅支持 marketCap 面积口径");
+            throw badRequest("概念板块仅支持 marketcap 面积口径");
         }
         return value;
     }
 
     private String normalizePeriod(String period) {
-        String value = defaultValue(period, "今日").toLowerCase(Locale.ROOT);
-        return switch (value) {
-            case "today", "今日" -> "今日";
-            case "5d", "5日" -> "5日";
-            case "10d", "10日" -> "10日";
-            default -> throw badRequest("排行周期仅支持今日、5日或10日");
-        };
+        String value = defaultValue(period, "today");
+        if (!List.of("today", "5d", "10d").contains(value)) {
+            throw badRequest("排行周期仅支持 today、5d 或 10d");
+        }
+        return value;
     }
 
     private String defaultValue(String value, String fallback) {

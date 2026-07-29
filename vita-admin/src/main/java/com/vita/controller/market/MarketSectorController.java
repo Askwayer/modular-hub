@@ -62,21 +62,21 @@ public class MarketSectorController {
     public CommonResult<MarketModuleResult<List<MarketDataModels.SectorTopStock>>> topStocks(
             @RequestParam(name = "sectorType", defaultValue = "industry") String sectorType,
             @RequestParam(name = "sectorCode") String sectorCode,
-            @RequestParam(name = "metric", defaultValue = "changePercent") String metric) {
+            @RequestParam(name = "metric", defaultValue = "changepercent") String metric) {
         return CommonResult.success(dashboardService.topStocks(sectorType, sectorCode, metric));
     }
 
     /**
      * 查询板块资金强弱排行。
      *
-     * @param period     今日、5日或10日
+     * @param period     today、5d或10d
      * @param sectorType 板块类型
      * @return 板块排行
      */
     @GetMapping("/rankings")
     @SaCheckPermission("market:dashboard:view")
     public CommonResult<MarketModuleResult<List<MarketDataModels.SectorRanking>>> rankings(
-            @RequestParam(name = "period", defaultValue = "今日") String period,
+            @RequestParam(name = "period", defaultValue = "today") String period,
             @RequestParam(name = "sectorType", defaultValue = "industry") String sectorType) {
         return CommonResult.success(dashboardService.rankings(period, sectorType));
     }

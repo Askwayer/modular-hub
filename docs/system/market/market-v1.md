@@ -85,6 +85,17 @@ Java record 和日期集合。`lastAttemptAt/lastSuccessAt` 是 be-vita 刷新�
 - `GET /market/stock/dictionary/page`
 - `GET /market/stock/monitor/page`
 
+板块查询枚举统一使用小写，`be-vita` 不再做大小写转换：
+
+- `sectorType`：`industry`、`concept`
+- `areaMetric`：`turnover`、`marketcap`
+- `direction`：`all`、`up`、`down`
+- `metric`：`changepercent`、`mainnetinflow`、`turnover`
+- `period`：`today`、`5d`、`10d`
+
+`stock_sector_fund_flow_rank` 的 `indicator` 和 `sector_type` 也使用上述小写值调用
+AKTools。大写或中英文混用参数视为契约错误并返回 400。
+
 写接口：
 
 - `POST /market/dashboard/refresh`

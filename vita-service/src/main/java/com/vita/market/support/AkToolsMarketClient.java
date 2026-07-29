@@ -40,7 +40,7 @@ public class AkToolsMarketClient {
     private static final Logger LOGGER = LoggerFactory.getLogger(AkToolsMarketClient.class);
     private static final DateTimeFormatter DATE_TIME_FORMATTER =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-    private static final List<String> RANKING_PERIODS = List.of("今日", "5日", "10日");
+    private static final List<String> RANKING_PERIODS = List.of("today", "5d", "10d");
 
     private final MarketProperty property;
     private final MarketHttpTransport transport;
@@ -197,8 +197,8 @@ public class AkToolsMarketClient {
     public List<MarketDataModels.SectorRanking> fetchSectorRankings() {
         List<MarketDataModels.SectorRanking> result = new ArrayList<>();
         for (String period : RANKING_PERIODS) {
-            appendRanking(result, period, "industry", "行业资金流");
-            appendRanking(result, period, "concept", "概念资金流");
+            appendRanking(result, period, "industry");
+            appendRanking(result, period, "concept");
         }
         return requireNotEmpty(result, "板块资金排行");
     }
@@ -356,22 +356,26 @@ public class AkToolsMarketClient {
 
     private void appendRanking(List<MarketDataModels.SectorRanking> target,
                                String period,
-                               String sectorType,
-                               String sourceType) {
+                               String sectorType) {
         for (JSONObject row : fetchRows("stock_sector_fund_flow_rank",
-                Map.of("indicator", period, "sector_type", sourceType))) {
+                Map.of("indicator", period, "sector_type", sectorType))) {
             String name = text(value(row, "名称", "板块名称"));
             if (name == null) {
                 continue;
             }
+            String sourcePeriod = switch (period) {
+                case "5d" -> "5日";
+                case "10d" -> "10日";
+                default -> "今日";
+            };
             target.add(new MarketDataModels.SectorRanking(
                     period,
                     sectorType,
                     text(value(row, "板块代码", "代码")),
                     name,
-                    decimal(value(row, period + "涨跌幅", "涨跌幅")),
+                    decimal(value(row, sourcePeriod + "涨跌幅", "涨跌幅")),
                     money(value(row,
-                            period + "主力净流入-净额", "主力净流入-净额", "主力净流入"))
+                            sourcePeriod + "主力净流入-净额", "主力净流入-净额", "主力净流入"))
             ));
         }
     }

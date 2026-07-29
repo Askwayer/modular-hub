@@ -80,7 +80,7 @@ class MarketSectorCollectorTest {
         @Override
         public List<MarketDataModels.SectorRanking> fetchSectorRankings() {
             return List.of(new MarketDataModels.SectorRanking(
-                    "今日", "concept", "BK100", "人工智能",
+                    "today", "concept", "BK100", "人工智能",
                     new BigDecimal("2"), new BigDecimal("3000000")));
         }
     }

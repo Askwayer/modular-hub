@@ -23,12 +23,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class MarketDashboardServiceImplTest {
 
     @Test
-    void shouldNormalizeSectorTypeAndDefaultConceptToMarketCap() {
+    void shouldAcceptLowercaseSectorTypeAndDefaultConceptToMarketCap() {
         MarketDashboardServiceImpl service = service();
 
-        var result = service.heatmap("CONCEPT", null, "ALL", null);
+        var result = service.heatmap("concept", null, "all", null);
 
-        assertThat(result.getData().availableAreaMetrics()).containsExactly("marketCap");
+        assertThat(result.getData().availableAreaMetrics()).containsExactly("marketcap");
         assertThat(result.getData().list()).singleElement()
                 .satisfies(item -> assertThat(item.sectorType()).isEqualTo("concept"));
     }
@@ -37,9 +37,21 @@ class MarketDashboardServiceImplTest {
     void conceptShouldRejectTurnoverAreaMetric() {
         MarketDashboardServiceImpl service = service();
 
-        assertThatThrownBy(() -> service.heatmap("concept", "TURNOVER", "all", null))
+        assertThatThrownBy(() -> service.heatmap("concept", "turnover", "all", null))
                 .isInstanceOf(ServiceException.class)
-                .hasMessageContaining("概念板块仅支持 marketCap");
+                .hasMessageContaining("概念板块仅支持 marketcap");
+    }
+
+    @Test
+    void shouldRejectUppercaseQueryEnumsInsteadOfNormalizingThem() {
+        MarketDashboardServiceImpl service = service();
+
+        assertThatThrownBy(() -> service.heatmap("INDUSTRY", null, "all", null))
+                .isInstanceOf(ServiceException.class)
+                .hasMessageContaining("industry");
+        assertThatThrownBy(() -> service.heatmap("industry", null, "ALL", null))
+                .isInstanceOf(ServiceException.class)
+                .hasMessageContaining("方向");
     }
 
     private MarketDashboardServiceImpl service() {

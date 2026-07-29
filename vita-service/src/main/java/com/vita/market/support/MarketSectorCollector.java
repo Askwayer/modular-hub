@@ -82,7 +82,7 @@ public class MarketSectorCollector {
     private Map<String, MarketDataModels.SectorRanking> todayConceptRanking() {
         Map<String, MarketDataModels.SectorRanking> result = new LinkedHashMap<>();
         for (MarketDataModels.SectorRanking ranking : marketClient.fetchSectorRankings()) {
-            if ("concept".equals(ranking.sectorType()) && "今日".equals(ranking.period())) {
+            if ("concept".equals(ranking.sectorType()) && "today".equals(ranking.period())) {
                 result.put(normalizeName(ranking.sectorName()), ranking);
             }
         }

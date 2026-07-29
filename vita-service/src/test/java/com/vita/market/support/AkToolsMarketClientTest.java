@@ -1,10 +1,13 @@
 package com.vita.market.support;
 
 import com.vita.core.exception.ServiceException;
+import com.vita.market.model.MarketDataModels;
 import com.vita.market.property.MarketProperty;
 import org.junit.jupiter.api.Test;
 
 import java.net.http.HttpClient;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -193,6 +196,36 @@ class AkToolsMarketClientTest {
         assertThat(mutation.mainNetInflow()).isEqualByComparingTo("1234500");
         assertThat(mutation.mutationCount()).isEqualTo(9);
         assertThat(mutation.frequentStock()).isEqualTo("甲公司");
+    }
+
+    @Test
+    void shouldSendLowercaseSectorRankingParametersToAkTools() {
+        List<String> requestedUrls = new ArrayList<>();
+        MarketProperty property = property();
+        AkToolsMarketClient client = new AkToolsMarketClient(property, url -> {
+            requestedUrls.add(url);
+            return new AkToolsMarketClient.MarketHttpResponse(200, """
+                    {"data":[{
+                      "板块代码":"BK001",
+                      "名称":"传媒",
+                      "涨跌幅":"1.2",
+                      "主力净流入-净额":"1000000"
+                    }]}
+                    """);
+        });
+
+        var rankings = client.fetchSectorRankings();
+
+        assertThat(rankings).hasSize(6);
+        assertThat(rankings).extracting(MarketDataModels.SectorRanking::period)
+                .containsOnly("today", "5d", "10d");
+        assertThat(requestedUrls).allSatisfy(url -> {
+            assertThat(url).contains("/api/public/stock_sector_fund_flow_rank");
+            assertThat(url).containsPattern("indicator=(today|5d|10d)");
+            assertThat(url).containsPattern("sector_type=(industry|concept)");
+        });
+        assertThat(requestedUrls)
+                .noneMatch(url -> url.contains("INDUSTRY") || url.contains("%E8%A1%8C%E4%B8%9A"));
     }
 
     private AkToolsMarketClient client(int status, String body) {
