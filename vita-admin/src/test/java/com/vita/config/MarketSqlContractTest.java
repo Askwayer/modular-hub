@@ -37,6 +37,20 @@ class MarketSqlContractTest {
                 "CREATE TABLE `market_daily_summary`");
     }
 
+    @Test
+    void marketMenuShouldAlwaysUseImmersiveLayout() throws IOException {
+        String initSql = Files.readString(repositoryRoot().resolve("sql/init/insert.sql"));
+        String upgradeSql = Files.readString(repositoryRoot().resolve("sql/upgrade/market_upgrade.sql"));
+
+        assertThat(initSql)
+                .contains("'Market', '/market', 'MarketLayout'")
+                .doesNotContain("'Market', '/market', 'Layout'");
+        assertThat(upgradeSql)
+                .contains("'Market', '/market', 'MarketLayout'")
+                .contains("SET `component_path` = 'MarketLayout'")
+                .doesNotContain("'Market', '/market', 'Layout'");
+    }
+
     private Path repositoryRoot() {
         Path current = Path.of("").toAbsolutePath();
         while (current != null) {

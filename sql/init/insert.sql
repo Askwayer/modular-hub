@@ -446,7 +446,7 @@ INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_name`, `menu_type`, `route_name
                         `icon`, `sort_no`, `visible`, `is_cache`, `always_show`, `is_external`, `status`, `is_system`,
                         `is_deleted`, `tenant_id`, `create_time`, `create_by_id`, `create_by`, `update_time`,
                         `update_by_id`, `update_by`, `version`, `remark`)
-VALUES (1100, 0, '行情大屏', 'CONTENTS', 'Market', '/market', 'Layout', 'trend-charts',
+VALUES (1100, 0, '行情大屏', 'CONTENTS', 'Market', '/market', 'MarketLayout', 'trend-charts',
         20, 1, 0, 1, 0, 1, 1,
         0, 0, '2026-07-25 00:00:00', 1, 'system', '2026-07-25 00:00:00',
         1, 'system', 0, 'A股行情数据大屏目录'),

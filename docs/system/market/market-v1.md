@@ -63,6 +63,10 @@ Java record 和日期集合。`lastAttemptAt/lastSuccessAt` 是 be-vita 刷新�
 
 所有接口位于 `/admin/api/market/**`。
 
+行情父菜单 `/market` 的动态路由组件固定为 `MarketLayout`，由前端渲染独立暗色
+行情工作台；不得使用管理端 `Layout`，避免侧栏、面包屑和浅色主题进入行情视图。
+已有环境执行 `sql/upgrade/market_upgrade.sql` 时会幂等修正该菜单元数据。
+
 | 范围 | 权限码 |
 | --- | --- |
 | 全部读取接口、异步手动刷新 | `market:dashboard:view` |

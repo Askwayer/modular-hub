@@ -98,13 +98,21 @@ INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_name`, `menu_type`, `route_name
                         `icon`, `sort_no`, `visible`, `is_cache`, `always_show`, `is_external`, `status`, `is_system`,
                         `is_deleted`, `tenant_id`, `create_time`, `create_by_id`, `create_by`, `update_time`,
                         `update_by_id`, `update_by`, `version`, `remark`)
-SELECT @next_menu_id, 0, '行情大屏', 'CONTENTS', 'Market', '/market', 'Layout', 'trend-charts',
+SELECT @next_menu_id, 0, '行情大屏', 'CONTENTS', 'Market', '/market', 'MarketLayout', 'trend-charts',
        20, 1, 0, 1, 0, 1, 1, 0, 0, NOW(), 1, 'system', NOW(), 1, 'system', 0, 'A股行情数据大屏目录'
 WHERE NOT EXISTS (SELECT 1 FROM `sys_menu` WHERE `route_name` = 'Market' AND `is_deleted` = 0);
 
 SET @market_root_menu_id = (SELECT `id` FROM `sys_menu` WHERE `route_name` = 'Market' AND `is_deleted` = 0 LIMIT 1);
+UPDATE `sys_menu`
+SET `component_path` = 'MarketLayout',
+    `update_time` = NOW(),
+    `update_by_id` = 1,
+    `update_by` = 'system'
+WHERE `id` = @market_root_menu_id
+  AND (`component_path` IS NULL OR `component_path` <> 'MarketLayout');
+
 SET @next_menu_id = (SELECT COALESCE(MAX(`id`), 0) + 1 FROM `sys_menu`);
-INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_name`, `menu_type`, `route_name`, `route_link`, `component_path`,
+INSERT INTO `˚` (`id`, `parent_id`, `menu_name`, `menu_type`, `route_name`, `route_link`, `component_path`,
                         `icon`, `sort_no`, `visible`, `is_cache`, `always_show`, `is_external`, `status`, `is_system`,
                         `is_deleted`, `tenant_id`, `create_time`, `create_by_id`, `create_by`, `update_time`,
                         `update_by_id`, `update_by`, `version`, `remark`)
