@@ -185,14 +185,6 @@ VALUES (2001, '用户管理查看', 'system:user:view', 'MENU_ACTION', 1001, NUL
         '/system/sysLoginLog/delete', 'system:login-log:delete', 82, 1, 1, 0, 0,
         '2026-04-02 00:00:00', 1, 'system', '2026-04-02 00:00:00', 1, 'system',
         0, '登录日志删除权限'),
-       (2030, '热搜缓存查看', 'system:hot-cache:view', 'MENU_ACTION', NULL, 'GET',
-        '/system/hot/cache/status', 'system:hot-cache:view', 91, 1, 1, 0, 0,
-        '2026-04-02 00:00:00', 1, 'system', '2026-04-02 00:00:00', 1, 'system',
-        0, '涵盖热搜缓存状态查询'),
-       (2031, '热搜缓存刷新', 'system:hot-cache:refresh', 'MENU_ACTION', NULL, 'POST',
-        '/system/hot/cache/refresh,/system/hot/cache/refreshAll', 'system:hot-cache:refresh', 92, 1, 1, 0, 0,
-        '2026-04-02 00:00:00', 1, 'system', '2026-04-02 00:00:00', 1, 'system',
-        0, '涵盖单源刷新与全量刷新'),
        (2032, '工作流定义导入', 'system:workflow:import', 'MENU_ACTION', NULL, 'POST',
         '/system/workflow/importJson', 'system:workflow:import', 101, 1, 1, 0, 0,
         '2026-07-03 00:00:00', 1, 'system', '2026-07-03 00:00:00', 1, 'system',
@@ -349,12 +341,6 @@ VALUES (5001, 1, 2001, 0, 0, '2026-04-02 00:00:00',
         1, 'system', '2026-04-02 00:00:00', 1, 'system', 0),
        (5032, 1, 2029, 0, 0, '2026-04-02 00:00:00',
         1, 'system', '2026-04-02 00:00:00', 1, 'system', 0),
-       (5033, 1, 2030, 0, 0, '2026-04-02 00:00:00',
-        1, 'system', '2026-04-02 00:00:00', 1, 'system', 0),
-       (5034, 1, 2031, 0, 0, '2026-04-02 00:00:00',
-        1, 'system', '2026-04-02 00:00:00', 1, 'system', 0),
-       (5035, 2, 2030, 0, 0, '2026-04-02 00:00:00',
-        1, 'system', '2026-04-02 00:00:00', 1, 'system', 0),
        (5036, 1, 2032, 0, 0, '2026-07-03 00:00:00',
         1, 'system', '2026-07-03 00:00:00', 1, 'system', 0),
        (5037, 3, 2014, 0, 0, '2026-07-07 00:00:00',
@@ -438,66 +424,6 @@ INSERT INTO `workflow_assignee_rule` (`id`, `tenant_id`, `rule_code`, `rule_name
 VALUES (7101, 0, 'DEPT_LEADER', '部门负责人', 'DEPARTMENT_LEADER',
         'deptId', 1, '2026-07-23 00:00:00', '2026-07-23 00:00:00', 0,
         1, 'system', 1, 'system', 0, '平台内置受控办理人规则');
-
--- ----------------------------
--- Records of market dashboard menus
--- ----------------------------
-INSERT INTO `sys_menu` (`id`, `parent_id`, `menu_name`, `menu_type`, `route_name`, `route_link`, `component_path`,
-                        `icon`, `sort_no`, `visible`, `is_cache`, `always_show`, `is_external`, `status`, `is_system`,
-                        `is_deleted`, `tenant_id`, `create_time`, `create_by_id`, `create_by`, `update_time`,
-                        `update_by_id`, `update_by`, `version`, `remark`)
-VALUES (1100, 0, '行情大屏', 'CONTENTS', 'Market', '/market', 'MarketLayout', 'trend-charts',
-        20, 1, 0, 1, 0, 1, 1,
-        0, 0, '2026-07-25 00:00:00', 1, 'system', '2026-07-25 00:00:00',
-        1, 'system', 0, 'A股行情数据大屏目录'),
-       (1101, 1100, '大盘与板块总览', 'MENU', 'MarketOverview', '/market/overview', 'market/overview/index', 'data-line',
-        21, 1, 0, 0, 0, 1, 1,
-        0, 0, '2026-07-25 00:00:00', 1, 'system', '2026-07-25 00:00:00',
-        1, 'system', 0, '指数、市场和板块行情总览'),
-       (1102, 1100, '个股资金监控', 'MENU', 'MarketStockMonitor', '/market/stockMonitor',
-        'market/stockMonitor/index', 'money', 22, 1, 0, 0, 0, 1, 1,
-        0, 0, '2026-07-25 00:00:00', 1, 'system', '2026-07-25 00:00:00',
-        1, 'system', 0, '启用股票资金监控');
-
-INSERT INTO `sys_permission` (`id`, `permission_name`, `permission_code`, `permission_type`, `menu_id`, `api_method`,
-                              `api_path`, `auth_tag`, `sort_no`, `status`, `is_system`, `is_deleted`, `tenant_id`,
-                              `create_time`, `create_by_id`, `create_by`, `update_time`, `update_by_id`, `update_by`,
-                              `version`, `remark`)
-VALUES (2050, '行情大屏查看', 'market:dashboard:view', 'MENU_ACTION', 1101, NULL,
-        '/market/**', 'market:dashboard:view', 201, 1, 1, 0, 0,
-        '2026-07-25 00:00:00', 1, 'system', '2026-07-25 00:00:00', 1, 'system',
-        0, '查看行情大屏并触发受限频刷新'),
-       (2051, '监控股票管理', 'market:stock:manage', 'MENU_ACTION', 1102, 'POST',
-        '/market/stock/enable,/market/stock/disable,/market/stock/reorder',
-        'market:stock:manage', 202, 1, 1, 0, 0,
-        '2026-07-25 00:00:00', 1, 'system', '2026-07-25 00:00:00', 1, 'system',
-        0, '启用、停用和排序监控股票'),
-       (2052, '股票字典同步', 'market:stock:sync', 'MENU_ACTION', 1102, 'POST',
-        '/market/stock/dictionary/sync', 'market:stock:sync', 203, 1, 1, 0, 0,
-        '2026-07-25 00:00:00', 1, 'system', '2026-07-25 00:00:00', 1, 'system',
-        0, '手动同步沪深京股票字典');
-
-INSERT INTO `sys_role_menu` (`id`, `role_id`, `menu_id`, `is_deleted`, `tenant_id`, `create_time`, `create_by_id`,
-                             `create_by`, `update_time`, `update_by_id`, `update_by`, `version`)
-VALUES (4010, 1, 1100, 0, 0, '2026-07-25 00:00:00', 1, 'system', '2026-07-25 00:00:00', 1, 'system', 0),
-       (4011, 1, 1101, 0, 0, '2026-07-25 00:00:00', 1, 'system', '2026-07-25 00:00:00', 1, 'system', 0),
-       (4012, 1, 1102, 0, 0, '2026-07-25 00:00:00', 1, 'system', '2026-07-25 00:00:00', 1, 'system', 0),
-       (4013, 2, 1100, 0, 0, '2026-07-25 00:00:00', 1, 'system', '2026-07-25 00:00:00', 1, 'system', 0),
-       (4014, 2, 1101, 0, 0, '2026-07-25 00:00:00', 1, 'system', '2026-07-25 00:00:00', 1, 'system', 0),
-       (4015, 2, 1102, 0, 0, '2026-07-25 00:00:00', 1, 'system', '2026-07-25 00:00:00', 1, 'system', 0),
-       (4016, 3, 1100, 0, 0, '2026-07-25 00:00:00', 1, 'system', '2026-07-25 00:00:00', 1, 'system', 0),
-       (4017, 3, 1101, 0, 0, '2026-07-25 00:00:00', 1, 'system', '2026-07-25 00:00:00', 1, 'system', 0),
-       (4018, 3, 1102, 0, 0, '2026-07-25 00:00:00', 1, 'system', '2026-07-25 00:00:00', 1, 'system', 0);
-
-INSERT INTO `sys_role_permission` (`id`, `role_id`, `permission_id`, `is_deleted`, `tenant_id`, `create_time`,
-                                   `create_by_id`, `create_by`, `update_time`, `update_by_id`, `update_by`, `version`)
-VALUES (5070, 1, 2050, 0, 0, '2026-07-25 00:00:00', 1, 'system', '2026-07-25 00:00:00', 1, 'system', 0),
-       (5071, 1, 2051, 0, 0, '2026-07-25 00:00:00', 1, 'system', '2026-07-25 00:00:00', 1, 'system', 0),
-       (5072, 1, 2052, 0, 0, '2026-07-25 00:00:00', 1, 'system', '2026-07-25 00:00:00', 1, 'system', 0),
-       (5073, 2, 2050, 0, 0, '2026-07-25 00:00:00', 1, 'system', '2026-07-25 00:00:00', 1, 'system', 0),
-       (5074, 3, 2050, 0, 0, '2026-07-25 00:00:00', 1, 'system', '2026-07-25 00:00:00', 1, 'system', 0),
-       (5075, 3, 2051, 0, 0, '2026-07-25 00:00:00', 1, 'system', '2026-07-25 00:00:00', 1, 'system', 0),
-       (5076, 3, 2052, 0, 0, '2026-07-25 00:00:00', 1, 'system', '2026-07-25 00:00:00', 1, 'system', 0);
 
 SET
 FOREIGN_KEY_CHECKS = 1;

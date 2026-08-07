@@ -38,8 +38,8 @@ be-vita
 - `vita-service`：系统业务服务层，承载认证、RBAC、系统管理等核心业务，不放置工作流契约或实现。
 - `vita-workflow`：工作流能力模块，承载端口契约、报销流程域、Warm-Flow 配置、处理器、运行时实现与资源文件，允许单向调用 `vita-service`。
 - `vita-admin`：管理端启动模块，入口类 `com.vita.config.VitaAdminApplication`，上下文路径 `/admin/api`。
-- `vita-openapi`：公开查询接口启动模块，入口类 `com.vita.config.VitaOpenApiApplication`，上下文路径 `/openapi/api`，承载热榜等只读 public 接口。
-- `vita-scheduler`：热榜刷新触发启动模块，入口类 `com.vita.config.VitaSchedulerApplication`，上下文路径 `/scheduler/api`，承载热榜 public 刷新触发接口。
+- `vita-openapi`：公开查询接口启动模块，入口类 `com.vita.config.VitaOpenApiApplication`，上下文路径 `/openapi/api`。
+- `vita-scheduler`：调度任务启动模块，入口类 `com.vita.config.VitaSchedulerApplication`，上下文路径 `/scheduler/api`。
 - `vita-generator`：代码生成器与模板模块，入口 `com.vita.config.CodeGenerator`。
 - `vita-starters`：starter 聚合父模块，通过 `starter-*` profile 挂载各个子 starter。
 

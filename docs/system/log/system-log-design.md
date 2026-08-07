@@ -325,8 +325,7 @@ public void clearThreadLocal()
 5. 补齐 `spring-boot-starter-aop` 依赖，确保切面能力完整生效
 6. 文件日志通过 `AsyncAppender` 包装 `RollingFileAppender`，并开启 `neverBlock=true`
 7. 非核心日志异步统一走默认线程池，不再拆分操作日志、登录审计、地理位置补全的独立线程池
-8. 仅保留热榜全量刷新这类核心业务并发场景的专用线程池
-9. 登录地点查询只允许走缓存或异步补全，不在请求线程内同步调用外部 IP 服务
+8. 登录地点查询只允许走缓存或异步补全，不在请求线程内同步调用外部 IP 服务
 
 ## 12. 开发落地顺序
 
@@ -350,7 +349,6 @@ public void clearThreadLocal()
 - `vita-<app>-access.log` 与数据库审计记录内容口径一致，均为摘要信息
 - 登录主链路不再等待外部 IP 归属地 HTTP 请求
 - 非核心日志异步统一走默认线程池
-- 热榜全量刷新使用独立专用线程池
 - Maven 本地启动不会在任一应用模块目录下生成 `data/`，日志统一写入仓库根目录 `data/logs/be-vita/`
 - 设置 `VITA_LOG_HOME` 后，Logback 文件日志仅写入指定目录
 

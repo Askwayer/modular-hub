@@ -27,5 +27,3 @@ vita:
     is-log: true
     token-prefix: Bearer
     jwt-secret-key: wiki-kangLe-Cloud
-  hot:
-    stale-threshold-minutes: 20

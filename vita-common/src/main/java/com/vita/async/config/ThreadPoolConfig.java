@@ -1,6 +1,7 @@
 package com.vita.async.config;
 
-import com.vita.async.property.*;
+import com.vita.async.property.AsyncExecutorProperty;
+import com.vita.async.property.DefaultAsyncExecutorProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
@@ -20,12 +21,6 @@ import java.util.concurrent.ThreadPoolExecutor;
 @Configuration
 public class ThreadPoolConfig {
     private static final DefaultAsyncExecutorProperty DEFAULT_EXECUTOR_PROPERTY = new DefaultAsyncExecutorProperty();
-    private static final HotRefreshAsyncExecutorProperty HOT_REFRESH_EXECUTOR_PROPERTY =
-            new HotRefreshAsyncExecutorProperty();
-    private static final MarketRefreshAsyncExecutorProperty MARKET_REFRESH_EXECUTOR_PROPERTY =
-            new MarketRefreshAsyncExecutorProperty();
-    private static final MarketSourceAsyncExecutorProperty MARKET_SOURCE_EXECUTOR_PROPERTY =
-            new MarketSourceAsyncExecutorProperty();
 
     /**
      * 非核心异步默认线程池，同时保留旧别名避免 Bean 名立即断裂。
@@ -36,32 +31,6 @@ public class ThreadPoolConfig {
     @Primary
     public ThreadPoolTaskExecutor defaultTaskExecutor() {
         return createExecutor(DEFAULT_EXECUTOR_PROPERTY, new ThreadPoolExecutor.DiscardPolicy());
-    }
-
-    /**
-     * 热榜全量刷新专用线程池。
-     */
-    @Bean(name = "hotRefreshTaskExecutor")
-    public ThreadPoolTaskExecutor hotRefreshTaskExecutor() {
-        return createExecutor(HOT_REFRESH_EXECUTOR_PROPERTY, new ThreadPoolExecutor.CallerRunsPolicy());
-    }
-
-    /**
-     * 行情模块刷新专用受限线程池。
-     *
-     * @return 行情刷新执行器
-     */
-    @Bean(name = "marketRefreshTaskExecutor")
-    public ThreadPoolTaskExecutor marketRefreshTaskExecutor() {
-        return createExecutor(MARKET_REFRESH_EXECUTOR_PROPERTY, new ThreadPoolExecutor.CallerRunsPolicy());
-    }
-
-    /**
-     * 行情外部数据源并发请求专用线程池，避免指数子任务反向占满模块刷新线程。
-     */
-    @Bean(name = "marketSourceTaskExecutor")
-    public ThreadPoolTaskExecutor marketSourceTaskExecutor() {
-        return createExecutor(MARKET_SOURCE_EXECUTOR_PROPERTY, new ThreadPoolExecutor.CallerRunsPolicy());
     }
 
     /**

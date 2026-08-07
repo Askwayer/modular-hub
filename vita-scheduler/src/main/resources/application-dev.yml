@@ -45,19 +45,3 @@ vita:
     token-prefix: Bearer
     # jwt秘钥
     jwt-secret-key: secret-key
-  hot:
-    stale-threshold-minutes: 20
-    registry-cache-ttl-minutes: 1440
-    daily-hot-api:
-      base-url: http://127.0.0.1:18000
-      api-key: 4gqTA4cx5X*#I6QG
-      timeout-ms: 8000
-  market:
-    aktools-base-url: http://127.0.0.1:8080
-    connect-timeout-ms: 3000
-    read-timeout-ms: 8000
-    retry-times: 1
-    snapshot-ttl-days: 35
-    fund-point-retention-days: 30
-    manual-refresh-interval-seconds: 30
-    refresh-lock-lease-seconds: 35

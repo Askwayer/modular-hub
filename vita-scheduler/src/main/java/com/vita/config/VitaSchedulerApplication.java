@@ -6,7 +6,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.core.env.ConfigurableEnvironment;
-import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 
 /**
@@ -21,7 +20,6 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
         scanBasePackages = "com.vita")
 @MapperScan("com.vita.**.mapper")
 @EnableTransactionManagement
-@EnableScheduling
 public class VitaSchedulerApplication {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(VitaSchedulerApplication.class);

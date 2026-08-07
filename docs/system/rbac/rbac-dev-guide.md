@@ -373,7 +373,6 @@ List<RouterVo>           // 前端路由树
 - `system:permission:view/add/update/delete`
 - `system:dept:view/add/update/delete`
 - `system:ip-block:view/add/update/delete`
-- `system:hot-cache:view/refresh`
 - `system:workflow:import`
 - `system:workflow:definition:view`
 - `system:workflow:definition:manage`
@@ -396,11 +395,8 @@ List<RouterVo>           // 前端路由树
 - `/auth/*` 不加 `@SaCheckPermission`
 - `SysOperLogController`、`SysLoginLogController` 只保留读和删，不对外暴露 `add/update`
 
-热搜缓存接口映射：
+工作流接口映射：
 
-- `GET /system/hot/cache/status` -> `system:hot-cache:view`
-- `POST /system/hot/cache/refresh` -> `system:hot-cache:refresh`
-- `POST /system/hot/cache/refreshAll` -> `system:hot-cache:refresh`
 - `POST /system/workflow/importJson` -> `system:workflow:import`
 - `GET /system/workflow/definitions/page`、`GET /system/workflow/definitions/{id}` -> `system:workflow:definition:view`
 - `POST /system/workflow/definitions/{id}/publish`、`POST /system/workflow/definitions/{id}/unpublish` -> `system:workflow:definition:manage`
@@ -415,14 +411,7 @@ List<RouterVo>           // 前端路由树
 - `POST /system/workflow/assignee-rules/**` -> `system:workflow:assignee-rule:manage`
 - `GET /system/workflow/reimbursements/**` -> `system:workflow:reimbursement:view`
 - `POST /system/workflow/reimbursements/resync` -> `system:workflow:reimbursement:resync`
-- `GET /market/**`、`POST /market/dashboard/refresh` -> `market:dashboard:view`
-- `POST /market/stock/enable`、`POST /market/stock/disable`、`POST /market/stock/reorder` -> `market:stock:manage`
-- `POST /market/stock/dictionary/sync` -> `market:stock:sync`
-
 已有环境通过 `sql/upgrade/vita_workflow_upgrade.sql` 按角色码和权限码幂等补齐工作流 RBAC 数据。该脚本以增量方式补齐 `workflow_category` 和默认分类，不删除已有自定义分类。
-
-行情权限通过 `sql/upgrade/market_upgrade.sql` 幂等补齐。普通用户、子管理员和超级管理员拥有
-`market:dashboard:view`；`market:stock:manage`、`market:stock:sync` 仅授予子管理员和超级管理员。
 
 工作流补充边界：
 
