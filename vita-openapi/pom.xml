@@ -53,6 +53,7 @@
                 </executions>
                 <configuration>
                     <mainClass>com.vita.config.VitaOpenApiApplication</mainClass>
+                    <workingDirectory>${project.parent.basedir}</workingDirectory>
                 </configuration>
             </plugin>
         </plugins>

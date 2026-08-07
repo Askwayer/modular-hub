@@ -5,8 +5,8 @@
     <property name="LOG_PATTERN"
               value="【%level】%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %logger{50} - [%method,%line] - %X{requestId} - %msg%n"/>
 
-    <!-- 日志目录：不再根据 prod / 非 prod 区分 -->
-    <property name="LOG_HOME" value="./data/logs/be-vita"/>
+    <!-- Maven 本地启动时工作目录固定为仓库根目录；部署时允许显式覆盖 -->
+    <property name="LOG_HOME" value="${VITA_LOG_HOME:-./data/logs/be-vita}"/>
 
     <!-- 控制台日志 -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">

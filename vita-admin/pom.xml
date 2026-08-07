@@ -67,6 +67,7 @@
                 </executions>
                 <configuration>
                     <mainClass>com.vita.config.VitaAdminApplication</mainClass>
+                    <workingDirectory>${project.parent.basedir}</workingDirectory>
                 </configuration>
             </plugin>
         </plugins>

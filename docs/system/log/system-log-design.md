@@ -14,10 +14,12 @@
 
 当前仓库已经具备以下基础能力：
 
-- `vita-admin/src/main/resources/logback.xml` 已拆分三类日志文件：
-  - `sys-info.log`
-  - `sys-error.log`
-  - `sys-access.log`
+- `vita-admin`、`vita-openapi`、`vita-scheduler` 分别通过模块内的 `logback-spring.xml` 输出三类日志文件：
+  - 普通运行日志：`vita-<app>.log`
+  - 错误日志：`vita-<app>-error.log`
+  - 访问与审计日志：`vita-<app>-access.log`
+- Maven 本地启动时，三个应用的工作目录统一固定为仓库根目录，日志默认写入 `data/logs/be-vita/`。
+- 部署环境可通过 `VITA_LOG_HOME` 指定其他日志目录；未配置时仍使用启动工作目录下的 `data/logs/be-vita/`。
 - `vita-common/src/main/java/com/vita/log/aspect/LogAspect.java` 已存在切面骨架，已引入：
   - `@Around`
   - `MDC`
@@ -34,26 +36,26 @@
 
 结合现有代码，当前日志实现仍有几个明显缺口：
 
-1. `logback.xml` 输出的是 `%X{requestId}`，但 `LogAspect` 当前写入 MDC 的键是 `LOG_ID`，链路标识不一致。
+1. `logback-spring.xml` 输出的是 `%X{requestId}`，但 `LogAspect` 当前写入 MDC 的键是 `LOG_ID`，链路标识不一致。
 2. `LogAspect` 目前只完成了部分准备动作，尚未真正完成注解读取、结果处理、异常捕获、`sysOperLog` 构造和落库。
 3. `LoginUserInfoModelContext`、MDC、切面内部 `ThreadLocal` 的清理职责还没有明确边界。
-4. `sys-info.log` 当前会接收 `ERROR` 日志，和 `sys-error.log` 重复落盘。
+4. 普通运行日志当前会接收 `ERROR` 日志，和错误日志重复落盘。
 5. 项目已经有 `sysOperLog` 实体和服务，但还没有和切面形成统一落库闭环。
 6. 轻量化日志规则未固化，参数脱敏和大字段处理口径还不统一。
 
 ## 4. 总体设计
 
-### 4.1 保留现有日志结构
+### 4.1 统一日志结构
 
-非生产环境继续使用当前三类日志文件，不推翻现有结构：
+三个启动模块在所有环境中均保留三类文件日志，并继续输出控制台日志：
 
 | 日志文件 | 用途 | 生产方式 |
 | --- | --- | --- |
-| `sys-info.log` | 普通运行日志 | `@Slf4j` / `Logger` |
-| `sys-error.log` | 异常和错误日志 | 全局异常处理、切面异常日志 |
-| `sys-access.log` | 控制器访问审计日志 | `@Log` + `LogAspect` |
+| `vita-<app>.log` | 普通运行日志 | `@Slf4j` / `Logger` |
+| `vita-<app>-error.log` | 异常和错误日志 | 全局异常处理、切面异常日志 |
+| `vita-<app>-access.log` | 控制器访问审计日志 | `sys-access` Logger |
 
-生产环境使用 `prod` profile 时，不再由 Logback 直接写上述文件，而是统一输出到控制台，再由 `nohup` 或 `supervisor` 将标准输出重定向到指定绝对路径。
+默认目录为仓库根目录或部署启动目录下的 `data/logs/be-vita/`。Maven 本地启动通过 Spring Boot Maven Plugin 的 `workingDirectory` 固定到仓库根目录，避免在 `vita-admin`、`vita-openapi`、`vita-scheduler` 模块下分别生成 `data/`。生产部署应通过 `VITA_LOG_HOME` 配置绝对目录。
 
 ### 4.2 复用现有业务模块
 
@@ -314,10 +316,10 @@ public void clearThreadLocal()
 
 ## 11. 对现有日志配置的补充优化
 
-结合当前 `logback.xml`，建议补充以下优化：
+结合三个启动模块当前的 `logback-spring.xml`，建议补充以下优化：
 
 1. 将项目 logger 从 `com.xxx.project` 调整为 `com.vita`
-2. `sys-info.log` 增加 `ERROR` 拒绝过滤，避免和 `sys-error.log` 重复
+2. 普通运行日志增加 `ERROR` 拒绝过滤，避免和错误日志重复
 3. 审计日志统一写入 `sys-access` logger
 4. MDC 键统一为 `requestId`，不要再使用 `LOG_ID`
 5. 补齐 `spring-boot-starter-aop` 依赖，确保切面能力完整生效
@@ -335,8 +337,8 @@ public void clearThreadLocal()
 5. 增加 `LogAspect @After` 清理切面私有 `ThreadLocal`
 6. 增加过滤器或拦截器，统一清理 `LoginUserInfoModelContext`、MDC 和请求级 ThreadLocal
 7. 对接现有 `IsysOperLogService` 完成审计日志落库
-8. 验证非生产环境下 `sys-info.log`、`sys-error.log`、`sys-access.log` 输出符合预期
-9. 验证生产环境下仅输出控制台日志，并由 `nohup`/`supervisor` 重定向到指定绝对路径
+8. 验证三个启动模块的普通、错误、访问日志均写入根目录 `data/logs/be-vita/`
+9. 验证设置 `VITA_LOG_HOME` 后，全部文件日志写入指定目录
 
 ## 13. 验收标准
 
@@ -345,21 +347,22 @@ public void clearThreadLocal()
 - `requestId` 在业务日志和审计日志中可串联
 - `sysOperLog` 直接复用现有实体和服务，不引入新表结构
 - 审计日志默认轻量化输出，不记录完整大对象和敏感信息
-- 非生产环境下 `sys-access.log` 与数据库审计记录内容口径一致，均为摘要信息
+- `vita-<app>-access.log` 与数据库审计记录内容口径一致，均为摘要信息
 - 登录主链路不再等待外部 IP 归属地 HTTP 请求
 - 非核心日志异步统一走默认线程池
 - 热榜全量刷新使用独立专用线程池
-- 生产环境下应用本身不在当前工作目录或 `home` 下生成日志文件，日志唯一落点由 `nohup` 或 `supervisor` 的绝对路径配置决定
+- Maven 本地启动不会在任一应用模块目录下生成 `data/`，日志统一写入仓库根目录 `data/logs/be-vita/`
+- 设置 `VITA_LOG_HOME` 后，Logback 文件日志仅写入指定目录
 
 ## 14. 生产部署日志约定
 
-- 生产部署必须显式启用 `prod` profile。
-- `nohup` 启动时必须显式重定向标准输出和错误输出，且目标路径使用绝对路径，例如：
+- 生产部署必须显式启用 `prod` profile，并通过 `VITA_LOG_HOME` 指定绝对日志目录。
+- Logback 文件日志由应用自身滚动；控制台输出由进程管理器单独接管，避免写入 `nohup.out`。
+- `nohup` 启动示例：
 
 ```bash
-nohup java -jar vita-admin.jar --spring.profiles.active=prod >> /data/logs/vita-admin/app.log 2>&1 < /dev/null &
+VITA_LOG_HOME=/data/logs/be-vita nohup java -jar vita-admin.jar --spring.profiles.active=prod >> /data/logs/be-vita/vita-admin-console.log 2>&1 < /dev/null &
 ```
 
-- 不允许裸用 `nohup`，否则系统仍可能在当前目录或 `$HOME` 下生成 `nohup.out`。
-- `supervisor` 需显式配置绝对路径的 `stdout_logfile`，必要时配置 `stderr_logfile` 或 `redirect_stderr=true`。
-- 使用纯 `nohup` 时，日志轮转由外部工具负责，不再依赖 Logback 的文件滚动策略。
+- `supervisor` 必须显式注入 `VITA_LOG_HOME`，并为 `stdout_logfile`、`stderr_logfile` 配置绝对路径。
+- Logback 管理 `vita-<app>.log`、`vita-<app>-error.log`、`vita-<app>-access.log` 的滚动；进程管理器只负责控制台日志轮转。

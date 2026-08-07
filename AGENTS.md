@@ -20,4 +20,4 @@ Use 4-space indentation, UTF-8, `PascalCase` for classes, `camelCase` for method
 ## Database and Documentation Sync
 For new tables, follow the default DDL suffix unless the table is a pure association table: `tenant_id`, `create_time`, `update_time`, `is_deleted`, `create_by_id`, `create_by`, `update_by_id`, `update_by`, `version`, `remark`. Standard ordering is `id -> tenant_id -> business fields -> audit suffix`. `sys_user` is the representative sample; `pwd_update_date` is business-specific, not part of the global suffix.
 
-Any change touching authentication, RBAC, logging, initialization SQL, or DDL conventions must update the relevant docs in `docs/system/`, `docs/starter/`, plus scripts in `sql/init/` or `sql/upgrade/` when applicable. Runtime logs are written under `logs/vita-admin/`.
+Any change touching authentication, RBAC, logging, initialization SQL, or DDL conventions must update the relevant docs in `docs/system/`, `docs/starter/`, plus scripts in `sql/init/` or `sql/upgrade/` when applicable. Runtime logs are written under the repository root at `data/logs/be-vita/`; override this location with `VITA_LOG_HOME` when required.

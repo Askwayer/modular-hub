@@ -59,7 +59,7 @@ vita-scheduler -> vita-service -> vita-common
 - 系统初始化：`sql/init/system.sql`
 - 初始化数据：`sql/init/insert.sql`
 - 升级脚本：`sql/upgrade/`
-- 运行日志：`logs/vita-admin/`
+- 运行日志：`data/logs/be-vita/`；可通过环境变量 `VITA_LOG_HOME` 覆盖。
 
 ## 常用命令
 
