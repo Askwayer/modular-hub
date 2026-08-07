@@ -1,7 +1,7 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-`be-vita` is a Maven multi-module backend repository. Core modules are `vita-common` (shared infrastructure and base models), `vita-service` (business services), `vita-workflow` (workflow infrastructure), `vita-admin` (admin app, `/admin/api`), `vita-openapi` (public query app, `/openapi/api`), `vita-scheduler` (scheduler app, `/scheduler/api`), `vita-generator` (code generator), and `vita-starters` (profile-driven starter aggregator for `captcha`, `file`, `i18n`, `poi`). Keep package roots under `com.vita.*` and preserve the main dependency chain: `vita-admin -> vita-service -> vita-common`, `vita-admin -> vita-workflow -> vita-common`, `vita-openapi -> vita-service -> vita-common`, `vita-scheduler -> vita-service -> vita-common`.
+`be-vita` is a Maven multi-module backend repository. Core modules are `vita-common` (shared infrastructure and base models), `vita-service` (business services), `vita-workflow` (workflow contracts, domain, and infrastructure), `vita-admin` (admin app, `/admin/api`), `vita-openapi` (public query app, `/openapi/api`), `vita-scheduler` (scheduler app, `/scheduler/api`), `vita-generator` (code generator), and `vita-starters` (profile-driven starter aggregator for `captcha`, `file`, `i18n`, `poi`). Keep package roots under `com.vita.*` and preserve the main dependency chain: `vita-admin -> vita-service -> vita-common`, `vita-admin -> vita-workflow -> vita-service -> vita-common`, `vita-openapi -> vita-service -> vita-common`, `vita-scheduler -> vita-service -> vita-common`. Do not place workflow contracts, domain code, or implementations in `vita-common` or `vita-service`.
 
 ## Build, Test, and Development Commands
 - `mvn clean compile`: compile the full repository.
@@ -20,4 +20,4 @@ Use 4-space indentation, UTF-8, `PascalCase` for classes, `camelCase` for method
 ## Database and Documentation Sync
 For new tables, follow the default DDL suffix unless the table is a pure association table: `tenant_id`, `create_time`, `update_time`, `is_deleted`, `create_by_id`, `create_by`, `update_by_id`, `update_by`, `version`, `remark`. Standard ordering is `id -> tenant_id -> business fields -> audit suffix`. `sys_user` is the representative sample; `pwd_update_date` is business-specific, not part of the global suffix.
 
-Any change touching authentication, RBAC, logging, initialization SQL, or DDL conventions must update the relevant docs in `docs/system/`, `docs/starter/`, plus scripts in `sql/init/` or `sql/upgrade/` when applicable. Runtime logs are written under `logs/vita-admin/`.
+Any change touching authentication, RBAC, logging, initialization SQL, or DDL conventions must update the relevant docs in `docs/system/`, `docs/starter/`, plus scripts in `sql/init/` or `sql/upgrade/` when applicable. Runtime logs are written under the repository root at `data/logs/be-vita/`; override this location with `VITA_LOG_HOME` when required.

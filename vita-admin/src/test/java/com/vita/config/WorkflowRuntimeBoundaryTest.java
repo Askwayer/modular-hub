@@ -44,8 +44,17 @@ class WorkflowRuntimeBoundaryTest {
 
         String generator = Files.readString(repository.resolve(
                 "vita-generator/src/main/java/com/vita/config/CodeGenerator.java"));
-        assertThat(generator).contains("private static final String[] TABLE_NAMES = {\"workflow_category\"}");
-        assertThat(generator).contains("WARM_FLOW_ENGINE_TABLES", "validateGeneratedTables()");
+        assertThat(generator)
+                .contains("WARM_FLOW_ENGINE_TABLES", "validateGeneratedTables()")
+                .doesNotContain(
+                        "TABLE_NAMES = {\"flow_definition",
+                        "TABLE_NAMES = {\"flow_node",
+                        "TABLE_NAMES = {\"flow_skip",
+                        "TABLE_NAMES = {\"flow_instance",
+                        "TABLE_NAMES = {\"flow_task",
+                        "TABLE_NAMES = {\"flow_his_task",
+                        "TABLE_NAMES = {\"flow_user",
+                        "TABLE_NAMES = {\"flow_form");
     }
 
     @Test

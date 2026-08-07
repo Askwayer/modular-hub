@@ -5,7 +5,6 @@ import cn.dev33.satoken.interceptor.SaInterceptor;
 import cn.dev33.satoken.router.SaHttpMethod;
 import cn.dev33.satoken.router.SaRouter;
 import cn.dev33.satoken.stp.StpUtil;
-import com.vita.auth.constant.AuthConstants;
 import com.vita.auth.property.AuthProperty;
 import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
@@ -32,15 +31,6 @@ import java.util.List;
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
 public class SaTokenConfigure implements WebMvcConfigurer {
 
-    private static final List<String> WARM_FLOW_USER_PATHS = List.of(
-            "/warm-flow/published-form",
-            "/warm-flow/form-content",
-            "/warm-flow/form-content/**",
-            "/warm-flow/execute/load/**",
-            "/warm-flow/execute/hisLoad/**",
-            "/warm-flow/execute/handle"
-    );
-
     @Resource
     private RequestTraceInterceptor requestTraceInterceptor;
 
@@ -57,7 +47,7 @@ public class SaTokenConfigure implements WebMvcConfigurer {
             res
                     .setHeader("Access-Control-Allow-Origin", origin == null ? "*" : origin)
                     .setHeader("Access-Control-Allow-Credentials", "true")
-                    .setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS")
+                    .setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
                     .setHeader("Access-Control-Max-Age", "3600")
                     // 只保留一次，显式列出需要的头
                     .setHeader("Access-Control-Allow-Headers",
@@ -81,9 +71,7 @@ public class SaTokenConfigure implements WebMvcConfigurer {
                 .addPathPatterns("/**");
 
         List<String> excludePaths = new ArrayList<>(authProperty.getExtraExcludePaths());
-
-
-        // 先统一校验登录，再收紧 Warm-Flow 内置管理接口。
+        // 所有业务模块共用登录校验，模块专属授权规则由各模块自行追加。
         registry.addInterceptor(new SaInterceptor(handle -> {
                     try {
                         StpUtil.checkLogin();
@@ -94,20 +82,5 @@ public class SaTokenConfigure implements WebMvcConfigurer {
                 }))
                 .addPathPatterns("/**")
                 .excludePathPatterns(excludePaths);
-
-        registry.addInterceptor(new SaInterceptor(handle -> checkWorkflowAdministrator()))
-                .addPathPatterns("/warm-flow/**")
-                .excludePathPatterns(WARM_FLOW_USER_PATHS);
-    }
-
-    /**
-     * 校验工作流管理角色。
-     */
-    private void checkWorkflowAdministrator() {
-        if (StpUtil.hasRole(AuthConstants.SUPER_ADMIN_ROLE_CODE)
-                || StpUtil.hasRole(AuthConstants.SUB_ADMIN_ROLE_CODE)) {
-            return;
-        }
-        throw new ServiceException(GlobalErrorCode.FORBIDDEN);
     }
 }

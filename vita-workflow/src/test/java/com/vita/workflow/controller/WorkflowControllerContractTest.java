@@ -61,7 +61,7 @@ class WorkflowControllerContractTest {
                 "POST /workflow/tasks/{taskId}/reject-last",
                 "POST /workflow/tasks/{taskId}/reject-to",
                 "POST /workflow/reimbursements",
-                "PUT /workflow/reimbursements/{id}",
+                "POST /workflow/reimbursements/{id}",
                 "GET /workflow/reimbursements/mine",
                 "POST /workflow/reimbursements/{id}/submit",
                 "POST /workflow/reimbursements/{id}/withdraw",
@@ -72,7 +72,9 @@ class WorkflowControllerContractTest {
                 "GET /system/workflow/tasks/pending",
                 "GET /system/workflow/tasks/completed",
                 "GET /system/workflow/categories/tree",
+                "POST /system/workflow/categories/{categoryId}/delete",
                 "GET /system/workflow/assignee-rules",
+                "POST /system/workflow/assignee-rules/{ruleId}/delete",
                 "GET /system/workflow/reimbursements/page",
                 "POST /system/workflow/reimbursements/resync",
                 "GET /workflow/instances/by-business/{businessId}",
@@ -82,12 +84,12 @@ class WorkflowControllerContractTest {
                 "GET /system/workflow/instances/by-business/{businessId}/history",
                 "GET /system/workflow/instances/by-business/{businessId}/graph",
                 "GET /system/workflow/instances/{instanceId}/variables",
-                "PUT /system/workflow/instances/{instanceId}/variables",
-                "DELETE /system/workflow/instances/{instanceId}",
-                "DELETE /system/workflow/instances/by-business/{businessId}",
-                "DELETE /system/workflow/instances/{instanceId}/history",
+                "POST /system/workflow/instances/{instanceId}/variables",
+                "POST /system/workflow/instances/{instanceId}",
+                "POST /system/workflow/instances/by-business/{businessId}",
+                "POST /system/workflow/instances/{instanceId}/history",
                 "GET /workflow/tasks/{taskId}/handlers",
-                "PUT /system/workflow/tasks/{taskId}/handlers");
+                "POST /system/workflow/tasks/{taskId}/handlers");
     }
 
     /**
@@ -135,7 +137,7 @@ class WorkflowControllerContractTest {
     }
 
     /**
-     * 除下一节点预览外，所有 POST、PUT 和 DELETE 接口都必须记录日志并防重复提交。
+     * 除下一节点预览外，所有 POST 接口都必须记录日志并防重复提交。
      */
     @Test
     void stateChangingRoutesShouldDeclareLogAndRepeatProtection() {

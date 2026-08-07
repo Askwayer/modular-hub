@@ -84,7 +84,7 @@ public class CodeGenerator {
     private static final String DEFAULT_TARGET_MODULE = "vita-workflow";
 
     /**
-     * 默认控制器模块（与当前 sysUser 模块保持一致）
+     * 默认控制器模块（工作流分类由 workflow 模块管理）
      */
     private static final String DEFAULT_CONTROLLER_MODULE = "vita-workflow";
 
@@ -96,7 +96,7 @@ public class CodeGenerator {
     /**
      * 默认领域模块（用于 packageConfig.moduleName）
      */
-    private static final String DEFAULT_DOMAIN_MODULE = "flow";
+    private static final String DEFAULT_DOMAIN_MODULE = "";
 
     /**
      * 默认基础包（兼容旧配置 com.vita.system + sysUser）
@@ -118,7 +118,9 @@ public class CodeGenerator {
         // mapper.xml 输出目录，放在 resources 目录下，按照业务模块进行分组
         String outputMapperDir = moduleConfig.targetModule() + "/src/main/resources/mapper/" + moduleConfig.businessModule();
         // 领域包配置，格式为 basePackage.businessModule.domainModule，如 com.vita.system.sysUser
-        String domainPackagePrefix = moduleConfig.businessModule() + "." + moduleConfig.domainModule();
+        String domainPackagePrefix = moduleConfig.domainModule().isBlank()
+                ? moduleConfig.businessModule()
+                : moduleConfig.businessModule() + "." + moduleConfig.domainModule();
         String modulePackage = moduleConfig.basePackage() + "." + domainPackagePrefix;
         // 控制器包配置，格式为 basePackage.controller.businessModule，如 com.vita.controller.system
         String controllerPackage = "controller." + moduleConfig.businessModule();

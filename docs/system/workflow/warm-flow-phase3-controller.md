@@ -6,7 +6,7 @@
 - 保留现有 `/workflow/**`、`/system/workflow/**` 路由和请求响应结构。
 - Controller 仅负责参数校验、鉴权、日志、重复提交、DTO 转换和 Service 调用。
 - 不提供 Controller API/默认实现双层结构，也不提供按能力域替换 Bean 的机制。
-- 仅保留 `vita.workflow.enabled` 总开关，缺省为 `true`。
+- 仅保留 `vita.workflow.enabled` 总开关；`vita-admin` 导入 workflow 配置后缺省为 `true`，其他启动模块未配置时不启用报销工作流 Bean。
 
 ## 2. Controller 结构
 

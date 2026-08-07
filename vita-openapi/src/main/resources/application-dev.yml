@@ -27,5 +27,3 @@ vita:
     is-log: true
     token-prefix: Bearer
     jwt-secret-key: secret-key
-  hot:
-    stale-threshold-minutes: 20

@@ -2,7 +2,6 @@ package com.vita.async.config;
 
 import com.vita.async.property.AsyncExecutorProperty;
 import com.vita.async.property.DefaultAsyncExecutorProperty;
-import com.vita.async.property.HotRefreshAsyncExecutorProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
@@ -22,8 +21,6 @@ import java.util.concurrent.ThreadPoolExecutor;
 @Configuration
 public class ThreadPoolConfig {
     private static final DefaultAsyncExecutorProperty DEFAULT_EXECUTOR_PROPERTY = new DefaultAsyncExecutorProperty();
-    private static final HotRefreshAsyncExecutorProperty HOT_REFRESH_EXECUTOR_PROPERTY =
-            new HotRefreshAsyncExecutorProperty();
 
     /**
      * 非核心异步默认线程池，同时保留旧别名避免 Bean 名立即断裂。
@@ -34,14 +31,6 @@ public class ThreadPoolConfig {
     @Primary
     public ThreadPoolTaskExecutor defaultTaskExecutor() {
         return createExecutor(DEFAULT_EXECUTOR_PROPERTY, new ThreadPoolExecutor.DiscardPolicy());
-    }
-
-    /**
-     * 热榜全量刷新专用线程池。
-     */
-    @Bean(name = "hotRefreshTaskExecutor")
-    public ThreadPoolTaskExecutor hotRefreshTaskExecutor() {
-        return createExecutor(HOT_REFRESH_EXECUTOR_PROPERTY, new ThreadPoolExecutor.CallerRunsPolicy());
     }
 
     /**

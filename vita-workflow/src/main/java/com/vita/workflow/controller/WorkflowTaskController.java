@@ -305,7 +305,7 @@ public class WorkflowTaskController {
      */
     @RepeatSubmit
     @Log(module = "工作流任务", businessType = "UPDATE_HANDLER")
-    @PutMapping("/system/workflow/tasks/{taskId}/handlers")
+    @PostMapping("/system/workflow/tasks/{taskId}/handlers")
     @SaCheckPermission(WorkflowConstants.WORKFLOW_TASK_MANAGE_PERMISSION)
     public CommonResult<Boolean> updateHandlers(
             @PathVariable("taskId") Long taskId,

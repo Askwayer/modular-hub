@@ -74,7 +74,7 @@ public class SysRoleController extends BaseController {
      * @return 删除结果
      */
     @RepeatSubmit
-    @GetMapping("/delete")
+    @PostMapping("/delete")
     @SaCheckPermission("system:role:delete")
     public CommonResult<Boolean> delete(@RequestParam("id") Long id) {
         sysRoleService.delete(id);

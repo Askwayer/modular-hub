@@ -55,7 +55,7 @@ public class WorkflowReimbursementController {
      */
     @RepeatSubmit
     @Log(module = "工作流报销", businessType = "UPDATE")
-    @PutMapping("/{id}")
+    @PostMapping("/{id}")
     public CommonResult<Boolean> update(@PathVariable Long id,
                                         @Valid @RequestBody ReimbursementUpdateDto updateDto) {
         reimbursementService.update(id, updateDto);

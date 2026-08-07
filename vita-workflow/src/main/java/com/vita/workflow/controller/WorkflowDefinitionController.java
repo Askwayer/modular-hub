@@ -94,7 +94,7 @@ public class WorkflowDefinitionController {
      */
     @RepeatSubmit
     @Log(module = "工作流定义", businessType = "PUBLISH")
-    @PutMapping("/system/workflow/definitions/{definitionId}/publish")
+    @PostMapping("/system/workflow/definitions/{definitionId}/publish")
     @SaCheckPermission(WorkflowConstants.WORKFLOW_DEFINITION_MANAGE_PERMISSION)
     public CommonResult<Boolean> publishDefinition(
             @PathVariable("definitionId") Long definitionId) {
@@ -110,7 +110,7 @@ public class WorkflowDefinitionController {
      */
     @RepeatSubmit
     @Log(module = "工作流定义", businessType = "UNPUBLISH")
-    @PutMapping("/system/workflow/definitions/{definitionId}/unpublish")
+    @PostMapping("/system/workflow/definitions/{definitionId}/unpublish")
     @SaCheckPermission(WorkflowConstants.WORKFLOW_DEFINITION_MANAGE_PERMISSION)
     public CommonResult<Boolean> unpublishDefinition(
             @PathVariable("definitionId") Long definitionId) {
@@ -142,7 +142,7 @@ public class WorkflowDefinitionController {
      */
     @RepeatSubmit
     @Log(module = "工作流定义", businessType = "DELETE")
-    @DeleteMapping("/system/workflow/definitions/{definitionId}")
+    @PostMapping("/system/workflow/definitions/{definitionId}")
     @SaCheckPermission(WorkflowConstants.WORKFLOW_DEFINITION_MANAGE_PERMISSION)
     public CommonResult<Boolean> deleteDefinition(
             @PathVariable("definitionId") Long definitionId) {
@@ -194,7 +194,7 @@ public class WorkflowDefinitionController {
      */
     @RepeatSubmit
     @Log(module = "工作流定义", businessType = "UPDATE_ACTIVITY")
-    @PutMapping("/system/workflow/definitions/{definitionId}/activity")
+    @PostMapping("/system/workflow/definitions/{definitionId}/activity")
     @SaCheckPermission(WorkflowConstants.WORKFLOW_DEFINITION_MANAGE_PERMISSION)
     public CommonResult<Boolean> setDefinitionActivity(
             @PathVariable("definitionId") Long definitionId,

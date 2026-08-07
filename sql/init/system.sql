@@ -219,7 +219,7 @@ CREATE TABLE `sys_permission`
     `permission_code` varchar(100) NOT NULL COMMENT '权限编码',
     `permission_type` varchar(32)  NOT NULL COMMENT '权限类型 MENU_ACTION/API/DATA/FIELD',
     `menu_id`         bigint                                                        DEFAULT NULL COMMENT '关联菜单ID，可为空',
-    `api_method`      varchar(16)                                                   DEFAULT NULL COMMENT '接口方法 GET/POST/PUT/DELETE',
+    `api_method`      varchar(16)                                                   DEFAULT NULL COMMENT '接口方法 GET/POST',
     `api_path`        varchar(255)                                                  DEFAULT NULL COMMENT '接口路径',
     `auth_tag`        varchar(100)                                                  DEFAULT NULL COMMENT 'Sa-Token鉴权标识，通常等于permission_code',
     `sort_no`         int          NOT NULL                                         DEFAULT 0 COMMENT '排序',

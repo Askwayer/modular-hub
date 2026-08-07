@@ -84,6 +84,8 @@
 
 ## 3. 返回模型设计建议
 
+用户和角色管理端列表、详情模型必须返回主键 `id`，供编辑、删除与后续授权使用；用户响应模型不得包含密码字段。
+
 ### 3.1 Redis 缓存对象
 
 用途：
@@ -371,7 +373,6 @@ List<RouterVo>           // 前端路由树
 - `system:permission:view/add/update/delete`
 - `system:dept:view/add/update/delete`
 - `system:ip-block:view/add/update/delete`
-- `system:hot-cache:view/refresh`
 - `system:workflow:import`
 - `system:workflow:definition:view`
 - `system:workflow:definition:manage`
@@ -394,26 +395,22 @@ List<RouterVo>           // 前端路由树
 - `/auth/*` 不加 `@SaCheckPermission`
 - `SysOperLogController`、`SysLoginLogController` 只保留读和删，不对外暴露 `add/update`
 
-热搜缓存接口映射：
+工作流接口映射：
 
-- `GET /system/hot/cache/status` -> `system:hot-cache:view`
-- `POST /system/hot/cache/refresh` -> `system:hot-cache:refresh`
-- `POST /system/hot/cache/refreshAll` -> `system:hot-cache:refresh`
 - `POST /system/workflow/importJson` -> `system:workflow:import`
 - `GET /system/workflow/definitions/page`、`GET /system/workflow/definitions/{id}` -> `system:workflow:definition:view`
-- `PUT /system/workflow/definitions/{id}/publish`、`PUT /system/workflow/definitions/{id}/unpublish` -> `system:workflow:definition:manage`
-- `POST /system/workflow/definitions/{id}/copy`、`DELETE /system/workflow/definitions/{id}` -> `system:workflow:definition:manage`
+- `POST /system/workflow/definitions/{id}/publish`、`POST /system/workflow/definitions/{id}/unpublish` -> `system:workflow:definition:manage`
+- `POST /system/workflow/definitions/{id}/copy`、`POST /system/workflow/definitions/{id}` -> `system:workflow:definition:manage`
 - `GET /system/workflow/instances/**` -> `system:workflow:instance:view`
-- `PUT /system/workflow/instances/{id}/activity`、`POST /system/workflow/instances/{id}/invalidate` -> `system:workflow:instance:manage`
+- `POST /system/workflow/instances/{id}/activity`、`POST /system/workflow/instances/{id}/invalidate` -> `system:workflow:instance:manage`
 - `GET /system/workflow/tasks/**` -> `system:workflow:task:view`
-- `PUT /system/workflow/tasks/{id}/handlers` -> `system:workflow:task:manage`
+- `POST /system/workflow/tasks/{id}/handlers` -> `system:workflow:task:manage`
 - `GET /system/workflow/categories/**` -> `system:workflow:category:view`
-- `POST/PUT/DELETE /system/workflow/categories/**` -> `system:workflow:category:manage`
+- `POST /system/workflow/categories/**` -> `system:workflow:category:manage`
 - `GET /system/workflow/assignee-rules/**` -> `system:workflow:assignee-rule:view`
-- `POST/PUT/DELETE /system/workflow/assignee-rules/**` -> `system:workflow:assignee-rule:manage`
+- `POST /system/workflow/assignee-rules/**` -> `system:workflow:assignee-rule:manage`
 - `GET /system/workflow/reimbursements/**` -> `system:workflow:reimbursement:view`
 - `POST /system/workflow/reimbursements/resync` -> `system:workflow:reimbursement:resync`
-
 已有环境通过 `sql/upgrade/vita_workflow_upgrade.sql` 按角色码和权限码幂等补齐工作流 RBAC 数据。该脚本以增量方式补齐 `workflow_category` 和默认分类，不删除已有自定义分类。
 
 工作流补充边界：

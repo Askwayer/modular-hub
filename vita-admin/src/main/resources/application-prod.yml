@@ -45,10 +45,3 @@ vita:
     token-prefix: Bearer
     # jwt秘钥
     jwt-secret-key: wiki-kangLe-Cloud
-  hot:
-    stale-threshold-minutes: 20
-    registry-cache-ttl-minutes: 1440
-    daily-hot-api:
-      base-url: http://127.0.0.1:18000
-      api-key: 4gqTA4cx5X*#I6QG
-      timeout-ms: 8000

@@ -5,11 +5,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.ResponseStatus;
 
 /**
  * @BelongsProject: be-vita
@@ -57,6 +60,22 @@ public class ControllerExceptionHandler {
         String resolvedMessage = resolveValidationMessage("请求体不是合法的 JSON");
         LOG.warn("请求体解析失败：{}" , resolvedMessage);
         return CommonResult.error(GlobalErrorCode.BAD_REQUEST.getCode(), resolvedMessage);
+    }
+
+    /**
+     * 不受支持的 HTTP 方法返回标准 405 状态和统一响应体。
+     *
+     * @param e 请求方法异常
+     * @return 返回结果
+     */
+    @ExceptionHandler(value = HttpRequestMethodNotSupportedException.class)
+    @ResponseBody
+    @ResponseStatus(HttpStatus.METHOD_NOT_ALLOWED)
+    public CommonResult methodNotAllowedExceptionHandler(HttpRequestMethodNotSupportedException e) {
+        LOG.warn("请求方法不受支持：{}" , e.getMethod());
+        return CommonResult.error(
+                GlobalErrorCode.METHOD_NOT_ALLOWED.getCode(),
+                GlobalErrorCode.METHOD_NOT_ALLOWED.getMsg());
     }
 
     /**

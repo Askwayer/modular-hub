@@ -68,11 +68,16 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         if (updateDto == null || updateDto.getId() == null) {
             throw new ServiceException(GlobalErrorCode.BAD_REQUEST);
         }
-        SysUser existed = getRequiredEntity(updateDto.getId());
-        Byte targetIsSuperAdmin = updateDto.getIsSuperAdmin() != null ? updateDto.getIsSuperAdmin() : existed.getIsSuperAdmin();
-        validateSingleSuperAdmin(updateDto.getId(), targetIsSuperAdmin);
+        getRequiredEntity(updateDto.getId());
         SysUser data = new SysUser();
         BeanUtils.copyProperties(updateDto, data);
+        if (CharSequenceUtil.isBlank(updateDto.getPassword())) {
+            // 空密码表示保持原密码，避免详情接口回传密码或前端重复提交密文。
+            data.setPassword(null);
+        } else {
+            data.setPassword(Sm4Utils.encryptToBase64(updateDto.getPassword()));
+            data.setPwdUpdateDate(LocalDateTime.now());
+        }
         sysUserMapper.updateById(data);
     }
 
@@ -83,7 +88,11 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
      */
     @Override
     public void delete(Long id) {
-        getRequiredEntity(id);
+        SysUser user = getRequiredEntity(id);
+        if (CommonStatusEnum.isEnabled(user.getIsSystem())
+                || CommonStatusEnum.isEnabled(user.getIsSuperAdmin())) {
+            throw new ServiceException(GlobalErrorCode.BAD_REQUEST.getCode(), "系统内置或超级管理员用户不允许删除");
+        }
         sysUserMapper.deleteById(id);
     }
 
@@ -188,6 +197,7 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         LambdaQueryWrapperX<SysUser> queryWrapper = new LambdaQueryWrapperX<>();
         if (searchDto != null) {
             queryWrapper.eqIfPresent(SysUser::getDeptId, searchDto.getDeptId())
+                    .likeIfPresent(SysUser::getUserName, searchDto.getUserName())
                     .likeIfPresent(SysUser::getNickName, searchDto.getNickName())
                     .likeIfPresent(SysUser::getMobile, searchDto.getMobile())
                     .eqIfPresent(SysUser::getStatus, searchDto.getStatus());

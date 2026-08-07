@@ -2,6 +2,7 @@ package com.vita.system.sysUser.dto;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 import java.time.LocalDateTime;
@@ -30,12 +31,14 @@ public class SysUserCreateDto {
      * 用户名称
      */
     @NotBlank(message = "【用户名称】不能为空")
+    @Size(min = 4, max = 32, message = "【用户名称】长度必须在4到32位之间")
     private String userName;
 
     /**
      * 密码
      */
     @NotBlank(message = "【密码】不能为空")
+    @Size(min = 8, max = 64, message = "【密码】长度必须在8到64位之间")
     private String password;
 
     /**

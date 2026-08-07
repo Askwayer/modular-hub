@@ -33,7 +33,7 @@ public class SysPermissionListVo {
     private Long menuId;
 
     /**
-     * 接口方法 GET/POST/PUT/DELETE
+     * 接口方法 GET/POST
      */
     private String apiMethod;
 

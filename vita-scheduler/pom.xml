@@ -47,6 +47,7 @@
                 </executions>
                 <configuration>
                     <mainClass>com.vita.config.VitaSchedulerApplication</mainClass>
+                    <workingDirectory>${project.parent.basedir}</workingDirectory>
                 </configuration>
             </plugin>
         </plugins>

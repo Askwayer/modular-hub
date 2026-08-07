@@ -45,7 +45,7 @@ public class SysPermission extends BaseEntity {
     private Long menuId;
 
     /**
-     * 接口方法 GET/POST/PUT/DELETE
+     * 接口方法 GET/POST
      */
     @TableField("api_method")
     private String apiMethod;

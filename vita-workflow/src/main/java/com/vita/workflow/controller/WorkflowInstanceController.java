@@ -279,7 +279,7 @@ public class WorkflowInstanceController {
      */
     @RepeatSubmit
     @Log(module = "工作流实例", businessType = "UPDATE_VARIABLE")
-    @PutMapping("/system/workflow/instances/{instanceId}/variables")
+    @PostMapping("/system/workflow/instances/{instanceId}/variables")
     @SaCheckPermission(WorkflowConstants.WORKFLOW_INSTANCE_MANAGE_PERMISSION)
     public CommonResult<Boolean> updateInstanceVariable(
             @PathVariable("instanceId") Long instanceId,
@@ -298,7 +298,7 @@ public class WorkflowInstanceController {
      */
     @RepeatSubmit
     @Log(module = "工作流实例", businessType = "UPDATE_ACTIVITY")
-    @PutMapping("/system/workflow/instances/{instanceId}/activity")
+    @PostMapping("/system/workflow/instances/{instanceId}/activity")
     @SaCheckPermission(WorkflowConstants.WORKFLOW_INSTANCE_MANAGE_PERMISSION)
     public CommonResult<WorkflowInstanceSnapshot> setInstanceActivity(
             @PathVariable("instanceId") Long instanceId,
@@ -335,7 +335,7 @@ public class WorkflowInstanceController {
      */
     @RepeatSubmit
     @Log(module = "工作流实例", businessType = "DELETE")
-    @DeleteMapping("/system/workflow/instances/{instanceId}")
+    @PostMapping("/system/workflow/instances/{instanceId}")
     @SaCheckPermission(WorkflowConstants.WORKFLOW_INSTANCE_MANAGE_PERMISSION)
     public CommonResult<Boolean> deleteRunningInstance(
             @PathVariable("instanceId") Long instanceId) {
@@ -352,7 +352,7 @@ public class WorkflowInstanceController {
      */
     @RepeatSubmit
     @Log(module = "工作流实例", businessType = "DELETE")
-    @DeleteMapping("/system/workflow/instances/by-business/{businessId}")
+    @PostMapping("/system/workflow/instances/by-business/{businessId}")
     @SaCheckPermission(WorkflowConstants.WORKFLOW_INSTANCE_MANAGE_PERMISSION)
     public CommonResult<Boolean> deleteRunningInstanceByBusinessId(
             @PathVariable("businessId") String businessId) {
@@ -369,7 +369,7 @@ public class WorkflowInstanceController {
      */
     @RepeatSubmit
     @Log(module = "工作流实例", businessType = "DELETE_HISTORY")
-    @DeleteMapping("/system/workflow/instances/{instanceId}/history")
+    @PostMapping("/system/workflow/instances/{instanceId}/history")
     @SaCheckPermission(WorkflowConstants.WORKFLOW_INSTANCE_MANAGE_PERMISSION)
     public CommonResult<Boolean> deleteFinishedInstanceHistory(
             @PathVariable("instanceId") Long instanceId) {

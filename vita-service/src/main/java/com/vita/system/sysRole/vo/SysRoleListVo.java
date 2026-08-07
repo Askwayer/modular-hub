@@ -13,6 +13,11 @@ import lombok.Data;
 @Data
 public class SysRoleListVo {
     /**
+     * 角色 ID
+     */
+    private Long id;
+
+    /**
      * 角色名称
      */
     private String roleName;
