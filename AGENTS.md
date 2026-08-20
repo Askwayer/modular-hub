@@ -16,7 +16,7 @@ Preserve these dependency chains: `vita-admin -> vita-service -> vita-common`, `
 - `./tools/codegraph/codegraph.sh init`: initialize or synchronize the optional root CodeGraph index.
 
 ## Coding and Verification
-Use UTF-8, 4-space indentation, `PascalCase` classes, `camelCase` members, and `UPPER_SNAKE_CASE` constants. Keep controllers thin, business orchestration in services, and single-table persistence in mappers. New standard CRUD must start from `vita-generator`. Add concise Chinese comments only for key rules, transactions, state changes, concurrency, and integrations.
+Use UTF-8, 4-space indentation, `PascalCase` classes, `camelCase` members, and `UPPER_SNAKE_CASE` constants. Keep controllers thin, orchestration in services, and single-table persistence in mappers. Detailed rules live in `AICoding/rules/be-vita-ai-codegen-rules.md`; database, Java, and standard CRUD tasks must read the matching `AICoding/skills/*/SKILL.md`. Standard CRUD starts from `vita-generator`. Add Chinese comments only for key rules, transactions, state changes, concurrency, and integrations.
 
 Before implementation, inspect the target directory, technology stack, `git status --short --branch`, local conventions, related docs, Git history, and current code. Start with exact `rg` searches, read only needed ranges, and bound long logs, SQL, Mapper XML, build output, and diffs. Compilation, tests, and source code remain authoritative.
 

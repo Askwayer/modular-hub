@@ -5,8 +5,9 @@
 本文档是 `be-vita` 仓库中 AI 生成、修改、重构代码时的最高优先级详细规则源，适用于 Codex、Claude、Qwen 及其他基于 Prompt 的代码生成工具。
 
 - 根目录 `README.md` 只负责仓库总览与入口索引。
-- 根目录 `CLAUDE.md`、`AGENTS.md` 只负责执行摘要。
+- 根目录 `AGENTS.md` 只负责执行摘要。
 - 详细规则只认 `AICoding/rules/be-vita-ai-codegen-rules.md`。
+- `AICoding/skills/` 只承载任务工作流、上下文导航和检查步骤，不是平行规则源。
 
 AI 生成结果如果与本文件冲突，以本文件为准。
 
@@ -57,6 +58,21 @@ vita-scheduler -> vita-service -> vita-common
 - 初始化脚本：`sql/init/`
 - 升级脚本：`sql/upgrade/`
 - AI 规则文档：`AICoding/rules/be-vita-ai-codegen-rules.md`
+- AI Skill 导航：`AICoding/skills/README.md`
+
+### 2.3 Skill 路由
+
+`AICoding/skills/` 使用工具中立的标准 `SKILL.md` 结构，当前由本文件显式路由，不依赖代理原生自动发现。开始以下任务前必须读取对应 Skill：
+
+| 任务 | 必须读取 |
+| --- | --- |
+| 建表、改表、初始化或升级 SQL、Entity 字段映射、DDL 审查 | `AICoding/skills/be-vita-database-design/SKILL.md` |
+| Java 新增、修改、重构或代码审查 | `AICoding/skills/be-vita-java-conventions/SKILL.md` |
+| 新增或变更表后生成标准 CRUD | `AICoding/skills/be-vita-crud-generation/SKILL.md`，并按任务组合数据库与 Java Skill |
+
+- 复合任务必须读取所有相关 Skill；无关任务不强制加载。
+- Skill 只能编排执行过程，不得重新定义或放宽本文件的硬约束。
+- Skill 与本文件冲突、Skill 缺失或未加载时，必须以本文件为准。
 
 ## 3. 必须遵守
 
@@ -89,6 +105,8 @@ vita-scheduler -> vita-service -> vita-common
 
 ### 3.4 命名与目录
 
+- 源码文件必须使用 UTF-8，Java 代码必须使用 4 空格缩进，并遵循目标文件已有的导入、注解和空行风格。
+- 未经任务明确要求，禁止为局部修改批量格式化无关代码或引入新的格式化工具。
 - 类名必须使用 `PascalCase`。
 - 方法名、字段名必须使用 `camelCase`。
 - 常量必须使用 `UPPER_SNAKE_CASE`。
@@ -314,6 +332,7 @@ CREATE TABLE `sys_user`
 ### 8.1 生成前
 
 - 检查 `git status --short --branch`、目标目录结构、技术栈和局部约定。
+- 按 2.3 Skill 路由读取当前任务对应的 `SKILL.md`，复合任务必须读取全部相关 Skill。
 - 涉及既有需求、缺陷或历史改动时，检查中央文档、提交记录和当前实现。
 - 确认目标模块和依赖边界。
 - 确认是否属于管理端、公开接口、调度端、starter 或 generator 模板场景。
