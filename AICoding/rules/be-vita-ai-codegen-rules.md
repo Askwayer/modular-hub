@@ -48,8 +48,12 @@ vita-scheduler -> vita-service -> vita-common
 
 ### 2.2 文档与脚本入口
 
-- 系统设计文档：`docs/system/`
-- Starter 设计文档：`docs/starter/`
+- 文档总导航：`docs/README.md`
+- 需求与验收文档：`docs/requirements/`
+- 系统与 Starter 详细设计：`docs/architecture/`
+- 开发、运维与本地工具文档：`docs/development/`
+- 本地开发脚本：`tools/`
+- CodeGraph 唯一脚本目录：`tools/codegraph/`
 - 初始化脚本：`sql/init/`
 - 升级脚本：`sql/upgrade/`
 - AI 规则文档：`AICoding/rules/be-vita-ai-codegen-rules.md`
@@ -119,8 +123,9 @@ vita-scheduler -> vita-service -> vita-common
 
 对应位置：
 
-- `docs/system/`
-- `docs/starter/`
+- `docs/requirements/`
+- `docs/architecture/`
+- `docs/development/`
 - `sql/init/`
 - `sql/upgrade/`
 
@@ -138,12 +143,40 @@ vita-scheduler -> vita-service -> vita-common
 - 注释应解释原因、约束和边界，不应重复代码表面含义。
 - 不要求给 getter/setter、直白的 CRUD 转发、模板骨架或可直接从命名读懂的简单语句逐行加注释。
 
+### 3.10 CodeGraph 使用约束
+
+- CodeGraph 是可选的开发期本地代码分析工具，不属于 Maven 依赖、应用运行时、部署组件或 CI 门禁。
+- CodeGraph 固定使用 `1.5.0`，仓库级唯一命令入口必须是 `./tools/codegraph/codegraph.sh`，相关脚本只能位于 `tools/codegraph/`。
+- 人工或代理执行安装、初始化、状态检查、同步、重建、查询和回滚时必须使用仓库级入口，不得直接调用 CodeGraph CLI；个人 MCP 内部执行官方 `codegraph serve --mcp` 是唯一例外。
+- `setup` 与 `teardown --yes` 可以按文档显式修改个人 npm 和 MCP 配置，其他子命令不得修改个人环境。
+- 当 CodeGraph 可用且仓库根目录已存在有效索引时，跨模块调用链、接口实现、影响范围和 MyBatis Java/XML 映射必须优先使用 `codegraph_explore` 辅助分析。
+- 查询必须优先使用完整类名，或使用“类名 + 方法名”的精确符号组合，禁止仅依赖宽泛自然语言查询后直接下结论。
+- 工作流 Port/Adapter、多级接口继承、多实现类、反射调用和框架运行时绑定必须再使用 `rg` 与源码读取复核。
+- CodeGraph 无结果、结果含糊、索引过期或工具不可用时，必须立即回退到 `rg`、文件读取和 Maven 验证，不得阻塞开发任务。
+- CodeGraph 输出只能作为代码理解依据之一；Java 编译、Maven 测试、SQL 检查和源码事实拥有最终优先级。
+- 团队试点固定版本、个人 MCP 注册、维护与回滚流程以 `docs/development/codegraph-integration.md` 为准。
+
+### 3.11 上下文与导航
+
+- 开始实现或评估前，必须先检查目标模块的现有目录结构、技术栈、`git status --short --branch` 和局部约定，不得仅依据需求描述或外部经验假设实现方式。
+- 提及既有需求、缺陷修复或历史改动时，必须先检索 `docs/` 中的相关文档、Git 提交记录和当前实现，再决定修改方案。
+- 必须从 `docs/README.md` 进入中央文档；需求与验收放在 `docs/requirements/`，技术详设放在 `docs/architecture/`，开发和运维指南放在 `docs/development/`。
+- 文档与实现冲突时，必须明确指出冲突并以当前源码、数据库脚本和可执行测试结果复核，不能静默选择任一方。
+
+### 3.12 信息获取与输出
+
+- 检索代码时必须先使用精确文件名、类名、方法名或关键字定位，再读取必要文件片段；不得默认读取大型文件、全量日志或全量差异。
+- 命令输出必须设置合理上限；构建失败、SQL、Mapper XML、日志和 `git diff` 等长输出只保留与当前判断相关的片段和结论。
+- 已在 `docs/requirements/`、`docs/architecture/` 或契约文件中固化的背景，不得在会话或新文档中重复粘贴；后续任务必须直接引用对应文件和章节。
+- 使用 CodeGraph 时必须优先精确符号查询，并通过 `CODEGRAPH_OUTPUT_MAX_LINES` 或工具输出预算限制返回规模。
+
 ## 4. 应该遵守
 
 - 应该为新业务逻辑、异常分支、参数校验和关键状态流转补测试。
 - 应该在设计先行的场景中先更新文档，再落代码。
 - 应该在修改 `vita-generator` 模板时同步检查模板输出是否继续满足本文件全部硬规则。
 - 应该优先使用仓库现有骨架与模式，不自行引入第二套返回体、分页对象、异常语义或目录约定。
+- 应该在 CodeGraph 分析前确认索引位于仓库根目录，并在分支切换或结果异常时检查索引状态。
 
 ## 5. 明确禁止
 
@@ -157,6 +190,12 @@ vita-scheduler -> vita-service -> vita-common
 - 禁止把配置字段散落到 `config`、`service`、`support` 中。
 - 禁止为了临时实现功能破坏模块边界。
 - 禁止直接输出密码、Token、数据库密码、模型 API Key 等敏感信息。
+- 禁止提交 `.codegraph/`、本地 SQLite 索引或个人 MCP 配置。
+- 禁止仅依据 CodeGraph 推断未明确解析的动态调用关系并直接修改核心业务代码。
+- 禁止把 Java、Mapper、SQL、配置资源或其他业务代码放到 `tools/`。
+- 禁止把需求或详细设计文档散落到 `vita-*` Maven 子模块中。
+- 禁止删除 `tools/codegraph/`、在其他目录新增 CodeGraph 脚本，或绕过仓库级 CodeGraph 机制。
+- 禁止新增绕过 `./tools/codegraph/codegraph.sh` 的模块级别名、自定义启动脚本或其他入口。
 
 ## 6. 新建表默认字段 DDL 规范
 
@@ -274,10 +313,13 @@ CREATE TABLE `sys_user`
 
 ### 8.1 生成前
 
+- 检查 `git status --short --branch`、目标目录结构、技术栈和局部约定。
+- 涉及既有需求、缺陷或历史改动时，检查中央文档、提交记录和当前实现。
 - 确认目标模块和依赖边界。
 - 确认是否属于管理端、公开接口、调度端、starter 或 generator 模板场景。
 - 确认是否需要同步 `docs/`、`sql/`。
 - 确认新表是否落入“默认字段规范”适用范围。
+- 涉及跨模块调用链或影响分析时，确认 CodeGraph 是否可用；不可用时直接使用仓库基础工具继续分析。
 
 ### 8.2 生成后
 
@@ -289,6 +331,9 @@ CREATE TABLE `sys_user`
 - 检查核心业务代码是否只在关键位置增加中文注释，而不是缺失注释或机械式逐行注释。
 - 检查文档、初始化脚本、升级脚本是否同步。
 - 检查新表 DDL 是否满足字段顺序、默认值和例外规则。
+- 检查 CodeGraph 得出的关键调用关系是否已经过源码、编译或测试复核。
+- 检查需求、详设和开发指南是否放入正确的中央文档目录，且不存在个人机器绝对路径。
+- 检查 `tools/` 中是否只有本地开发工具，CodeGraph 脚本是否全部收口在 `tools/codegraph/`。
 
 ## 全局约束
 

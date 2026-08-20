@@ -92,7 +92,7 @@ starter 对外只暴露 **service/facade + 请求结果模型**，不内置通�
 
 - `vita-starters/vita-poi-spring-boot-starter` 仅声明 `easyexcel` 依赖
 - `vita-admin`、`vita-service`、`vita-common` 中没有现成 Excel 导入导出实现
-- 仓库内已有 starter 设计文档风格以 `docs/starter/file/vita-file-starter-design.md` 为参考
+- 仓库内已有 starter 设计文档风格以 `docs/architecture/starter/file/vita-file-starter-design.md` 为参考
 
 因此 `vita-poi-spring-boot-starter` 文档需要先把以下内容一次性补齐：
 

@@ -1,23 +1,28 @@
 # Repository Guidelines
 
-## Project Structure & Module Organization
-`be-vita` is a Maven multi-module backend repository. Core modules are `vita-common` (shared infrastructure and base models), `vita-service` (business services), `vita-workflow` (workflow contracts, domain, and infrastructure), `vita-admin` (admin app, `/admin/api`), `vita-openapi` (public query app, `/openapi/api`), `vita-scheduler` (scheduler app, `/scheduler/api`), `vita-generator` (code generator), and `vita-starters` (profile-driven starter aggregator for `captcha`, `file`, `i18n`, `poi`). Keep package roots under `com.vita.*` and preserve the main dependency chain: `vita-admin -> vita-service -> vita-common`, `vita-admin -> vita-workflow -> vita-service -> vita-common`, `vita-openapi -> vita-service -> vita-common`, `vita-scheduler -> vita-service -> vita-common`. Do not place workflow contracts, domain code, or implementations in `vita-common` or `vita-service`.
+## Project Structure
+`be-vita` is a Java 17 Maven multi-module backend. `vita-common` contains shared infrastructure and base models; `vita-service` owns system business services; `vita-workflow` owns workflow contracts, domain logic, and Warm-Flow integration. `vita-admin`, `vita-openapi`, and `vita-scheduler` are Spring Boot entry modules. `vita-generator` provides CRUD generation, and `vita-starters` aggregates the `captcha`, `file`, `i18n`, and `poi` starters.
 
-## Build, Test, and Development Commands
-- `mvn clean compile`: compile the full repository.
-- `mvn clean package -DskipTests`: package all modules quickly.
+Preserve these dependency chains: `vita-admin -> vita-service -> vita-common`, `vita-admin -> vita-workflow -> vita-service -> vita-common`, `vita-openapi -> vita-service -> vita-common`, and `vita-scheduler -> vita-service -> vita-common`. Do not move workflow contracts or implementations into `vita-common` or `vita-service`.
+
+## Build and Development Commands
+- `mvn clean compile`: compile all modules.
 - `mvn test`: run the full test suite.
-- `mvn -pl vita-admin -am spring-boot:run`: run the admin application.
-- `mvn -pl vita-openapi -am spring-boot:run`: run the public query application.
-- `mvn -pl vita-scheduler -am spring-boot:run`: run the scheduler application.
-- `mvn -pl vita-service -am test`: run service-layer tests.
-- `mvn -pl vita-generator -DskipTests exec:java -Dexec.mainClass=com.vita.config.CodeGenerator`: run code generation.
-- `mvn -f vita-starters/pom.xml -Pstarter-captcha test`: test the captcha starter profile.
+- `mvn clean package -DskipTests`: package without tests.
+- `mvn -pl vita-admin -am spring-boot:run`: run the admin app.
+- `mvn -pl vita-openapi -am spring-boot:run`: run the public API app.
+- `mvn -pl vita-scheduler -am spring-boot:run`: run the scheduler app.
+- `mvn -pl vita-generator -DskipTests exec:java -Dexec.mainClass=com.vita.config.CodeGenerator`: generate CRUD scaffolding.
+- `./tools/codegraph/codegraph.sh init`: initialize or synchronize the optional root CodeGraph index.
 
-## Coding, Rules, and Naming
-Use 4-space indentation, UTF-8, `PascalCase` for classes, `camelCase` for methods and fields, and `UPPER_SNAKE_CASE` for constants. Keep controller logic thin, business orchestration in services, and single-table SQL details in mappers. For new tables, standard CRUD scaffolding must start from `vita-generator` templates before business customization. Core business code should add concise Chinese comments at key rules, transaction boundaries, state transitions, concurrency control, and external integrations, not line-by-line narration. Detailed AI and code generation constraints live only in `AICoding/rules/be-vita-ai-codegen-rules.md`; `README.md`, `CLAUDE.md`, and this file are summaries, not parallel rule sources.
+## Coding and Verification
+Use UTF-8, 4-space indentation, `PascalCase` classes, `camelCase` members, and `UPPER_SNAKE_CASE` constants. Keep controllers thin, business orchestration in services, and single-table persistence in mappers. New standard CRUD must start from `vita-generator`. Add concise Chinese comments only for key rules, transactions, state changes, concurrency, and integrations.
 
-## Database and Documentation Sync
-For new tables, follow the default DDL suffix unless the table is a pure association table: `tenant_id`, `create_time`, `update_time`, `is_deleted`, `create_by_id`, `create_by`, `update_by_id`, `update_by`, `version`, `remark`. Standard ordering is `id -> tenant_id -> business fields -> audit suffix`. `sys_user` is the representative sample; `pwd_update_date` is business-specific, not part of the global suffix.
+Before implementation, inspect the target directory, technology stack, `git status --short --branch`, local conventions, related docs, Git history, and current code. Start with exact `rg` searches, read only needed ranges, and bound long logs, SQL, Mapper XML, build output, and diffs. Compilation, tests, and source code remain authoritative.
 
-Any change touching authentication, RBAC, logging, initialization SQL, or DDL conventions must update the relevant docs in `docs/system/`, `docs/starter/`, plus scripts in `sql/init/` or `sql/upgrade/` when applicable. Runtime logs are written under the repository root at `data/logs/be-vita/`; override this location with `VITA_LOG_HOME` when required.
+New non-association tables use `id -> tenant_id -> business fields -> audit suffix`, including `create_time`, `update_time`, `is_deleted`, creator/updater fields, `version`, and `remark`. Detailed rules live only in `AICoding/rules/be-vita-ai-codegen-rules.md`.
+
+## Documentation and CodeGraph
+Use `docs/README.md` to navigate centralized requirements, architecture, and development guides. Reference existing sections instead of copying them. Do not place business code in `tools/` or detailed designs in Maven modules.
+
+All repository CodeGraph operations must use `./tools/codegraph/codegraph.sh`; related scripts may exist only under `tools/codegraph/`. Use exact symbols and verify dynamic calls with source reads. Never delete or bypass this mechanism, create module-level aliases, or commit `.codegraph/` and personal MCP configuration. Setup and rollback are documented in `docs/development/codegraph-integration.md`.

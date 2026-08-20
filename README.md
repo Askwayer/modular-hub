@@ -24,12 +24,15 @@ be-vita
 ├── vita-admin
 ├── vita-openapi
 ├── vita-scheduler
+├── tools
+│   └── codegraph
 ├── sql
 │   ├── init
 │   └── upgrade
 └── docs
-    ├── system
-    └── starter
+    ├── requirements
+    ├── architecture
+    └── development
 ```
 
 ## 模块职责与依赖
@@ -54,8 +57,11 @@ vita-scheduler -> vita-service -> vita-common
 
 ## 文档与脚本入口
 
-- 系统设计：`docs/system/`
-- Starter 设计：`docs/starter/`
+- 文档总导航：`docs/README.md`
+- 需求与验收：`docs/requirements/`
+- 系统与 Starter 设计：`docs/architecture/`
+- 开发与运维指南：`docs/development/`
+- 本地开发脚本：`tools/`；CodeGraph 脚本只能位于 `tools/codegraph/`。
 - 系统初始化：`sql/init/system.sql`
 - 初始化数据：`sql/init/insert.sql`
 - 升级脚本：`sql/upgrade/`
@@ -74,6 +80,12 @@ vita-scheduler -> vita-service -> vita-common
 - 执行代码生成：`mvn -pl vita-generator -DskipTests exec:java -Dexec.mainClass=com.vita.config.CodeGenerator`
 - 执行验证码 starter 测试：`mvn -f vita-starters/pom.xml -Pstarter-captcha test`
 
+## 可选开发工具
+
+- CodeGraph 用于本地辅助分析跨模块调用链、接口实现、影响范围和 MyBatis XML 映射，不属于应用运行时依赖或 CI 门禁。
+- 团队试点固定使用 `@colbymchenry/codegraph@1.5.0`，唯一命令入口为 `./tools/codegraph/codegraph.sh`，本地索引不提交 Git。
+- 安装、Codex/Claude MCP 注册、使用限制和回滚方式见 `docs/development/codegraph-integration.md`。
+
 ## 本地启动顺序
 
 1. 启动 MySQL 8.x 和 Redis 7.x。
@@ -83,6 +95,8 @@ vita-scheduler -> vita-service -> vita-common
 ## 配置与约束
 
 - 当前 `application.yml` 通过 `${vita.*}` 占位符读取外部化配置，请在 profile 文件或运行环境中提供对应值。
+- 开始实现或评估前必须检查目标目录、技术栈、分支状态和局部约定；历史需求或缺陷必须先检索中央文档、提交记录和现有实现。
+- 需求、详设和开发指南必须集中在 `docs/` 对应分类中，业务代码不得放入 `tools/`。
 - 新增表如需落标准 CRUD，必须先参照 `vita-generator` 模板生成基础骨架，再进行业务补充，不允许从零随意手写一套风格不一致的 CRUD。
 - 核心业务代码应在关键业务规则、事务边界、状态流转、并发控制和外部集成等位置补充中文注释，不要求机械式逐行注释。
 - 新建表默认字段规范、分层约束、事务规则和 starter 专项规则，以 `AICoding/rules/be-vita-ai-codegen-rules.md` 为准。

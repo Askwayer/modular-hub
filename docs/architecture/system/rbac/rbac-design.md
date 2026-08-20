@@ -46,8 +46,8 @@
 
 ### 2.2 尚未完成的关键点
 
-- [StpInterfaceImpl](/Users/zhuningkang/Documents/git/github/vita/be-vita/vita-service/src/main/java/com/vita/auth/StpInterfaceImpl.java) 需要通过 `IAuthCommonService` 接通角色与权限回调
-- [AuthServiceImpl](/Users/zhuningkang/Documents/git/github/vita/be-vita/vita-service/src/main/java/com/vita/auth/service/impl/AuthServiceImpl.java) 当前只缓存基础登录用户信息，没有初始化角色码、权限码、菜单数据
+- `vita-service/src/main/java/com/vita/auth/StpInterfaceImpl.java` 需要通过 `IAuthCommonService` 接通角色与权限回调
+- `vita-service/src/main/java/com/vita/auth/service/impl/AuthServiceImpl.java` 当前只缓存基础登录用户信息，没有初始化角色码、权限码、菜单数据
 - 当前需要由 `IAuthCommonService` 统一承接 RBAC 聚合查询，避免角色、权限、菜单查询入口分散
 - 当前 `GET /auth/info` 返回的是基础用户信息模型，不足以支撑前端权限初始化
 - 数据范围模型已经有 `data_scope_type` 与 `sys_role_dept_scope`，但还没有真正参与查询判定
@@ -160,7 +160,7 @@ RBAC 查询应统一过滤以下条件：
 
 #### 基础登录用户快照
 
-当前 [LoginUserInfoModel](/Users/zhuningkang/Documents/git/github/vita/be-vita/vita-common/src/main/java/com/vita/auth/model/LoginUserInfoModel.java) 继续保留，用于存放：
+当前 `vita-common/src/main/java/com/vita/auth/model/LoginUserInfoModel.java` 继续保留，用于存放：
 
 - 用户 ID
 - 用户名
