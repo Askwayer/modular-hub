@@ -1,28 +1,42 @@
-# Repository Guidelines
+# 仓库代理指南
 
-## Project Structure
-`be-vita` is a Java 17 Maven multi-module backend. `vita-common` contains shared infrastructure and base models; `vita-service` owns system business services; `vita-workflow` owns workflow contracts, domain logic, and Warm-Flow integration. `vita-admin`, `vita-openapi`, and `vita-scheduler` are Spring Boot entry modules. `vita-generator` provides CRUD generation, and `vita-starters` aggregates the `captcha`, `file`, `i18n`, and `poi` starters.
+## 文档职责
 
-Preserve these dependency chains: `vita-admin -> vita-service -> vita-common`, `vita-admin -> vita-workflow -> vita-service -> vita-common`, `vita-openapi -> vita-service -> vita-common`, and `vita-scheduler -> vita-service -> vita-common`. Do not move workflow contracts or implementations into `vita-common` or `vita-service`.
+- `README.md` 维护仓库结构、模块职责、常用命令和人工导航。
+- `AGENTS.md` 负责 AI 任务的规划、Skill 选择、执行控制和交付要求。
+- `AICoding/rules/be-vita-ai-codegen-rules.md` 是 be-vita 唯一完整的强制规则源。
+- `AICoding/skills/README.md` 说明 Skill 分层和复用方式。
 
-## Build and Development Commands
-- `mvn clean compile`: compile all modules.
-- `mvn test`: run the full test suite.
-- `mvn clean package -DskipTests`: package without tests.
-- `mvn -pl vita-admin -am spring-boot:run`: run the admin app.
-- `mvn -pl vita-openapi -am spring-boot:run`: run the public API app.
-- `mvn -pl vita-scheduler -am spring-boot:run`: run the scheduler app.
-- `mvn -pl vita-generator -DskipTests exec:java -Dexec.mainClass=com.vita.config.CodeGenerator`: generate CRUD scaffolding.
-- `./tools/codegraph/codegraph.sh init`: initialize or synchronize the optional root CodeGraph index.
+规则优先级固定为“主规则 > `be-vita-*` 适配层 > `common-*` 通用流程”。执行顺序为“本文件规划 -> 适配 Skill -> 通用 Skill -> 主规则约束 -> 验证交付”。
 
-## Coding and Verification
-Use UTF-8, 4-space indentation, `PascalCase` classes, `camelCase` members, and `UPPER_SNAKE_CASE` constants. Keep controllers thin, orchestration in services, and single-table persistence in mappers. Detailed rules live in `AICoding/rules/be-vita-ai-codegen-rules.md`; database, Java, and standard CRUD tasks must read the matching `AICoding/skills/*/SKILL.md`. Standard CRUD starts from `vita-generator`. Add Chinese comments only for key rules, transactions, state changes, concurrency, and integrations.
+## 规划阶段
 
-Before implementation, inspect the target directory, technology stack, `git status --short --branch`, local conventions, related docs, Git history, and current code. Start with exact `rg` searches, read only needed ranges, and bound long logs, SQL, Mapper XML, build output, and diffs. Compilation, tests, and source code remain authoritative.
+1. 检查 `git status --short --branch`、目标目录、技术栈和相邻实现，识别并保护已有修改。
+2. 涉及历史需求、缺陷或既有契约时，先检索 `docs/`、提交记录和当前实现；文档与实现冲突时必须明确说明并复核事实。
+3. 明确目标、非目标、影响模块、公开契约、事实来源和风险，不仅依据需求描述或外部经验制定方案。
+4. 判断需要加载的适配 Skill，并确认是否联动需求、架构、开发文档或 SQL。
+5. 在实施前确定验证命令；无法执行的检查必须在交付时说明原因和风险。
 
-New non-association tables use `id -> tenant_id -> business fields -> audit suffix`, including `create_time`, `update_time`, `is_deleted`, creator/updater fields, `version`, and `remark`. Detailed rules live only in `AICoding/rules/be-vita-ai-codegen-rules.md`.
+## Skill 路由
 
-## Documentation and CodeGraph
-Use `docs/README.md` to navigate centralized requirements, architecture, and development guides. Reference existing sections instead of copying them. Do not place business code in `tools/` or detailed designs in Maven modules.
+| 任务类型 | be-vita 适配层 | 通用基座 |
+| --- | --- | --- |
+| 建表、改表、SQL、Entity 映射或 DDL 审查 | `AICoding/skills/be-vita-database-design/SKILL.md` | `common-db` |
+| Java 新增、修改、重构或代码审查 | `AICoding/skills/be-vita-java-conventions/SKILL.md` | `common-java` |
+| 新增或变更表后的标准 CRUD | `AICoding/skills/be-vita-crud-generation/SKILL.md` | `common-crud` |
 
-All repository CodeGraph operations must use `./tools/codegraph/codegraph.sh`; related scripts may exist only under `tools/codegraph/`. Use exact symbols and verify dynamic calls with source reads. Never delete or bypass this mechanism, create module-level aliases, or commit `.codegraph/` and personal MCP configuration. Setup and rollback are documented in `docs/development/codegraph-integration.md`.
+复合任务必须加载全部相关适配 Skill；无关任务不加载。适配层负责引入通用流程和主规则对应章节，不得自行放宽硬约束。
+
+## 执行阶段
+
+- 先用精确文件名、类名、方法名或关键字定位，再读取必要片段；大型日志、SQL、Mapper XML、构建输出和差异必须限制范围。
+- 只修改任务所需内容，保护用户已有改动，避免无关文件变化。
+- 已固化在中央文档或契约中的背景直接引用文件和章节，不在会话或新文档中重复粘贴。
+- CodeGraph 仅作可选辅助，使用约束与故障回退见 `docs/development/codegraph-integration.md`；源码、编译和测试结果仍是最终依据。
+- 实现必须同时满足主规则和所加载 Skill 的任务检查项。
+
+## 验证与交付
+
+- 优先执行受影响模块的编译、测试和专项检查，并审查最终差异、文档联动及意外文件。
+- 文档类变更至少执行 Skill 校验、路径或引用检查、`git diff --check` 中适用的项目。
+- 交付说明必须列出修改结果、已执行验证、未执行项目及剩余风险，不得把未验证内容描述为已通过。

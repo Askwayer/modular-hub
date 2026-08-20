@@ -5,9 +5,9 @@
 ## 文档分工
 
 - `README.md`：仓库总览、模块结构、启动入口与常用命令。
-- `AGENTS.md`：面向 AI 代理和贡献者的执行摘要。
+- `AGENTS.md`：面向 AI 任务的规划、Skill 路由与执行控制入口。
 - `AICoding/rules/be-vita-ai-codegen-rules.md`：唯一详细且最高优先级的 AI 代码生成规则源。
-- `AICoding/skills/`：数据库、Java 约定和 CRUD 生成的工具中立任务工作流。
+- `AICoding/skills/`：可复制的 `common-*` 通用基座及注入本仓库约束的 `be-vita-*` 适配层。
 
 ## 当前模块结构
 
@@ -97,13 +97,9 @@ vita-scheduler -> vita-service -> vita-common
 2. 执行 `sql/init/system.sql` 与 `sql/init/insert.sql`。
 3. 启动 `vita-admin`、`vita-openapi` 或 `vita-scheduler`。
 
-## 配置与约束
+## 配置与协作入口
 
 - 当前 `application.yml` 通过 `${vita.*}` 占位符读取外部化配置，请在 profile 文件或运行环境中提供对应值。
-- 开始实现或评估前必须检查目标目录、技术栈、分支状态和局部约定；历史需求或缺陷必须先检索中央文档、提交记录和现有实现。
-- 需求、详设和开发指南必须集中在 `docs/` 对应分类中，业务代码不得放入 `tools/`。
-- 新增表如需落标准 CRUD，必须先参照 `vita-generator` 模板生成基础骨架，再进行业务补充，不允许从零随意手写一套风格不一致的 CRUD。
-- 核心业务代码应在关键业务规则、事务边界、状态流转、并发控制和外部集成等位置补充中文注释，不要求机械式逐行注释。
-- 新建表默认字段规范、分层约束、事务规则和 starter 专项规则，以 `AICoding/rules/be-vita-ai-codegen-rules.md` 为准。
-- 数据库、Java 修改和标准 CRUD 任务必须按主规则路由读取 `AICoding/skills/` 下的对应 `SKILL.md`。
-- 涉及认证、RBAC、日志、DDL 或初始化脚本的变更，必须同步更新对应 `docs/` 与 `sql/`。
+- AI 任务的规划、Skill 路由和交付流程见 `AGENTS.md`。
+- 模块边界、代码、事务、DDL、生成器及文档联动的强制约束见 `AICoding/rules/be-vita-ai-codegen-rules.md`。
+- 通用 Skill、be-vita 适配层和跨项目复制方式见 `AICoding/skills/README.md`。
