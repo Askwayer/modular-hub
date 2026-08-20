@@ -99,7 +99,7 @@ Warm-Flow 引擎表；后者是常规幂等增量脚本，只在缺失时创建 
 
 ## 8. 第二阶段衔接
 
-二阶段通用运行时已经独立落地，详细设计见 `docs/system/workflow/warm-flow-phase2-runtime.md`。
+二阶段通用运行时已经独立落地，详细设计见 `docs/architecture/system/workflow/warm-flow-phase2-runtime.md`。
 
 - `vita-workflow` 提供不暴露 Warm-Flow DTO 的工作流端口和事件协议，并实现定义、实例、任务、访问控制、报销流程域、并发锁和提交后事件编排。
 - `vita-common`、`vita-service` 不承载工作流契约、业务域或实现；`vita-workflow` 仅单向调用 `vita-service` 的系统用户、角色和部门能力。
@@ -107,7 +107,7 @@ Warm-Flow 引擎表；后者是常规幂等增量脚本，只在缺失时创建 
 - `/system/workflow/**` 提供定义管理和实例只读监控，执行权限码与管理员角色双重校验。
 - 报销流程已接入最小业务表、提交后状态监听和管理员重同步补偿，不包含通知、委派、转办和会签能力。
 - 三阶段将通用定义、实例和任务 Controller 聚合到 `vita-workflow`，详细扩展方式见
-  `docs/system/workflow/warm-flow-phase3-controller.md`；报销 Controller 继续保留在 `vita-admin`。
+  `docs/architecture/system/workflow/warm-flow-phase3-controller.md`；报销 Controller 继续保留在 `vita-admin`。
 
 ## 9. 验收测试
 

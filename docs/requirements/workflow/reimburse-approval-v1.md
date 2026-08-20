@@ -88,8 +88,8 @@
 
 ## 7. 产物清单
 
-- 流程定义 JSON：`docs/system/workflow/definitions/reimburse-approval-v1.json`
-- 当前说明文档：`docs/system/workflow/reimburse-approval-v1.md`
+- 流程定义 JSON：`docs/requirements/workflow/definitions/reimburse-approval-v1.json`
+- 当前说明文档：`docs/requirements/workflow/reimburse-approval-v1.md`
 
 导入说明：
 
