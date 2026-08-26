@@ -68,7 +68,7 @@ public class CodeGenerator {
     /**
      * 生成器配置 - TABLE NAME
      */
-    private static final String[] TABLE_NAMES = {"workflow_category"};
+    private static final String[] TABLE_NAMES = {"app_user", "app_oauth_account"};
 
     /**
      * Warm-Flow 官方引擎表，禁止生成业务 CRUD。
@@ -81,17 +81,17 @@ public class CodeGenerator {
     /**
      * 默认目标模块（兼容旧配置）
      */
-    private static final String DEFAULT_TARGET_MODULE = "vita-workflow";
+    private static final String DEFAULT_TARGET_MODULE = "vita-service";
 
     /**
-     * 默认控制器模块（工作流分类由 workflow 模块管理）
+     * 默认控制器模块（工作流分类由 admin 模块管理）
      */
-    private static final String DEFAULT_CONTROLLER_MODULE = "vita-workflow";
+    private static final String DEFAULT_CONTROLLER_MODULE = "vita-admin";
 
     /**
      * 默认业务模块（用于父包、路由和 mapper 目录）
      */
-    private static final String DEFAULT_BUSINESS_MODULE = "workflow";
+    private static final String DEFAULT_BUSINESS_MODULE = "app";
 
     /**
      * 默认领域模块（用于 packageConfig.moduleName）

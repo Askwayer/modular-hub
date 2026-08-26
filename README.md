@@ -69,6 +69,7 @@ vita-scheduler -> vita-service -> vita-common
 - 本地开发脚本：`tools/`；CodeGraph 脚本只能位于 `tools/codegraph/`。
 - 系统初始化：`sql/init/system.sql`
 - 初始化数据：`sql/init/insert.sql`
+- App 认证初始化：`sql/init/app.sql`
 - 升级脚本：`sql/upgrade/`
 - 运行日志：`data/logs/be-vita/`；可通过环境变量 `VITA_LOG_HOME` 覆盖。
 
@@ -94,7 +95,7 @@ vita-scheduler -> vita-service -> vita-common
 ## 本地启动顺序
 
 1. 启动 MySQL 8.x 和 Redis 7.x。
-2. 执行 `sql/init/system.sql` 与 `sql/init/insert.sql`。
+2. 依次执行 `sql/init/system.sql`、`sql/init/insert.sql` 和 `sql/init/app.sql`；启用工作流时再执行 `sql/init/workflow.sql`。
 3. 启动 `vita-admin`、`vita-openapi` 或 `vita-scheduler`。
 
 ## 配置与协作入口
