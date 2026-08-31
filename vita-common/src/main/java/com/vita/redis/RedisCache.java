@@ -56,6 +56,17 @@ public class RedisCache {
     }
 
     /**
+     * 原子读取并删除缓存对象，适用于只能消费一次的OAuth state和登录票据。
+     *
+     * @param key 缓存键
+     * @param <T> 缓存值类型
+     * @return 删除前的缓存值，不存在时返回空
+     */
+    public <T> T getAndDeleteCacheObject(String key) {
+        return (T) redisTemplate.opsForValue().getAndDelete(key);
+    }
+
+    /**
      * setIfAbsent，常用于分布式锁、防重复提交
      */
     public boolean setIfAbsent(String key, Object value, long timeout, TimeUnit timeUnit) {

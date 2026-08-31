@@ -4,7 +4,7 @@ import cn.dev33.satoken.fun.strategy.SaCorsHandleFunction;
 import cn.dev33.satoken.interceptor.SaInterceptor;
 import cn.dev33.satoken.router.SaHttpMethod;
 import cn.dev33.satoken.router.SaRouter;
-import cn.dev33.satoken.stp.StpUtil;
+import cn.dev33.satoken.stp.StpLogic;
 import com.vita.auth.property.AuthProperty;
 import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
@@ -36,6 +36,9 @@ public class SaTokenConfigure implements WebMvcConfigurer {
 
     @Resource
     private AuthProperty authProperty;
+
+    @Resource
+    private StpLogic stpLogic;
 
     /**
      * CORS 跨域处理策略
@@ -74,7 +77,8 @@ public class SaTokenConfigure implements WebMvcConfigurer {
         // 所有业务模块共用登录校验，模块专属授权规则由各模块自行追加。
         registry.addInterceptor(new SaInterceptor(handle -> {
                     try {
-                        StpUtil.checkLogin();
+                        // 按当前启动模块注册的账号域校验，避免App请求误用管理端默认StpUtil。
+                        stpLogic.checkLogin();
                     } catch (Exception e) {
                         throw new ServiceException(GlobalErrorCode.UNAUTHORIZED);
                     }

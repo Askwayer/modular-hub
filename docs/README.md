@@ -14,6 +14,7 @@
 `docs/architecture/` 保存系统能力和 Starter 的技术方案、边界、数据流与详细设计。
 
 - 系统设计：`docs/architecture/system/`
+- App认证与OAuth设计：`docs/architecture/system/app/app-auth-oauth-design.md`
 - Starter 设计：`docs/architecture/starter/`
 
 ## Development
