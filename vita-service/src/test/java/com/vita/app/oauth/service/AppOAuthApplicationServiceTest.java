@@ -11,8 +11,7 @@ import com.vita.app.oauth.model.AppOAuthTicket;
 import com.vita.app.oauth.model.AppOAuthUserProfile;
 import com.vita.app.oauth.port.AppOAuthProvider;
 import com.vita.app.oauth.property.AppOAuthProperty;
-import com.vita.app.oauth.store.AppOAuthFlowStore;
-import com.vita.app.oauth.support.AppOAuthProviderRegistry;
+import com.vita.app.oauth.store.RedisAppOAuthFlowStore;
 import com.vita.core.exception.ServiceException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -50,7 +49,7 @@ class AppOAuthApplicationServiceTest {
         property.setStateTimeout(Duration.ofMinutes(5));
         property.setTicketTimeout(Duration.ofSeconds(60));
         service = new AppOAuthApplicationService(
-                new AppOAuthProviderRegistry(List.of(new FakeProvider())),
+                List.of(new FakeProvider()),
                 flowStore,
                 accountService,
                 authService,
@@ -117,10 +116,14 @@ class AppOAuthApplicationServiceTest {
         }
     }
 
-    private static class InMemoryFlowStore implements AppOAuthFlowStore {
+    private static class InMemoryFlowStore extends RedisAppOAuthFlowStore {
 
         private final Map<String, AppOAuthState> states = new HashMap<>();
         private final Map<String, AppOAuthTicket> tickets = new HashMap<>();
+
+        private InMemoryFlowStore() {
+            super(null);
+        }
 
         @Override
         public void saveState(String state, AppOAuthState value, Duration timeout) {
