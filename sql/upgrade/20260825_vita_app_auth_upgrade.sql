@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS `app_user`
     `id`              bigint       NOT NULL AUTO_INCREMENT COMMENT '用户ID',
     `tenant_id`       bigint                DEFAULT NULL COMMENT '租户ID',
     `user_name`       varchar(32)  NOT NULL COMMENT '用户名称',
-    `password_hash`   varchar(255) NOT NULL COMMENT 'BCrypt密码摘要',
+    `password`        varchar(255) NOT NULL COMMENT 'SM4加密密码',
     `nick_name`       varchar(64)  NOT NULL COMMENT '用户昵称',
     `avatar_url`      varchar(500)          DEFAULT NULL COMMENT '头像地址',
     `status`          tinyint      NOT NULL DEFAULT '1' COMMENT '状态 1启用 0禁用',
@@ -30,6 +30,30 @@ CREATE TABLE IF NOT EXISTS `app_user`
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_app_user_name` (`user_name`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_general_ci COMMENT ='App用户表';
+
+-- Step 1曾使用password_hash列；仅在旧列存在且新列不存在时原位迁移，重复执行不变更数据。
+SET @app_user_password_hash_exists = (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'app_user'
+      AND COLUMN_NAME = 'password_hash'
+);
+SET @app_user_password_exists = (
+    SELECT COUNT(*)
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'app_user'
+      AND COLUMN_NAME = 'password'
+);
+SET @app_user_password_migrate_sql = IF(
+        @app_user_password_hash_exists > 0 AND @app_user_password_exists = 0,
+        'ALTER TABLE `app_user` CHANGE COLUMN `password_hash` `password` varchar(255) NOT NULL COMMENT ''SM4加密密码''',
+        'SELECT 1'
+    );
+PREPARE app_user_password_migrate_stmt FROM @app_user_password_migrate_sql;
+EXECUTE app_user_password_migrate_stmt;
+DEALLOCATE PREPARE app_user_password_migrate_stmt;
 
 CREATE TABLE IF NOT EXISTS `app_oauth_account`
 (

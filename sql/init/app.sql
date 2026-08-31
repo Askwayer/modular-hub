@@ -16,7 +16,7 @@ CREATE TABLE `app_user`
     `id`              bigint       NOT NULL AUTO_INCREMENT COMMENT '用户ID',
     `tenant_id`       bigint                DEFAULT NULL COMMENT '租户ID',
     `user_name`       varchar(32)  NOT NULL COMMENT '用户名称',
-    `password_hash`   varchar(255) NOT NULL COMMENT 'BCrypt密码摘要',
+    `password`        varchar(255) NOT NULL COMMENT 'SM4加密密码',
     `nick_name`       varchar(64)  NOT NULL COMMENT '用户昵称',
     `avatar_url`      varchar(500)          DEFAULT NULL COMMENT '头像地址',
     `status`          tinyint      NOT NULL DEFAULT '1' COMMENT '状态 1启用 0禁用',

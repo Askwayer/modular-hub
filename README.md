@@ -1,6 +1,6 @@
 # be-vita
 
-`be-vita` 是基于 Spring Boot 3.5.0、JDK 17、Maven 多模块结构的后端仓库，当前维护管理端、公开查询端、调度端、公共基础能力、业务服务层、代码生成器和多个 Spring Boot starter。
+`be-vita` 是基于 Spring Boot 3.5.0、JDK 17、Maven 多模块结构的后端仓库，当前维护管理端、App端、公开查询端、调度端、公共基础能力、业务服务层、代码生成器和多个 Spring Boot starter。
 
 ## 文档分工
 
@@ -23,6 +23,7 @@ be-vita
 │   ├── vita-i18n-spring-boot-starter
 │   └── vita-poi-spring-boot-starter
 ├── vita-admin
+├── vita-app
 ├── vita-openapi
 ├── vita-scheduler
 ├── AICoding
@@ -45,6 +46,7 @@ be-vita
 - `vita-service`：系统业务服务层，承载认证、RBAC、系统管理等核心业务，不放置工作流契约或实现。
 - `vita-workflow`：工作流能力模块，承载端口契约、报销流程域、Warm-Flow 配置、处理器、运行时实现与资源文件，允许单向调用 `vita-service`。
 - `vita-admin`：管理端启动模块，入口类 `com.vita.config.VitaAdminApplication`，上下文路径 `/admin/api`。
+- `vita-app`：App端启动模块，承载用户注册、独立Sa-Token账号域与可扩展OAuth登录，入口类 `com.vita.config.VitaAppApplication`，上下文路径 `/app/api`。
 - `vita-openapi`：公开查询接口启动模块，入口类 `com.vita.config.VitaOpenApiApplication`，上下文路径 `/openapi/api`。
 - `vita-scheduler`：调度任务启动模块，入口类 `com.vita.config.VitaSchedulerApplication`，上下文路径 `/scheduler/api`。
 - `vita-generator`：代码生成器与模板模块，入口 `com.vita.config.CodeGenerator`。
@@ -55,6 +57,7 @@ be-vita
 ```text
 vita-admin   -> vita-service -> vita-common
 vita-admin   -> vita-workflow -> vita-service -> vita-common
+vita-app     -> vita-service -> vita-common
 vita-openapi -> vita-service -> vita-common
 vita-scheduler -> vita-service -> vita-common
 ```
@@ -79,6 +82,7 @@ vita-scheduler -> vita-service -> vita-common
 - 打包全仓：`mvn clean package -DskipTests`
 - 运行全仓测试：`mvn test`
 - 启动管理端：`mvn -pl vita-admin -am spring-boot:run`
+- 启动App端：`mvn -pl vita-app -am spring-boot:run`
 - 启动公开接口：`mvn -pl vita-openapi -am spring-boot:run`
 - 启动调度端：`mvn -pl vita-scheduler -am spring-boot:run`
 - 执行公共模块测试：`mvn -pl vita-common -am test`
@@ -96,7 +100,7 @@ vita-scheduler -> vita-service -> vita-common
 
 1. 启动 MySQL 8.x 和 Redis 7.x。
 2. 依次执行 `sql/init/system.sql`、`sql/init/insert.sql` 和 `sql/init/app.sql`；启用工作流时再执行 `sql/init/workflow.sql`。
-3. 启动 `vita-admin`、`vita-openapi` 或 `vita-scheduler`。
+3. 启动 `vita-admin`、`vita-app`、`vita-openapi` 或 `vita-scheduler`。
 
 ## 配置与协作入口
 

@@ -1,6 +1,7 @@
 package com.vita.auth;
 
 import cn.dev33.satoken.stp.StpInterface;
+import cn.dev33.satoken.stp.StpUtil;
 import cn.hutool.core.collection.CollUtil;
 import com.vita.auth.service.IAuthCommonService;
 import com.vita.auth.service.IAuthTokenService;
@@ -35,6 +36,10 @@ public class StpInterfaceImpl implements StpInterface {
      */
     @Override
     public List<String> getPermissionList(Object loginId, String loginType) {
+        // App账号域不接入管理端RBAC，避免相同数字ID命中sys_user权限。
+        if (!StpUtil.TYPE.equals(loginType)) {
+            return CollUtil.newArrayList();
+        }
         Long userId = resolveUserId(loginId);
         if (userId == null) {
             return CollUtil.newArrayList();
@@ -57,6 +62,10 @@ public class StpInterfaceImpl implements StpInterface {
      */
     @Override
     public List<String> getRoleList(Object loginId, String loginType) {
+        // 只有默认管理账号域允许回源sys_user角色。
+        if (!StpUtil.TYPE.equals(loginType)) {
+            return CollUtil.newArrayList();
+        }
         Long userId = resolveUserId(loginId);
         if (userId == null) {
             return CollUtil.newArrayList();

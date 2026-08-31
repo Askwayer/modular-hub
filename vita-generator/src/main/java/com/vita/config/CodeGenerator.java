@@ -68,7 +68,7 @@ public class CodeGenerator {
     /**
      * 生成器配置 - TABLE NAME
      */
-    private static final String[] TABLE_NAMES = {"app_user", "app_oauth_account"};
+    private static final String[] TABLE_NAMES = {"workflow_category"};
 
     /**
      * Warm-Flow 官方引擎表，禁止生成业务 CRUD。
@@ -79,19 +79,24 @@ public class CodeGenerator {
     );
 
     /**
+     * 认证内部表只允许生成持久化骨架，禁止生成可直接暴露的通用CRUD。
+     */
+    private static final Set<String> AUTH_INTERNAL_TABLES = Set.of("app_user", "app_oauth_account");
+
+    /**
      * 默认目标模块（兼容旧配置）
      */
-    private static final String DEFAULT_TARGET_MODULE = "vita-service";
+    private static final String DEFAULT_TARGET_MODULE = "vita-workflow";
 
     /**
      * 默认控制器模块（工作流分类由 admin 模块管理）
      */
-    private static final String DEFAULT_CONTROLLER_MODULE = "vita-admin";
+    private static final String DEFAULT_CONTROLLER_MODULE = "vita-workflow";
 
     /**
      * 默认业务模块（用于父包、路由和 mapper 目录）
      */
-    private static final String DEFAULT_BUSINESS_MODULE = "app";
+    private static final String DEFAULT_BUSINESS_MODULE = "workflow";
 
     /**
      * 默认领域模块（用于 packageConfig.moduleName）
@@ -268,10 +273,11 @@ public class CodeGenerator {
      */
     private static void validateGeneratedTables() {
         List<String> invalidTables = Arrays.stream(TABLE_NAMES)
-                .filter(WARM_FLOW_ENGINE_TABLES::contains)
+                .filter(tableName -> WARM_FLOW_ENGINE_TABLES.contains(tableName)
+                        || AUTH_INTERNAL_TABLES.contains(tableName))
                 .toList();
         if (!invalidTables.isEmpty()) {
-            throw new IllegalArgumentException("禁止为 Warm-Flow 引擎表生成业务 CRUD：" + invalidTables);
+            throw new IllegalArgumentException("禁止为引擎表或认证内部表生成通用 CRUD：" + invalidTables);
         }
     }
 

@@ -43,6 +43,7 @@
         <module>vita-scheduler</module>
         <module>vita-openapi</module>
         <module>vita-workflow</module>
+        <module>vita-app</module>
     </modules>
 
     <dependencyManagement>

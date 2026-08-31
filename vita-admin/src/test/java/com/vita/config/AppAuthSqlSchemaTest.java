@@ -26,7 +26,7 @@ class AppAuthSqlSchemaTest {
     private static final String INIT_SQL = "sql/init/app.sql";
     private static final String UPGRADE_SQL = "sql/upgrade/20260825_vita_app_auth_upgrade.sql";
     private static final List<String> APP_USER_COLUMNS = List.of(
-            "id", "tenant_id", "user_name", "password_hash", "nick_name", "avatar_url", "status",
+            "id", "tenant_id", "user_name", "password", "nick_name", "avatar_url", "status",
             "login_time", "login_address", "pwd_update_date", "create_time", "update_time", "is_deleted",
             "create_by_id", "create_by", "update_by_id", "update_by", "version", "remark"
     );
@@ -81,7 +81,7 @@ class AppAuthSqlSchemaTest {
     }
 
     /**
-     * 增量脚本只能补表，且认证表不得保存 OAuth 凭证或建立数据库外键。
+     * 增量脚本只能补表或迁移Step 1密码列，且认证表不得保存 OAuth 凭证或建立数据库外键。
      *
      * @throws IOException 脚本读取异常
      */
@@ -92,10 +92,11 @@ class AppAuthSqlSchemaTest {
 
         assertThat(upgradeSql).contains(
                 "CREATE TABLE IF NOT EXISTS `APP_USER`",
-                "CREATE TABLE IF NOT EXISTS `APP_OAUTH_ACCOUNT`"
+                "CREATE TABLE IF NOT EXISTS `APP_OAUTH_ACCOUNT`",
+                "ALTER TABLE `APP_USER` CHANGE COLUMN `PASSWORD_HASH` `PASSWORD`"
         );
         assertThat(upgradeSql).doesNotContain(
-                "DROP TABLE", "ALTER TABLE", "TRUNCATE TABLE", "DELETE FROM", "INSERT INTO", "UPDATE `"
+                "DROP TABLE", "TRUNCATE TABLE", "DELETE FROM", "INSERT INTO", "UPDATE `"
         );
         assertThat(initSql + upgradeSql).doesNotContain(
                 " FOREIGN KEY ",
