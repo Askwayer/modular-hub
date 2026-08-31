@@ -11,8 +11,7 @@ import com.vita.app.oauth.model.AppOAuthTicket;
 import com.vita.app.oauth.model.AppOAuthUserProfile;
 import com.vita.app.oauth.port.AppOAuthProvider;
 import com.vita.app.oauth.property.AppOAuthProperty;
-import com.vita.app.oauth.store.AppOAuthFlowStore;
-import com.vita.app.oauth.support.AppOAuthProviderRegistry;
+import com.vita.app.oauth.store.RedisAppOAuthFlowStore;
 import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
 import org.springframework.stereotype.Service;
@@ -23,8 +22,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
-import java.util.Base64;
-import java.util.Locale;
+import java.util.*;
 
 /**
  * @BelongsProject: be-vita
@@ -39,18 +37,18 @@ public class AppOAuthApplicationService {
 
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
-    private final AppOAuthProviderRegistry providerRegistry;
-    private final AppOAuthFlowStore flowStore;
+    private final Map<String, AppOAuthProvider> providers;
+    private final RedisAppOAuthFlowStore flowStore;
     private final IAppOauthAccountService oauthAccountService;
     private final AppAuthApplicationService authApplicationService;
     private final AppOAuthProperty oauthProperty;
 
-    public AppOAuthApplicationService(AppOAuthProviderRegistry providerRegistry,
-                                      AppOAuthFlowStore flowStore,
+    public AppOAuthApplicationService(List<AppOAuthProvider> providers,
+                                      RedisAppOAuthFlowStore flowStore,
                                       IAppOauthAccountService oauthAccountService,
                                       AppAuthApplicationService authApplicationService,
                                       AppOAuthProperty oauthProperty) {
-        this.providerRegistry = providerRegistry;
+        this.providers = buildProviderMap(providers);
         this.flowStore = flowStore;
         this.oauthAccountService = oauthAccountService;
         this.authApplicationService = authApplicationService;
@@ -99,7 +97,7 @@ public class AppOAuthApplicationService {
             throw new ServiceException(GlobalErrorCode.BAD_REQUEST.getCode(), "OAuth授权未完成");
         }
 
-        AppOAuthProvider provider = providerRegistry.getRequired(normalizedProvider);
+        AppOAuthProvider provider = getRequiredProvider(normalizedProvider);
         AppOAuthUserProfile profile = provider.exchangeUserProfile(code, oauthState.getCodeVerifier());
         Long userId;
         if (oauthState.getPurpose() == AppOAuthPurpose.BIND) {
@@ -151,7 +149,7 @@ public class AppOAuthApplicationService {
 
     private AppOAuthAuthorizeVo createAuthorization(String providerCode, AppOAuthPurpose purpose, Long userId) {
         String normalizedProvider = normalizeProviderCode(providerCode);
-        AppOAuthProvider provider = providerRegistry.getRequired(normalizedProvider);
+        AppOAuthProvider provider = getRequiredProvider(normalizedProvider);
         String stateValue = randomUrlToken(32);
         String codeVerifier = randomUrlToken(64);
         String authorizationUrl = provider.buildAuthorizationUrl(stateValue, createCodeChallenge(codeVerifier));
@@ -179,6 +177,25 @@ public class AppOAuthApplicationService {
             throw new ServiceException(GlobalErrorCode.BAD_REQUEST.getCode(), "OAuth平台编码不能为空");
         }
         return providerCode.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private Map<String, AppOAuthProvider> buildProviderMap(List<AppOAuthProvider> providerList) {
+        Map<String, AppOAuthProvider> providerMap = new HashMap<>();
+        for (AppOAuthProvider provider : providerList) {
+            String providerCode = normalizeProviderCode(provider.providerCode());
+            if (providerMap.putIfAbsent(providerCode, provider) != null) {
+                throw new IllegalStateException("OAuth平台适配器编码重复：" + providerCode);
+            }
+        }
+        return Map.copyOf(providerMap);
+    }
+
+    private AppOAuthProvider getRequiredProvider(String providerCode) {
+        AppOAuthProvider provider = providers.get(providerCode);
+        if (provider == null) {
+            throw new ServiceException(GlobalErrorCode.BAD_REQUEST.getCode(), "OAuth平台未启用");
+        }
+        return provider;
     }
 
     private String createCodeChallenge(String codeVerifier) {

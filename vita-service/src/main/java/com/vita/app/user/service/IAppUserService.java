@@ -1,7 +1,6 @@
 package com.vita.app.user.service;
 
 import com.vita.app.user.entity.AppUser;
-import com.vita.app.user.model.AppUserRegisterCommand;
 
 /**
  * @BelongsProject: be-vita
@@ -16,10 +15,12 @@ public interface IAppUserService {
     /**
      * 注册App用户，注册完成后不创建登录态。
      *
-     * @param command 注册命令
+     * @param userName 用户名
+     * @param password 原始密码
+     * @param nickName 用户昵称
      * @return 已创建用户
      */
-    AppUser register(AppUserRegisterCommand command);
+    AppUser register(String userName, String password, String nickName);
 
     /**
      * 校验用户名密码并返回启用用户。

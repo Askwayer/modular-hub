@@ -10,7 +10,7 @@
 
 ## 模块与依赖边界
 
-- 必须保持 `vita-admin -> vita-service -> vita-common`、`vita-admin -> vita-workflow -> vita-service -> vita-common`、`vita-openapi -> vita-service -> vita-common`、`vita-scheduler -> vita-service -> vita-common` 的依赖方向。
+- 必须保持 `vita-admin -> vita-service -> vita-common`、`vita-admin -> vita-workflow -> vita-service -> vita-common`、`vita-app -> vita-service -> vita-common`、`vita-openapi -> vita-service -> vita-common`、`vita-scheduler -> vita-service -> vita-common` 的依赖方向。
 - 必须统一使用 `com.vita.*` 作为包前缀。
 - 跨模块协作必须通过公开服务接口完成，不得直接访问其他模块的内部 Mapper、实现类或配置细节。
 - 通用能力必须沉淀到 `vita-common` 或合适的 starter，不得为临时复用破坏依赖边界。
@@ -19,7 +19,7 @@
 ## 分层职责
 
 - Controller 只负责接收参数、鉴权声明、调用 Service 和返回统一响应，不得直接调用 Mapper。
-- 通用流程定义、实例和任务 Controller 必须聚合在 `vita-workflow`；报销等具体流程业务 Controller 必须保留在对应业务启动模块，不得下沉到工作流引擎适配层。
+- 工作流定义、实例、任务及具体流程业务 Controller 必须聚合在 `vita-workflow`；非工作流 Controller 保留在对应启动模块，不得放入所有应用共同依赖的 `vita-service`。
 - Service 负责业务编排、参数校验、事务控制、跨表聚合和状态流转。
 - Mapper 默认只负责单表持久化、条件封装、字段投影、计数、排序和必要的 XML。
 - Entity 只表达数据库表结构，不承载 Controller 语义或 Web 校验规则。
@@ -193,11 +193,12 @@ CREATE TABLE `sys_user`
 
 ## 模块专项规则
 
-### `vita-admin` / `vita-service` / `vita-common`
+### `vita-admin` / `vita-app` / `vita-service` / `vita-common`
 
 - 管理端 CRUD 命名沿用 `add`、`update`、`delete`、`getDetail`、`list`、`page`。
 - 普通业务模块默认提供 `create`、`update`、`delete`、`get`、`list`、`page` 六类 Service 方法。
 - 扩展方法优先保持现有风格，例如 `getAll`、`getOptionListByUserId`、`check*Unique`、`auth*`、`cancelAuth*`。
+- `vita-admin`、`vita-app` 等启动模块只保留启动类、Controller和运行配置，非工作流业务逻辑统一下沉到 `vita-service`。
 
 ### `vita-openapi` / `vita-scheduler`
 

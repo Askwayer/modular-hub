@@ -1,34 +1,57 @@
+# 项目相关配置
 vita:
-  http-port: ${VITA_APP_HTTP_PORT:19004}
+  # 项目名称
+  name: vita
+  # 项目版本
+  version: 1.0
+  # 项目版权年份
+  copyrightYear: 2026
+  # 获取地址开关
+  addressEnabled: true
+  # 服务端口
+  http-port: 19004
+  # mysql 配置
   mysql:
     master:
-      host: ${VITA_MYSQL_HOST}
-      port: ${VITA_MYSQL_PORT:3306}
-      database: ${VITA_MYSQL_DATABASE}
-      username: ${VITA_MYSQL_USERNAME}
-      password: ${VITA_MYSQL_PASSWORD}
+      host: 106.54.205.33
+      port: 3306
+      database: be_vita
+      username: root
+      password: WQO6D9ax#f*QPJup
+  # redis 配置
   redis:
+    # 自动装配
     enabled: true
+    # 是否启用 Redis
     open: true
-    host: ${VITA_REDIS_HOST}
-    port: ${VITA_REDIS_PORT:6379}
-    passwd: ${VITA_REDIS_PASSWORD}
+    host: 106.54.205.33
+    port: 6379
+    passwd: dhQjF6HJfn@&bF6!
+  # sa-token 配置
   sa-token:
+    # token 名称（同时也是 cookie 名称）
     token-name: Authorization
-    timeout: ${VITA_APP_TOKEN_TIMEOUT:2592000}
-    active-timeout: ${VITA_APP_TOKEN_ACTIVE_TIMEOUT:604800}
+    # token 有效期（单位：秒） 默认30天，-1 代表永久有效
+    timeout: 2592000
+    # token 激活有效期（单位：秒） 默认7天，-1 代表永久有效
+    active-timeout: 604800
+    # 是否开启并发登录
     is-concurrent: true
+    # 是否开启 token 共享
     is-share: false
-    is-log: false
+    # 是否开启 token 日志
+    is-log: true
+    # token 前缀
     token-prefix: Bearer
-    jwt-secret-key: ${VITA_APP_JWT_SECRET}
+    # jwt 加密密钥
+    jwt-secret-key: app-kangLe-Cloud
   app:
     oauth:
-      frontend-redirect-uri: ${VITA_APP_OAUTH_FRONTEND_REDIRECT_URI}
+      frontend-redirect-uri: https://vita.kangle.cloud/oauth/callback
       state-timeout: 5m
       ticket-timeout: 60s
       github:
-        enabled: ${VITA_GITHUB_OAUTH_ENABLED:false}
-        client-id: ${VITA_GITHUB_CLIENT_ID:}
-        client-secret: ${VITA_GITHUB_CLIENT_SECRET:}
-        callback-uri: ${VITA_GITHUB_CALLBACK_URI:}
+        enabled: false
+        client-id:
+        client-secret:
+        callback-uri:
