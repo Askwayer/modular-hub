@@ -4,9 +4,10 @@
 
 `vita-app` 是独立启动模块，依赖方向固定为 `vita-app -> vita-service -> vita-common`。
 
-- `vita-service/com.vita.app.user` 维护App用户、用户名规则和密码认证领域逻辑。
-- `vita-service/com.vita.app.oauth` 维护OAuth绑定实体、受控绑定服务及平台适配端口。
-- `vita-app` 维护Controller、独立Sa-Token账号域、OAuth临时状态、票据编排和GitHub HTTP适配器。
+- `vita-service/com.vita.app.user` 维护App用户、用户名规则和密码认证逻辑。
+- `vita-service/com.vita.app.auth` 维护认证请求、响应和登录编排。
+- `vita-service/com.vita.app.oauth` 维护OAuth绑定、临时状态、票据编排、平台适配接口和GitHub HTTP适配器。
+- `vita-app` 只维护Controller、启动类和运行配置，避免业务逻辑分散在启动模块。
 - `vita-admin` 不提供App用户或OAuth绑定的通用CRUD，密码密文和绑定关系不能通过管理接口直接修改。
 
 App账号域使用 Sa-Token `loginType=app`。公共拦截器按当前应用注册的 `StpLogic` 校验登录态，
@@ -43,7 +44,7 @@ V1不提供解绑接口。
 
 ## 4. OAuth安全流程
 
-平台由 `AppOAuthProvider` 扩展，服务端注册表只允许调用已启用实现。GitHub是首个适配器，使用官方Web Application Flow和PKCE S256，
+平台由 `AppOAuthProvider` 扩展，OAuth Service只允许调用已注册且启用的实现。GitHub是首个适配器，使用官方Web Application Flow和PKCE S256，
 不申请 `user:email` scope。GitHub当前授权码流程及PKCE参数以
 [GitHub OAuth官方文档](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps)为准。
 
@@ -67,5 +68,7 @@ V1不提供解绑接口。
 - `vita.app.oauth.github.client-secret`
 - `vita.app.oauth.github.callback-uri`
 
-生产环境的 `VITA_APP_JWT_SECRET`、GitHub客户端密钥、数据库与Redis凭证必须由环境变量提供。
+`vita-admin`、`vita-openapi`、`vita-scheduler`、`vita-app` 均沿用仓库现有配置文件规则，
+数据库、Redis、JWT及OAuth配置直接维护在对应的 `application.yml`、`application-*.yml` 中，不强制使用环境变量。
+GitHub OAuth默认关闭，启用前需在目标环境配置中补齐客户端ID、客户端密钥和回调地址。
 新增OAuth平台时实现 `AppOAuthProvider` 并声明新的平台属性，不修改用户表、绑定表、Controller路由或核心OAuth编排。

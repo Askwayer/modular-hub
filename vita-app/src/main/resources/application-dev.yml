@@ -29,6 +29,6 @@ vita:
       ticket-timeout: 60s
       github:
         enabled: false
-        client-id: ${VITA_GITHUB_CLIENT_ID:}
-        client-secret: ${VITA_GITHUB_CLIENT_SECRET:}
-        callback-uri: http://localhost:19004/app/api/auth/oauth/github/callback
+        client-id:
+        client-secret:
+        callback-uri:

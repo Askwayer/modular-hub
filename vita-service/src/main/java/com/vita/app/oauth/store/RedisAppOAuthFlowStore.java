@@ -1,7 +1,6 @@
 package com.vita.app.oauth.store;
 
 import com.alibaba.fastjson2.JSON;
-import com.vita.app.auth.constant.AppAuthConstants;
 import com.vita.app.oauth.model.AppOAuthState;
 import com.vita.app.oauth.model.AppOAuthTicket;
 import com.vita.core.exception.GlobalErrorCode;
@@ -21,7 +20,10 @@ import java.util.concurrent.TimeUnit;
  * @Version: 1.0
  */
 @Component
-public class RedisAppOAuthFlowStore implements AppOAuthFlowStore {
+public class RedisAppOAuthFlowStore {
+
+    private static final String STATE_KEY_PREFIX = "app:oauth:state:";
+    private static final String TICKET_KEY_PREFIX = "app:oauth:ticket:";
 
     private final RedisCache redisCache;
 
@@ -29,9 +31,8 @@ public class RedisAppOAuthFlowStore implements AppOAuthFlowStore {
         this.redisCache = redisCache;
     }
 
-    @Override
     public void saveState(String state, AppOAuthState value, Duration timeout) {
-        redisCache.setCacheObject(AppAuthConstants.OAUTH_STATE_KEY_PREFIX + state,
+        redisCache.setCacheObject(STATE_KEY_PREFIX + state,
                 JSON.toJSONString(value), requirePositiveSeconds(timeout), TimeUnit.SECONDS);
     }
 
@@ -41,18 +42,16 @@ public class RedisAppOAuthFlowStore implements AppOAuthFlowStore {
      * @param state OAuth state
      * @return 一次性流程状态
      */
-    @Override
     public AppOAuthState consumeState(String state) {
-        String value = redisCache.getAndDeleteCacheObject(AppAuthConstants.OAUTH_STATE_KEY_PREFIX + state);
+        String value = redisCache.getAndDeleteCacheObject(STATE_KEY_PREFIX + state);
         if (value == null) {
             throw new ServiceException(GlobalErrorCode.BAD_REQUEST.getCode(), "OAuth状态无效或已过期");
         }
         return JSON.parseObject(value, AppOAuthState.class);
     }
 
-    @Override
     public void saveTicket(String ticket, AppOAuthTicket value, Duration timeout) {
-        redisCache.setCacheObject(AppAuthConstants.OAUTH_TICKET_KEY_PREFIX + ticket,
+        redisCache.setCacheObject(TICKET_KEY_PREFIX + ticket,
                 JSON.toJSONString(value), requirePositiveSeconds(timeout), TimeUnit.SECONDS);
     }
 
@@ -62,9 +61,8 @@ public class RedisAppOAuthFlowStore implements AppOAuthFlowStore {
      * @param ticket OAuth票据
      * @return 一次性票据内容
      */
-    @Override
     public AppOAuthTicket consumeTicket(String ticket) {
-        String value = redisCache.getAndDeleteCacheObject(AppAuthConstants.OAUTH_TICKET_KEY_PREFIX + ticket);
+        String value = redisCache.getAndDeleteCacheObject(TICKET_KEY_PREFIX + ticket);
         if (value == null) {
             throw new ServiceException(GlobalErrorCode.UNAUTHORIZED.getCode(), "OAuth票据无效或已过期");
         }

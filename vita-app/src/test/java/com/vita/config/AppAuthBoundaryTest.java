@@ -12,6 +12,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -40,6 +41,19 @@ class AppAuthBoundaryTest {
                 "private static final String[] TABLE_NAMES = {\"workflow_category\"};",
                 "Set.of(\"app_user\", \"app_oauth_account\")"
         );
+
+        Path appSource = repository.resolve("vita-app/src/main/java");
+        try (var files = Files.walk(appSource)) {
+            List<String> javaFiles = files.filter(path -> path.toString().endsWith(".java"))
+                    .map(appSource::relativize)
+                    .map(Path::toString)
+                    .sorted()
+                    .toList();
+            assertThat(javaFiles).containsExactly(
+                    "com/vita/config/VitaAppApplication.java",
+                    "com/vita/controller/auth/AppAuthController.java"
+            );
+        }
     }
 
     @Test
@@ -59,20 +73,15 @@ class AppAuthBoundaryTest {
     }
 
     @Test
-    void productionSecretsShouldOnlyComeFromEnvironmentVariables() throws IOException {
-        String yaml = Files.readString(repositoryRoot().resolve(
-                "vita-app/src/main/resources/application-prod.yml"));
+    void appProfilesShouldUseRepositoryConfigurationValues() throws IOException {
+        Path resources = repositoryRoot().resolve("vita-app/src/main/resources");
+        String devYaml = Files.readString(resources.resolve("application-dev.yml"));
+        String prodYaml = Files.readString(resources.resolve("application-prod.yml"));
 
-        assertThat(yaml).contains(
-                "${VITA_MYSQL_PASSWORD}",
-                "${VITA_REDIS_PASSWORD}",
-                "${VITA_APP_JWT_SECRET}",
-                "${VITA_GITHUB_CLIENT_SECRET:}"
-        );
-        assertThat(yaml).doesNotContain(
-                "jwt-secret-key: app-kang",
-                "client-secret: github-client-secret"
-        );
+        assertThat(devYaml).doesNotContain("${VITA_");
+        assertThat(prodYaml).doesNotContain("${VITA_");
+        assertThat(devYaml).contains("enabled: false", "client-id:", "client-secret:", "callback-uri:");
+        assertThat(prodYaml).contains("enabled: false", "client-id:", "client-secret:", "callback-uri:");
     }
 
     @Test
@@ -99,14 +108,14 @@ class AppAuthBoundaryTest {
         String userService = Files.readString(repository.resolve(
                 "vita-service/src/main/java/com/vita/app/user/service/impl/AppUserServiceImpl.java"));
         String githubProvider = Files.readString(repository.resolve(
-                "vita-app/src/main/java/com/vita/app/oauth/github/GitHubOAuthProvider.java"));
+                "vita-service/src/main/java/com/vita/app/oauth/github/GitHubOAuthProvider.java"));
 
         assertThat(initSql).contains("`password`").doesNotContain("password_hash", "access_token", "refresh_token");
         assertThat(upgradeSql).contains(
                 "COLUMN_NAME = 'password_hash'",
                 "CHANGE COLUMN `password_hash` `password`"
         );
-        assertThat(userService).contains("passwordCodec.encode", "passwordCodec.matches");
+        assertThat(userService).contains("Sm4Utils.encryptToBase64").doesNotContain("AppPasswordCodec");
         assertThat(githubProvider).doesNotContain("setAccessToken", "setRefreshToken");
     }
 

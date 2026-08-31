@@ -1,15 +1,16 @@
 package com.vita.app.auth.service;
 
 import cn.dev33.satoken.stp.StpLogic;
+import cn.hutool.core.text.CharSequenceUtil;
 import com.vita.app.auth.dto.AppLoginDto;
 import com.vita.app.auth.dto.AppRegisterDto;
-import com.vita.app.auth.support.AppCaptchaVerifier;
 import com.vita.app.auth.vo.AppAuthTokenVo;
 import com.vita.app.auth.vo.AppUserProfileVo;
 import com.vita.app.oauth.service.IAppOauthAccountService;
 import com.vita.app.user.entity.AppUser;
-import com.vita.app.user.model.AppUserRegisterCommand;
 import com.vita.app.user.service.IAppUserService;
+import com.vita.captcha.dto.CaptchaVerifyRequestDto;
+import com.vita.captcha.service.CaptchaApplicationService;
 import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
 import com.vita.log.model.RequestClientInfo;
@@ -29,18 +30,18 @@ public class AppAuthApplicationService {
 
     private final IAppUserService appUserService;
     private final IAppOauthAccountService appOauthAccountService;
-    private final AppCaptchaVerifier captchaVerifier;
+    private final CaptchaApplicationService captchaApplicationService;
     private final RequestClientInfoResolver requestClientInfoResolver;
     private final StpLogic stpLogic;
 
     public AppAuthApplicationService(IAppUserService appUserService,
                                      IAppOauthAccountService appOauthAccountService,
-                                     AppCaptchaVerifier captchaVerifier,
+                                     CaptchaApplicationService captchaApplicationService,
                                      RequestClientInfoResolver requestClientInfoResolver,
                                      StpLogic stpLogic) {
         this.appUserService = appUserService;
         this.appOauthAccountService = appOauthAccountService;
-        this.captchaVerifier = captchaVerifier;
+        this.captchaApplicationService = captchaApplicationService;
         this.requestClientInfoResolver = requestClientInfoResolver;
         this.stpLogic = stpLogic;
     }
@@ -52,13 +53,10 @@ public class AppAuthApplicationService {
      * @return 已创建用户公开资料
      */
     public AppUserProfileVo register(AppRegisterDto request) {
-        captchaVerifier.verify(request.getCaptchaCode(), request.getCaptchaUuid(),
+        verifyCaptcha(request.getCaptchaCode(), request.getCaptchaUuid(),
                 request.getCaptchaEncryptData(), request.getCaptchaMix());
-        AppUserRegisterCommand command = new AppUserRegisterCommand();
-        command.setUserName(request.getUserName());
-        command.setPassword(request.getPassword());
-        command.setNickName(request.getNickName());
-        return buildProfile(appUserService.register(command));
+        return buildProfile(appUserService.register(
+                request.getUserName(), request.getPassword(), request.getNickName()));
     }
 
     /**
@@ -68,7 +66,7 @@ public class AppAuthApplicationService {
      * @return App登录令牌
      */
     public AppAuthTokenVo login(AppLoginDto request) {
-        captchaVerifier.verify(request.getCaptchaCode(), request.getCaptchaUuid(),
+        verifyCaptcha(request.getCaptchaCode(), request.getCaptchaUuid(),
                 request.getCaptchaEncryptData(), request.getCaptchaMix());
         AppUser user = appUserService.authenticate(request.getUserName(), request.getPassword());
         return issueLogin(user);
@@ -140,5 +138,14 @@ public class AppAuthApplicationService {
         profile.setAvatarUrl(user.getAvatarUrl());
         profile.setBoundProviders(appOauthAccountService.getBoundProviderCodes(user.getId()));
         return profile;
+    }
+
+    private void verifyCaptcha(String code, String uuid, String encryptData, String mix) {
+        CaptchaVerifyRequestDto request = new CaptchaVerifyRequestDto();
+        request.setCaptchaCode(code);
+        request.setUuid(uuid);
+        request.setEncryptData(encryptData);
+        request.setMix(CharSequenceUtil.isBlank(mix) ? uuid : mix);
+        captchaApplicationService.checkCaptcha(request);
     }
 }

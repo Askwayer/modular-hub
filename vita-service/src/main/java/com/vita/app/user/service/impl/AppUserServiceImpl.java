@@ -3,18 +3,18 @@ package com.vita.app.user.service.impl;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.vita.app.user.entity.AppUser;
 import com.vita.app.user.mapper.AppUserMapper;
-import com.vita.app.user.model.AppUserRegisterCommand;
 import com.vita.app.user.service.IAppUserService;
 import com.vita.app.user.support.AppCredentialPolicy;
-import com.vita.app.user.support.AppPasswordCodec;
 import com.vita.core.enums.CommonStatusEnum;
 import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
+import com.vita.crypto.Sm4Utils;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 /**
  * @BelongsProject: be-vita
@@ -28,36 +28,33 @@ import java.time.LocalDateTime;
 public class AppUserServiceImpl extends ServiceImpl<AppUserMapper, AppUser> implements IAppUserService {
 
     private final AppUserMapper appUserMapper;
-    private final AppPasswordCodec passwordCodec;
 
-    public AppUserServiceImpl(AppUserMapper appUserMapper, AppPasswordCodec passwordCodec) {
+    public AppUserServiceImpl(AppUserMapper appUserMapper) {
         this.appUserMapper = appUserMapper;
-        this.passwordCodec = passwordCodec;
     }
 
     /**
      * 注册App用户，用户名先规范化再依赖数据库唯一键完成最终并发兜底。
      *
-     * @param command 注册命令
+     * @param userName 用户名
+     * @param password 原始密码
+     * @param nickName 用户昵称
      * @return 已创建用户
      */
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public AppUser register(AppUserRegisterCommand command) {
-        if (command == null) {
-            throw new ServiceException(GlobalErrorCode.BAD_REQUEST);
-        }
-        String userName = AppCredentialPolicy.normalizeAndValidateUserName(command.getUserName());
-        AppCredentialPolicy.validatePassword(command.getPassword());
-        String nickName = AppCredentialPolicy.normalizeNickName(command.getNickName(), userName);
-        if (appUserMapper.selectByUserName(userName) != null) {
+    public AppUser register(String userName, String password, String nickName) {
+        String normalizedUserName = AppCredentialPolicy.normalizeAndValidateUserName(userName);
+        AppCredentialPolicy.validatePassword(password);
+        String normalizedNickName = AppCredentialPolicy.normalizeNickName(nickName, normalizedUserName);
+        if (appUserMapper.selectByUserName(normalizedUserName) != null) {
             throw userNameExistsException();
         }
 
         AppUser user = new AppUser();
-        user.setUserName(userName);
-        user.setPassword(passwordCodec.encode(command.getPassword()));
-        user.setNickName(nickName);
+        user.setUserName(normalizedUserName);
+        user.setPassword(Sm4Utils.encryptToBase64(password));
+        user.setNickName(normalizedNickName);
         user.setStatus(CommonStatusEnum.ENABLED.getCode());
         user.setPwdUpdateDate(LocalDateTime.now());
         try {
@@ -86,7 +83,7 @@ public class AppUserServiceImpl extends ServiceImpl<AppUserMapper, AppUser> impl
         }
 
         AppUser user = appUserMapper.selectByUserName(normalizedUserName);
-        if (user == null || !passwordCodec.matches(password, user.getPassword())) {
+        if (user == null || !Objects.equals(Sm4Utils.encryptToBase64(password), user.getPassword())) {
             throw loginFailureException();
         }
         checkEnabled(user);
