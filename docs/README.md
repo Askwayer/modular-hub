@@ -21,6 +21,7 @@
 
 `docs/development/` 保存实施顺序、开发操作、外部组件接入和本地工具指南。
 
+- 代码生成器：`docs/development/code-generator.md`
 - RBAC 开发指南：`docs/development/system/rbac/`
 - MinIO AK/SK 指南：`docs/development/starter/file/vita-file-minio-aksk-guide.md`
 - CodeGraph 接入：`docs/development/codegraph-integration.md`

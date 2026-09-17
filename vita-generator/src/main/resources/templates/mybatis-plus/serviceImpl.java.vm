@@ -2,23 +2,24 @@ package ${package.ServiceImpl};
 
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.StrUtil;
+import ${superServiceImplClassPackage};
 import ${commonPackage}.exception.GlobalErrorCode;
 import ${commonPackage}.exception.ServiceException;
 import ${commonPackage}.page.PageResponse;
-import com.vita.mybatis.wrapper.LambdaQueryWrapperX;
+import ${basePackage}.mybatis.wrapper.LambdaQueryWrapperX;
 import ${dtoPackage}.${entity}CreateDto;
+import ${dtoPackage}.${entity}DeletedDto;
 import ${dtoPackage}.${entity}SearchDto;
 import ${dtoPackage}.${entity}UpdateDto;
 import ${package.Entity}.${entity};
 import ${package.Mapper}.${table.mapperName};
 import ${package.Service}.${table.serviceName};
-import ${superServiceImplClassPackage};
 import ${voPackage}.${entity}DetailVo;
 import ${voPackage}.${entity}ListVo;
 import ${voPackage}.${entity}PageVo;
-import jakarta.annotation.Resource;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -38,8 +39,11 @@ open class ${table.serviceImplName} : ${superServiceImplClass}<${table.mapperNam
 #else
 public class ${table.serviceImplName} extends ${superServiceImplClass}<${table.mapperName}, ${entity}> implements ${table.serviceName} {
 
-    @Resource
-    private ${table.mapperName} ${table.entityPath}Mapper;
+    private final ${table.mapperName} ${table.entityPath}Mapper;
+
+    public ${table.serviceImplName}(${table.mapperName} ${table.entityPath}Mapper) {
+        this.${table.entityPath}Mapper = ${table.entityPath}Mapper;
+    }
 
     /**
      * 新增数据并返回主键ID。
@@ -48,6 +52,7 @@ public class ${table.serviceImplName} extends ${superServiceImplClass}<${table.m
      * @return 新增记录ID
      */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Long create(${entity}CreateDto createDto) {
         if (createDto == null) {
             throw new ServiceException(GlobalErrorCode.BAD_REQUEST);
@@ -64,6 +69,7 @@ public class ${table.serviceImplName} extends ${superServiceImplClass}<${table.m
      * @param updateDto 更新请求对象
      */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void update(${entity}UpdateDto updateDto) {
         if (updateDto == null || updateDto.getId() == null) {
             throw new ServiceException(GlobalErrorCode.BAD_REQUEST);
@@ -77,12 +83,16 @@ public class ${table.serviceImplName} extends ${superServiceImplClass}<${table.m
     /**
      * 删除指定数据。
      *
-     * @param id 主键ID
+     * @param deletedDto 删除请求对象
      */
     @Override
-    public void delete(Long id) {
-        getRequiredEntity(id);
-        ${table.entityPath}Mapper.deleteById(id);
+    @Transactional(rollbackFor = Exception.class)
+    public void delete(${entity}DeletedDto deletedDto) {
+        if (deletedDto == null || deletedDto.getId() == null) {
+            throw new ServiceException(GlobalErrorCode.BAD_REQUEST);
+        }
+        getRequiredEntity(deletedDto.getId());
+        ${table.entityPath}Mapper.deleteById(deletedDto.getId());
     }
 
     /**

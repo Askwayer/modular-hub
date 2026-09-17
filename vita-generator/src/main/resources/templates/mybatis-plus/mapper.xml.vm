@@ -10,17 +10,18 @@
 #if(${baseResultMap})
     <!-- 通用查询映射结果 -->
     <resultMap id="BaseResultMap" type="${package.Entity}.${entity}">
+#foreach($field in ${table.commonFields})
+#if(${field.keyFlag})
+        <id column="${field.name}" property="${field.propertyName}"/>
+#else
+        <result column="${field.name}" property="${field.propertyName}"/>
+#end
+#end
 #foreach($field in ${table.fields})
-#if(${field.keyFlag})##生成主键排在第一位
-        <id column="${field.name}" property="${field.propertyName}" />
-#end
-#end
-#foreach($field in ${table.commonFields})##生成公共字段
-        <result column="${field.name}" property="${field.propertyName}" />
-#end
-#foreach($field in ${table.fields})
-#if(!${field.keyFlag})##生成普通字段
-        <result column="${field.name}" property="${field.propertyName}" />
+#if(${field.keyFlag})
+        <id column="${field.name}" property="${field.propertyName}"/>
+#else
+        <result column="${field.name}" property="${field.propertyName}"/>
 #end
 #end
     </resultMap>

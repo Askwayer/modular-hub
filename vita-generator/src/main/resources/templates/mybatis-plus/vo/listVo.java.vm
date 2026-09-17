@@ -6,7 +6,6 @@ import lombok.Data;
 #set($hasLocalTime = false)
 #set($hasDate = false)
 #foreach($field in ${table.fields})
-    #if("$!field.propertyName" != "isDeleted")
     #if($field.columnType && $field.columnType.pkg == "java.time.LocalDateTime")
     #set($hasLocalDateTime = true)
     #elseif($field.columnType && $field.columnType.pkg == "java.time.LocalDate")
@@ -15,7 +14,6 @@ import lombok.Data;
     #set($hasLocalTime = true)
     #elseif($field.columnType && $field.columnType.pkg == "java.util.Date")
     #set($hasDate = true)
-    #end
     #end
 #end
 #if($hasLocalDateTime)
@@ -41,8 +39,13 @@ import java.util.Date;
  */
 @Data
 public class ${entity}ListVo {
+
+    /**
+     * 主键ID。
+     */
+    private Long id;
+
 #foreach($field in ${table.fields})
-    #if("$!field.propertyName" != "isDeleted")
     #set($fieldType = $field.propertyType)
     #if($field.columnType && $field.columnType.pkg == "java.util.Date")
     #set($fieldType = "Date")
@@ -59,6 +62,5 @@ public class ${entity}ListVo {
     #end
     private ${fieldType} ${field.propertyName};
 
-    #end
 #end
 }

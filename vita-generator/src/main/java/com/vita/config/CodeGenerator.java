@@ -6,18 +6,23 @@ import com.baomidou.mybatisplus.generator.config.OutputFile;
 import com.baomidou.mybatisplus.generator.config.builder.CustomFile;
 import com.baomidou.mybatisplus.generator.config.rules.DateType;
 import com.baomidou.mybatisplus.generator.config.rules.NamingStrategy;
-import com.baomidou.mybatisplus.generator.engine.VelocityTemplateEngine;
 import com.baomidou.mybatisplus.generator.model.ClassAnnotationAttributes;
 import com.vita.core.controller.BaseController;
 import com.vita.core.entity.BaseEntity;
+import com.vita.engine.VitaVelocityTemplateEngine;
 import com.vita.mybatis.mapper.BaseMapperX;
 import com.vita.utils.DbUtil;
 import org.apache.ibatis.annotations.Mapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.regex.Pattern;
 
 /**
  * @BelongsProject: be-vita
@@ -29,7 +34,7 @@ import java.util.*;
  */
 public class CodeGenerator {
 
-    private static final Logger logger = LoggerFactory.getLogger(CodeGenerator.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(CodeGenerator.class);
 
     /**
      * 生成器配置 - DB HOST
@@ -44,9 +49,9 @@ public class CodeGenerator {
      */
     private static final String DB_USER = "root";
     /**
-     * 生成器配置 - DB PASSWORD
+     * 生成器配置 - DB PASSWORD。仅允许在本地临时填写，禁止提交真实密码。
      */
-    private static final String DB_PASSWORD = "WQO6D9ax#f*QPJup";
+    private static final String DB_PASSWORD = "";
     /**
      * 生成器配置 - DB NAME
      */
@@ -71,6 +76,49 @@ public class CodeGenerator {
     private static final String[] TABLE_NAMES = {"workflow_category"};
 
     /**
+     * 生成器配置 - TARGET MODULE
+     */
+    private static final String TARGET_MODULE = "vita-workflow";
+
+    /**
+     * 生成器配置 - CONTROLLER MODULE
+     */
+    private static final String CONTROLLER_MODULE = "vita-workflow";
+
+    /**
+     * 生成器配置 - BUSINESS MODULE
+     */
+    private static final String BUSINESS_MODULE = "workflow";
+
+    /**
+     * 生成器配置 - DOMAIN MODULE
+     */
+    private static final String DOMAIN_MODULE = "";
+
+    /**
+     * 生成器配置 - BASE PACKAGE
+     */
+    private static final String BASE_PACKAGE = "com.vita";
+
+    /**
+     * 生成器配置 - ROUTE PREFIX。为空时使用 BUSINESS_MODULE。
+     */
+    private static final String ROUTE_PREFIX = "";
+
+    /**
+     * 是否允许覆盖已存在的目标文件。默认关闭，避免覆盖业务定制代码。
+     */
+    private static final boolean OVERWRITE_EXISTING_FILES = false;
+
+    /**
+     * BaseEntity 已承载的数据库字段，实体类不重复生成。
+     */
+    private static final String[] BASE_ENTITY_COLUMNS = {
+            "id", "tenant_id", "create_time", "create_by_id", "create_by",
+            "update_time", "update_by_id", "update_by", "is_deleted", "version"
+    };
+
+    /**
      * Warm-Flow 官方引擎表，禁止生成业务 CRUD。
      */
     private static final Set<String> WARM_FLOW_ENGINE_TABLES = Set.of(
@@ -79,198 +127,221 @@ public class CodeGenerator {
     );
 
     /**
-     * 认证内部表只允许生成持久化骨架，禁止生成可直接暴露的通用CRUD。
+     * 认证内部表只允许生成持久化骨架，禁止生成可直接暴露的通用 CRUD。
      */
     private static final Set<String> AUTH_INTERNAL_TABLES = Set.of("app_user", "app_oauth_account");
 
-    /**
-     * 默认目标模块（兼容旧配置）
-     */
-    private static final String DEFAULT_TARGET_MODULE = "vita-workflow";
+    private static final Pattern MODULE_PATTERN = Pattern.compile("[a-z0-9]+(?:-[a-z0-9]+)*");
+    private static final Pattern PACKAGE_SEGMENT_PATTERN = Pattern.compile("[a-z][a-z0-9]*");
+    private static final Pattern TABLE_PATTERN = Pattern.compile("[a-z][a-z0-9_]*");
 
-    /**
-     * 默认控制器模块（工作流分类由 admin 模块管理）
-     */
-    private static final String DEFAULT_CONTROLLER_MODULE = "vita-workflow";
+    public static void main(String[] args) throws IOException {
+        ModuleConfig moduleConfig = ModuleConfig.current();
+        validateConfiguration(moduleConfig);
 
-    /**
-     * 默认业务模块（用于父包、路由和 mapper 目录）
-     */
-    private static final String DEFAULT_BUSINESS_MODULE = "workflow";
+        Path repositoryRoot = Path.of("").toAbsolutePath().normalize();
+        validateRepositoryRoot(repositoryRoot, moduleConfig);
+        Path stagingRoot = Files.createTempDirectory("vita-code-generator-");
+        try {
+            LOGGER.info("模块化生成配置: {}", moduleConfig);
+            DataSourceConfig.Builder dataSourceConfig = DbUtil.getDataSourceConfig(
+                    DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
+            );
+            generateToStaging(
+                    stagingRoot,
+                    moduleConfig,
+                    dataSourceConfig,
+                    TABLE_NAMES,
+                    TABLE_PREFIX
+            );
+            publishGeneratedFiles(stagingRoot, repositoryRoot, OVERWRITE_EXISTING_FILES);
+            LOGGER.info("代码生成完成。");
+        } finally {
+            deleteDirectory(stagingRoot);
+        }
+    }
 
-    /**
-     * 默认领域模块（用于 packageConfig.moduleName）
-     */
-    private static final String DEFAULT_DOMAIN_MODULE = "";
-
-    /**
-     * 默认基础包（兼容旧配置 com.vita.system + sysUser）
-     */
-    private static final String DEFAULT_BASE_PACKAGE = "com.vita";
-
-    /**
-     * 生成器配置 - DIR NAME
-     */
-    public static void main(String[] args) {
-        validateGeneratedTables();
-        ModuleConfig moduleConfig = ModuleConfig.load();
-        DataSourceConfig.Builder dataSourceConfig = DbUtil.getDataSourceConfig(DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD);
-        logger.info("模块化生成配置: {}", moduleConfig);
-
-        // 输出目录和包配置
-        String domainOutputJavaDir = moduleConfig.targetModule() + "/src/main/java";
-        String controllerOutputJavaDir = moduleConfig.controllerModule() + "/src/main/java";
-        // mapper.xml 输出目录，放在 resources 目录下，按照业务模块进行分组
-        String outputMapperDir = moduleConfig.targetModule() + "/src/main/resources/mapper/" + moduleConfig.businessModule();
-        // 领域包配置，格式为 basePackage.businessModule.domainModule，如 com.vita.system.sysUser
+    private static void generateToStaging(Path stagingRoot, ModuleConfig moduleConfig,
+                                          DataSourceConfig.Builder dataSourceConfig,
+                                          String[] tableNames, String tablePrefix) {
+        String domainOutputJavaDir = stagingRoot.resolve(moduleConfig.targetModule())
+                .resolve("src/main/java").toString();
+        String controllerOutputJavaDir = stagingRoot.resolve(moduleConfig.controllerModule())
+                .resolve("src/main/java").toString();
+        String outputMapperDir = stagingRoot.resolve(moduleConfig.targetModule())
+                .resolve("src/main/resources/mapper")
+                .resolve(moduleConfig.businessModule())
+                .toString();
         String domainPackagePrefix = moduleConfig.domainModule().isBlank()
                 ? moduleConfig.businessModule()
                 : moduleConfig.businessModule() + "." + moduleConfig.domainModule();
         String modulePackage = moduleConfig.basePackage() + "." + domainPackagePrefix;
-        // 控制器包配置，格式为 basePackage.controller.businessModule，如 com.vita.controller.system
         String controllerPackage = "controller." + moduleConfig.businessModule();
-        // 控制器输出目录需要指定到包路径，否则会落在 java 根目录
-        String controllerOutputDir = controllerOutputJavaDir + "/" + moduleConfig.basePackage().replace(".", "/")
-                + "/" + controllerPackage.replace(".", "/");
+        String controllerOutputDir = Path.of(controllerOutputJavaDir)
+                .resolve(moduleConfig.basePackage().replace('.', '/'))
+                .resolve(controllerPackage.replace('.', '/'))
+                .toString();
 
-        // 1.配置数据源
         FastAutoGenerator.create(dataSourceConfig)
-                // 2、全局配置
                 .globalConfig(builder -> builder
-                        // 输出目录
                         .outputDir(domainOutputJavaDir)
-                        // 设置作者
                         .author(AUTHOR)
                         .disableOpenDir()
-                        // .enableKotlin() //开启 kotlin 模式 默认false
-                        // .enableSwagger()   // 开启 swagger 模式 默认false
-                        .dateType(DateType.TIME_PACK) // 设置时间类型对应策略（默认值），数据库时间类型 到 实体类时间类型 对应策略
-                        .commentDate(() -> new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date()))) // 设置注释日期（默认值）,example: () -> LocalDateTime.now().format(DateTimeFormatter.ISO_DATE)
-                // 3、包配置
+                        .dateType(DateType.TIME_PACK)
+                        .commentDate(() -> new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date())))
                 .packageConfig(builder -> {
                     Map<OutputFile, String> pathInfo = new HashMap<>();
                     pathInfo.put(OutputFile.xml, outputMapperDir);
                     pathInfo.put(OutputFile.controller, controllerOutputDir);
-
                     builder.parent(moduleConfig.basePackage())
                             .moduleName("")
                             .entity(domainPackagePrefix + ".entity")
                             .service(domainPackagePrefix + ".service")
                             .serviceImpl(domainPackagePrefix + ".service.impl")
                             .mapper(domainPackagePrefix + ".mapper")
-                            .xml("mapper") // 设置 Mapper XML 包名（默认值）
+                            .xml("mapper")
                             .controller(controllerPackage)
                             .pathInfo(pathInfo);
                 })
-                //4、策略配置
-                .strategyConfig(builder -> {
-                    builder.addInclude(TABLE_NAMES) // 设置需要生成的数据表名
-                            .addTablePrefix(TABLE_PREFIX.split(",")) // 设置过滤表前缀
-
-                            //4.1、实体类策略配置
-                            .entityBuilder()
-                            .enableFileOverride() // 覆盖entity
-                            .superClass(BaseEntity.class)
-                            //.superClass("com.wiki.core.entity.BaseEntity") // 设置父类实体类
-                            .disableSerialVersionUID() // 禁用生成 serialVersionUID 默认值 true
-                            //.disableSerialVersionUID()  // 禁用生成 serialVersionUID 默认值 true
-                            //.enableLombok() // 开启 Lombok 默认值:false
-                            .enableLombok(new ClassAnnotationAttributes("@Data", "lombok.Data")) // 开启lombok模型（默认 false），会把注解属性都加入进去，无论是否启用GlobalConfig的isKotlin()，同时get,set,toString都将不会生成，需自行控制添加
-                            .enableTableFieldAnnotation()       // 开启生成实体时生成字段注解 默认值 false
-                            //.logicDeleteColumnName("deleted")   // 逻辑删除字段名
-                            .naming(NamingStrategy.underline_to_camel)  //数据库表映射到实体的命名策略：下划线转驼峰命
-                            .columnNaming(NamingStrategy.underline_to_camel)    // 数据库表字段映射到实体的命名策略：下划线转驼峰命
-                            .javaTemplate("/templates/mybatis-plus-v1/entity.java.vm")
-                            // .addSuperEntityColumns("creator", "create_time", "updater", "update_time")
-                            // .addTableFills(
-                            //  new Column("creator", FieldFill.INSERT),
-                            //  new Column("updater", FieldFill.INSERT_UPDATE)
-                            // )   // 添加表字段填充，"create_time"字段自动填充为插入时间，"modify_time"字段自动填充为插入修改时间
-                            .formatFileName("%s")
-
-                            //4.2、Mapper策略配置
-                            .mapperBuilder()
-                            .enableFileOverride() // 覆盖mapper
-                            .superClass(BaseMapperX.class)   // 设置父类
-                            .mapperAnnotation(Mapper.class)      // 开启 @Mapper 注解
-                            .mapperTemplate("/templates/mybatis-plus-v1/mapper.java.vm")
-                            .mapperXmlTemplate("/templates/mybatis-plus-v1/mapper.xml.vm")
-                            // .enableBaseResultMap() //启用 BaseResultMap 生成
-                            .formatMapperFileName("%sMapper")   // 格式化 mapper 文件名称
-                            .formatXmlFileName("%sMapper") // 格式化 Xml 文件名称
-
-                            //4.3、service 策略配置
-                            .serviceBuilder()
-                            .enableFileOverride() // 覆盖service
-                            .serviceTemplate("/templates/mybatis-plus-v1/service.java.vm")
-                            .serviceImplTemplate("/templates/mybatis-plus-v1/serviceImpl.java.vm")
-                            .formatServiceFileName("I%sService") // 格式化 service 接口文件名称，%s进行匹配表名，如 UserService
-                            .formatServiceImplFileName("%sServiceImpl") // 格式化 service 实现类文件名称，%s进行匹配表名，如 UserServiceImpl
-
-                            //4.4、Controller策略配置
-                            .controllerBuilder()
-                            .enableFileOverride() // 覆盖controller
-                            .template("/templates/mybatis-plus-v1/controller.java.vm")
-                            .enableRestStyle()  // 开启生成 @RestController 控制器
-                            .superClass(BaseController.class)
-                            //.enableHyphenStyle() //开启驼峰转连字符 默认false
-                            .formatFileName("%sController"); // 格式化 Controller 类文件名称，%s进行匹配表名，如 UserController
-                })
-                //6、自定义配置
+                .strategyConfig(builder -> builder
+                        .addInclude(tableNames)
+                        .addTablePrefix(parseTablePrefixes(tablePrefix))
+                        .entityBuilder()
+                        .enableFileOverride()
+                        .superClass(BaseEntity.class)
+                        .addSuperEntityColumns(BASE_ENTITY_COLUMNS)
+                        .disableSerialVersionUID()
+                        .enableLombok(new ClassAnnotationAttributes("@Data", "lombok.Data"))
+                        .enableTableFieldAnnotation()
+                        .naming(NamingStrategy.underline_to_camel)
+                        .columnNaming(NamingStrategy.underline_to_camel)
+                        .javaTemplate("/templates/mybatis-plus/entity.java.vm")
+                        .formatFileName("%s")
+                        .mapperBuilder()
+                        .enableFileOverride()
+                        .superClass(BaseMapperX.class)
+                        .mapperAnnotation(Mapper.class)
+                        .mapperTemplate("/templates/mybatis-plus/mapper.java.vm")
+                        .mapperXmlTemplate("/templates/mybatis-plus/mapper.xml.vm")
+                        .formatMapperFileName("%sMapper")
+                        .formatXmlFileName("%sMapper")
+                        .serviceBuilder()
+                        .enableFileOverride()
+                        .serviceTemplate("/templates/mybatis-plus/service.java.vm")
+                        .serviceImplTemplate("/templates/mybatis-plus/serviceImpl.java.vm")
+                        .formatServiceFileName("I%sService")
+                        .formatServiceImplFileName("%sServiceImpl")
+                        .controllerBuilder()
+                        .enableFileOverride()
+                        .template("/templates/mybatis-plus/controller.java.vm")
+                        .enableRestStyle()
+                        .superClass(BaseController.class)
+                        .formatFileName("%sController"))
                 .injectionConfig(consumer -> {
                     Map<String, Object> customMap = new HashMap<>();
                     customMap.put("projectName", PROJECT_NAME);
                     customMap.put("basePackage", moduleConfig.basePackage());
                     customMap.put("moduleRoute", moduleConfig.routePrefix());
-                    customMap.put("moduleName", moduleConfig.businessModule());
-                    customMap.put("modulePackage", modulePackage);
-                    customMap.put("entityPackage", modulePackage + ".entity");
                     customMap.put("dtoPackage", modulePackage + ".dto");
                     customMap.put("voPackage", modulePackage + ".vo");
-                    customMap.put("modelPackage", modulePackage + ".model");
                     customMap.put("commonPackage", moduleConfig.basePackage() + ".core");
-                    // 保留旧键，避免模板遗漏导致回退失败
-                    customMap.put("dto", modulePackage + ".dto");
-                    customMap.put("vo", modulePackage + ".vo");
-                    customMap.put("model", modulePackage + ".model");
                     consumer.customMap(customMap);
-
-                    List<CustomFile> customFiles = new ArrayList<>();
-                    // 增加dto类
-                    customFiles.add(new CustomFile.Builder().packageName(domainPackagePrefix + ".dto").fileName("CreateDto.java")
-                            .templatePath("/templates/mybatis-plus-v1/dto/createDto.java.vm").enableFileOverride().build());
-                    customFiles.add(new CustomFile.Builder().packageName(domainPackagePrefix + ".dto").fileName("UpdateDto.java")
-                            .templatePath("/templates/mybatis-plus-v1/dto/updateDto.java.vm").enableFileOverride().build());
-                    customFiles.add(new CustomFile.Builder().packageName(domainPackagePrefix + ".dto").fileName("DeletedDto.java")
-                            .templatePath("/templates/mybatis-plus-v1/dto/deletedDto.java.vm").enableFileOverride().build());
-                    customFiles.add(new CustomFile.Builder().packageName(domainPackagePrefix + ".dto").fileName("SearchDto.java")
-                            .templatePath("/templates/mybatis-plus-v1/dto/searchDto.java.vm").enableFileOverride().build());
-                    // 增加vo类
-                    customFiles.add(new CustomFile.Builder().packageName(domainPackagePrefix + ".vo").fileName("DetailVo.java")
-                            .templatePath("/templates/mybatis-plus-v1/vo/detailVo.java.vm").enableFileOverride().build());
-                    customFiles.add(new CustomFile.Builder().packageName(domainPackagePrefix + ".vo").fileName("ListVo.java")
-                            .templatePath("/templates/mybatis-plus-v1/vo/listVo.java.vm").enableFileOverride().build());
-                    customFiles.add(new CustomFile.Builder().packageName(domainPackagePrefix + ".vo").fileName("PageVo.java")
-                            .templatePath("/templates/mybatis-plus-v1/vo/pageVo.java.vm").enableFileOverride().build());
-
-                    // 增加model类
-                    customFiles.add(new CustomFile.Builder().packageName(domainPackagePrefix + ".model").fileName("Model.java")
-                            .templatePath("/templates/mybatis-plus-v1/model/model.java.vm").enableFileOverride().build());
-                    // 增加convert类
-                    consumer.customFile(customFiles);
-
+                    consumer.customFile(buildCustomFiles(domainPackagePrefix));
                 })
-
-                // 6、选择模板引擎
-                .templateEngine(new VelocityTemplateEngine())
-                // 7、执行
+                .templateEngine(new VitaVelocityTemplateEngine())
                 .execute();
-        logger.info("代码生成完成。");
     }
 
-    /**
-     * 校验生成表不包含 Warm-Flow 官方引擎表。
-     */
+    private static List<CustomFile> buildCustomFiles(String domainPackagePrefix) {
+        String dtoPackage = domainPackagePrefix + ".dto";
+        String voPackage = domainPackagePrefix + ".vo";
+        List<CustomFile> customFiles = new ArrayList<>();
+        customFiles.add(customFile(dtoPackage, "CreateDto.java", "/templates/mybatis-plus/dto/createDto.java.vm"));
+        customFiles.add(customFile(dtoPackage, "UpdateDto.java", "/templates/mybatis-plus/dto/updateDto.java.vm"));
+        customFiles.add(customFile(dtoPackage, "DeletedDto.java", "/templates/mybatis-plus/dto/deletedDto.java.vm"));
+        customFiles.add(customFile(dtoPackage, "SearchDto.java", "/templates/mybatis-plus/dto/searchDto.java.vm"));
+        customFiles.add(customFile(voPackage, "DetailVo.java", "/templates/mybatis-plus/vo/detailVo.java.vm"));
+        customFiles.add(customFile(voPackage, "ListVo.java", "/templates/mybatis-plus/vo/listVo.java.vm"));
+        customFiles.add(customFile(voPackage, "PageVo.java", "/templates/mybatis-plus/vo/pageVo.java.vm"));
+        return customFiles;
+    }
+
+    private static CustomFile customFile(String packageName, String fileName, String templatePath) {
+        return new CustomFile.Builder()
+                .packageName(packageName)
+                .fileName(fileName)
+                .templatePath(templatePath)
+                .enableFileOverride()
+                .build();
+    }
+
+    private static String[] parseTablePrefixes(String tablePrefix) {
+        return Arrays.stream(tablePrefix.split(","))
+                .map(String::trim)
+                .filter(prefix -> !prefix.isEmpty())
+                .toArray(String[]::new);
+    }
+
+    private static void publishGeneratedFiles(Path stagingRoot, Path repositoryRoot,
+                                              boolean overwriteExistingFiles) throws IOException {
+        List<Path> stagedFiles;
+        try (var paths = Files.walk(stagingRoot)) {
+            stagedFiles = paths.filter(Files::isRegularFile).sorted().toList();
+        }
+        if (stagedFiles.isEmpty()) {
+            throw new IllegalStateException("未生成任何文件，请检查表名和数据库连接配置");
+        }
+
+        List<Path> targetFiles = stagedFiles.stream()
+                .map(stagedFile -> repositoryRoot.resolve(stagingRoot.relativize(stagedFile)).normalize())
+                .toList();
+        List<Path> conflicts = targetFiles.stream().filter(Files::exists).toList();
+        if (!overwriteExistingFiles && !conflicts.isEmpty()) {
+            String conflictList = conflicts.stream()
+                    .map(repositoryRoot::relativize)
+                    .map(Path::toString)
+                    .sorted()
+                    .reduce((left, right) -> left + System.lineSeparator() + right)
+                    .orElse("");
+            throw new IllegalStateException(
+                    "目标文件已存在，生成已终止。确认需要整体覆盖后再将 OVERWRITE_EXISTING_FILES 设为 true："
+                            + System.lineSeparator() + conflictList
+            );
+        }
+
+        for (int index = 0; index < stagedFiles.size(); index++) {
+            Path targetFile = targetFiles.get(index);
+            Files.createDirectories(targetFile.getParent());
+            if (overwriteExistingFiles) {
+                Files.copy(stagedFiles.get(index), targetFile, StandardCopyOption.REPLACE_EXISTING);
+            } else {
+                Files.copy(stagedFiles.get(index), targetFile);
+            }
+        }
+    }
+
+    private static void validateConfiguration(ModuleConfig moduleConfig) {
+        if (DB_HOST.isBlank() || DB_USER.isBlank() || DB_NAME.isBlank()) {
+            throw new IllegalStateException("数据库地址、用户名和数据库名不能为空");
+        }
+        if (DB_PASSWORD.isBlank()) {
+            throw new IllegalStateException("请仅在本地临时填写 CodeGenerator.DB_PASSWORD，禁止提交真实密码");
+        }
+        if (DB_PORT == null || DB_PORT < 1 || DB_PORT > 65535) {
+            throw new IllegalStateException("数据库端口必须在 1 到 65535 之间");
+        }
+        if (TABLE_NAMES.length == 0) {
+            throw new IllegalStateException("至少配置一张待生成表");
+        }
+        for (String tableName : TABLE_NAMES) {
+            if (tableName == null || !TABLE_PATTERN.matcher(tableName).matches()) {
+                throw new IllegalStateException("表名只允许小写字母、数字和下划线：" + tableName);
+            }
+        }
+        validateGeneratedTables();
+        moduleConfig.validate();
+    }
+
     private static void validateGeneratedTables() {
         List<String> invalidTables = Arrays.stream(TABLE_NAMES)
                 .filter(tableName -> WARM_FLOW_ENGINE_TABLES.contains(tableName)
@@ -281,32 +352,18 @@ public class CodeGenerator {
         }
     }
 
-    /**
-     * 读取配置的工具方法，优先级：系统属性 > 环境变量 > 默认值
-     *
-     * @param propertyKey  系统属性键
-     * @param envKey       环境变量键
-     * @param defaultValue 默认值，当系统属性和环境变量都未设置时使用
-     * @return 最终的配置值，经过 trim 处理，确保没有多余的空白
-     */
-    private static String readConfig(String propertyKey, String envKey, String defaultValue) {
-        String config = System.getProperty(propertyKey);
-        if (config == null || config.isBlank()) {
-            config = System.getenv(envKey);
+    private static void validateRepositoryRoot(Path repositoryRoot, ModuleConfig moduleConfig) {
+        if (!Files.isRegularFile(repositoryRoot.resolve("pom.xml"))) {
+            throw new IllegalStateException("请在 be-vita 仓库根目录执行代码生成器");
         }
-        if (config == null || config.isBlank()) {
-            return defaultValue;
+        if (!Files.isDirectory(repositoryRoot.resolve(moduleConfig.targetModule()))) {
+            throw new IllegalStateException("目标模块不存在：" + moduleConfig.targetModule());
         }
-        return config.trim();
+        if (!Files.isDirectory(repositoryRoot.resolve(moduleConfig.controllerModule()))) {
+            throw new IllegalStateException("Controller 模块不存在：" + moduleConfig.controllerModule());
+        }
     }
 
-    /**
-     * 规范化路由前缀，去除多余的斜杠，并确保不以斜杠开头或结尾
-     *
-     * @param routePrefix 原始路由前缀
-     * @param fallback    当路由前缀为空时的回退值，通常使用业务模块名
-     * @return 规范化后的路由前缀
-     */
     private static String normalizeRoutePrefix(String routePrefix, String fallback) {
         String normalized = routePrefix == null ? "" : routePrefix.trim();
         if (normalized.isEmpty()) {
@@ -322,47 +379,67 @@ public class CodeGenerator {
         return normalized;
     }
 
-    /**
-     * 模块配置记录类，封装了生成器的核心配置项，并提供加载逻辑从系统属性或环境变量中读取配置
-     *
-     * @param targetModule     目标模块，生成代码的输出目录，默认为 "vita-service"
-     * @param controllerModule 控制器模块，控制器输出目录，默认为 "vita-admin"
-     * @param businessModule   业务模块，用于包结构和路由前缀，默认为 "system"
-     * @param domainModule     领域模块，用于领域包名，默认为 "sysUser"
-     * @param basePackage      基础包，用于生成代码的父包，默认为 "com.vita"
-     * @param routePrefix      路由前缀，用于生成控制器的路由，默认为业务模块名，并会进行规范化处理
-     */
+    private static void deleteDirectory(Path directory) throws IOException {
+        if (!Files.exists(directory)) {
+            return;
+        }
+        try (var paths = Files.walk(directory)) {
+            for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) {
+                Files.deleteIfExists(path);
+            }
+        }
+    }
+
     private record ModuleConfig(String targetModule, String controllerModule, String businessModule,
                                 String domainModule, String basePackage, String routePrefix) {
 
-        private static ModuleConfig load() {
-            String targetModule = readConfig("vita.codegen.targetModule", "VITA_CODEGEN_TARGET_MODULE", DEFAULT_TARGET_MODULE);
-            String controllerModule = readConfig("vita.codegen.controllerModule", "VITA_CODEGEN_CONTROLLER_MODULE", DEFAULT_CONTROLLER_MODULE);
-            String businessModule = readConfig("vita.codegen.businessModule", "VITA_CODEGEN_BUSINESS_MODULE", DEFAULT_BUSINESS_MODULE);
-            String domainModule = readConfig("vita.codegen.domainModule", "VITA_CODEGEN_DOMAIN_MODULE", DEFAULT_DOMAIN_MODULE);
-            String basePackage = readConfig("vita.codegen.basePackage", "VITA_CODEGEN_BASE_PACKAGE", DEFAULT_BASE_PACKAGE);
-            String routePrefix = normalizeRoutePrefix(
-                    readConfig("vita.codegen.routePrefix", "VITA_CODEGEN_ROUTE_PREFIX", businessModule),
-                    businessModule
-            );
+        private static ModuleConfig current() {
             return new ModuleConfig(
-                    targetModule.trim(),
-                    controllerModule.trim(),
-                    businessModule.trim(),
-                    domainModule.trim(),
-                    basePackage.trim(),
-                    routePrefix
+                    TARGET_MODULE,
+                    CONTROLLER_MODULE,
+                    BUSINESS_MODULE,
+                    DOMAIN_MODULE,
+                    BASE_PACKAGE,
+                    normalizeRoutePrefix(ROUTE_PREFIX, BUSINESS_MODULE)
             );
+        }
+
+        private void validate() {
+            validateModuleName(targetModule, "目标模块");
+            validateModuleName(controllerModule, "Controller 模块");
+            validatePackageName(basePackage, false, "基础包");
+            validatePackageName(businessModule, false, "业务模块包");
+            validatePackageName(domainModule, true, "领域模块包");
+            if (routePrefix.isBlank() || routePrefix.contains("..")) {
+                throw new IllegalStateException("路由前缀不合法：" + routePrefix);
+            }
+        }
+
+        private static void validateModuleName(String value, String label) {
+            if (value == null || !MODULE_PATTERN.matcher(value).matches()) {
+                throw new IllegalStateException(label + "不合法：" + value);
+            }
+        }
+
+        private static void validatePackageName(String value, boolean allowBlank, String label) {
+            if (allowBlank && (value == null || value.isBlank())) {
+                return;
+            }
+            if (value == null || Arrays.stream(value.split("\\."))
+                    .anyMatch(segment -> !PACKAGE_SEGMENT_PATTERN.matcher(segment).matches())) {
+                throw new IllegalStateException(label + "必须由小写包名组成：" + value);
+            }
         }
 
         @Override
         public String toString() {
             return String.format(
                     Locale.ROOT,
-                    "targetModule=%s, controllerModule=%s, businessModule=%s, domainModule=%s, basePackage=%s, routePrefix=%s",
-                    targetModule, controllerModule, businessModule, domainModule, basePackage, routePrefix
+                    "targetModule=%s, controllerModule=%s, businessModule=%s, domainModule=%s, "
+                            + "basePackage=%s, routePrefix=%s, overwrite=%s",
+                    targetModule, controllerModule, businessModule, domainModule, basePackage, routePrefix,
+                    OVERWRITE_EXISTING_FILES
             );
         }
     }
-
 }

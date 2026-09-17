@@ -6,16 +6,6 @@ import lombok.Data;
 #set($hasLocalTime = false)
 #set($hasDate = false)
 #foreach($field in ${table.fields})
-    #if("$!field.propertyName" != "id"
-        && "$!field.propertyName" != "createTime"
-        && "$!field.propertyName" != "createById"
-        && "$!field.propertyName" != "createBy"
-        && "$!field.propertyName" != "updateTime"
-        && "$!field.propertyName" != "updateById"
-        && "$!field.propertyName" != "updateBy"
-        && "$!field.propertyName" != "isDeleted"
-        && "$!field.propertyName" != "tenantId"
-        && "$!field.propertyName" != "version")
     #if($field.columnType && $field.columnType.pkg == "java.time.LocalDateTime")
     #set($hasLocalDateTime = true)
     #elseif($field.columnType && $field.columnType.pkg == "java.time.LocalDate")
@@ -24,7 +14,6 @@ import lombok.Data;
     #set($hasLocalTime = true)
     #elseif($field.columnType && $field.columnType.pkg == "java.util.Date")
     #set($hasDate = true)
-    #end
     #end
 #end
 #if($hasLocalDateTime)
@@ -45,22 +34,12 @@ import java.util.Date;
  * @BelongsPackage: ${dtoPackage}
  * @Author ${author}
  * @CreateTime ${date}
- * @Description: ${table.comment} 导入 DTO
+ * @Description: ${table.comment} 创建 DTO
  * @version 1.0
  */
 @Data
-public class ${entity}ImportDto {
+public class ${entity}CreateDto {
 #foreach($field in ${table.fields})
-    #if("$!field.propertyName" != "id"
-        && "$!field.propertyName" != "createTime"
-        && "$!field.propertyName" != "createById"
-        && "$!field.propertyName" != "createBy"
-        && "$!field.propertyName" != "updateTime"
-        && "$!field.propertyName" != "updateById"
-        && "$!field.propertyName" != "updateBy"
-        && "$!field.propertyName" != "isDeleted"
-        && "$!field.propertyName" != "tenantId"
-        && "$!field.propertyName" != "version")
     #set($fieldType = $field.propertyType)
     #if($field.columnType && $field.columnType.pkg == "java.util.Date")
     #set($fieldType = "Date")
@@ -77,6 +56,5 @@ public class ${entity}ImportDto {
     #end
     private ${fieldType} ${field.propertyName};
 
-    #end
 #end
 }
