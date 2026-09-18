@@ -1,11 +1,12 @@
 package com.vita.system.sysOperLog.service;
 
+import com.baomidou.mybatisplus.extension.service.IService;
 import com.vita.core.page.PageResponse;
 import com.vita.system.sysOperLog.dto.SysOperLogCreateDto;
+import com.vita.system.sysOperLog.dto.SysOperLogDeletedDto;
 import com.vita.system.sysOperLog.dto.SysOperLogSearchDto;
 import com.vita.system.sysOperLog.dto.SysOperLogUpdateDto;
 import com.vita.system.sysOperLog.entity.SysOperLog;
-import com.baomidou.mybatisplus.extension.service.IService;
 import com.vita.system.sysOperLog.vo.SysOperLogDetailVo;
 import com.vita.system.sysOperLog.vo.SysOperLogListVo;
 import com.vita.system.sysOperLog.vo.SysOperLogPageVo;
@@ -40,9 +41,9 @@ public interface ISysOperLogService extends IService<SysOperLog> {
     /**
      * 删除数据。
      *
-     * @param id 主键ID
+     * @param deletedDto 删除请求对象
      */
-    void delete(Long id);
+    void delete(SysOperLogDeletedDto deletedDto);
 
     /**
      * 查询单条数据。

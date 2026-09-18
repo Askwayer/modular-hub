@@ -7,6 +7,7 @@ import com.vita.mybatis.wrapper.LambdaQueryWrapperX;
 import com.vita.workflow.api.WorkflowAssigneeResolver;
 import com.vita.workflow.config.ConditionalOnWorkflowEnabled;
 import com.vita.workflow.flow.rule.dto.WorkflowAssigneeRuleCreateDto;
+import com.vita.workflow.flow.rule.dto.WorkflowAssigneeRuleDeletedDto;
 import com.vita.workflow.flow.rule.dto.WorkflowAssigneeRuleUpdateDto;
 import com.vita.workflow.flow.rule.entity.WorkflowAssigneeRule;
 import com.vita.workflow.flow.rule.mapper.WorkflowAssigneeRuleMapper;
@@ -129,11 +130,15 @@ public class WorkflowAssigneeRuleServiceImpl implements WorkflowAssigneeRuleServ
     /**
      * 删除规则记录。已发布流程中的固定表达式会因规则缺失而拒绝解析。
      *
-     * @param ruleId 规则 ID
+     * @param deletedDto 删除请求对象
      */
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void delete(Long ruleId) {
+    public void delete(WorkflowAssigneeRuleDeletedDto deletedDto) {
+        if (deletedDto == null || deletedDto.getId() == null) {
+            throw new ServiceException(GlobalErrorCode.BAD_REQUEST);
+        }
+        Long ruleId = deletedDto.getId();
         WorkflowAssigneeRule rule = requiredRule(ruleId);
         if (isReferenced(rule)) {
             throw new ServiceException(

@@ -8,6 +8,7 @@ import com.vita.core.exception.ServiceException;
 import com.vita.core.page.PageResponse;
 import com.vita.mybatis.wrapper.LambdaQueryWrapperX;
 import com.vita.system.sysDept.dto.SysDeptCreateDto;
+import com.vita.system.sysDept.dto.SysDeptDeletedDto;
 import com.vita.system.sysDept.dto.SysDeptSearchDto;
 import com.vita.system.sysDept.dto.SysDeptUpdateDto;
 import com.vita.system.sysDept.entity.SysDept;
@@ -19,6 +20,7 @@ import com.vita.system.sysDept.vo.SysDeptPageVo;
 import jakarta.annotation.Resource;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -72,12 +74,16 @@ public class SysDeptServiceImpl extends ServiceImpl<SysDeptMapper, SysDept> impl
     /**
      * 删除指定数据。
      *
-     * @param id 主键ID
+     * @param deletedDto 删除请求对象
      */
     @Override
-    public void delete(Long id) {
-        getRequiredEntity(id);
-        sysDeptMapper.deleteById(id);
+    @Transactional(rollbackFor = Exception.class)
+    public void delete(SysDeptDeletedDto deletedDto) {
+        if (deletedDto == null || deletedDto.getId() == null) {
+            throw new ServiceException(GlobalErrorCode.BAD_REQUEST);
+        }
+        getRequiredEntity(deletedDto.getId());
+        sysDeptMapper.deleteById(deletedDto.getId());
     }
 
     /**

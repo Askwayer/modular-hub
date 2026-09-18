@@ -87,7 +87,7 @@ vita-scheduler -> vita-service -> vita-common
 - 启动调度端：`mvn -pl vita-scheduler -am spring-boot:run`
 - 执行公共模块测试：`mvn -pl vita-common -am test`
 - 执行业务层测试：`mvn -pl vita-service -am test`
-- 执行代码生成：`mvn -pl vita-generator -DskipTests exec:java -Dexec.mainClass=com.vita.config.CodeGenerator`
+- 执行代码生成：先按 `docs/development/code-generator.md` 配置类中常量，再运行 `mvn -pl vita-generator -DskipTests exec:java -Dexec.mainClass=com.vita.config.CodeGenerator`
 - 执行验证码 starter 测试：`mvn -f vita-starters/pom.xml -Pstarter-captcha test`
 
 ## 可选开发工具

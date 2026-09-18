@@ -3,6 +3,7 @@ package com.vita.system.sysIpBlock.service;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.vita.core.page.PageResponse;
 import com.vita.system.sysIpBlock.dto.SysIpBlockCreateDto;
+import com.vita.system.sysIpBlock.dto.SysIpBlockDeletedDto;
 import com.vita.system.sysIpBlock.dto.SysIpBlockSearchDto;
 import com.vita.system.sysIpBlock.dto.SysIpBlockUpdateDto;
 import com.vita.system.sysIpBlock.entity.SysIpBlock;
@@ -40,9 +41,9 @@ public interface ISysIpBlockService extends IService<SysIpBlock> {
     /**
      * 删除数据。
      *
-     * @param id 主键ID
+     * @param deletedDto 删除请求对象
      */
-    void delete(Long id);
+    void delete(SysIpBlockDeletedDto deletedDto);
 
     /**
      * 查询单条数据。

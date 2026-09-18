@@ -8,6 +8,7 @@ import com.vita.workflow.config.ConditionalOnWorkflowEnabled;
 import com.vita.workflow.constant.WorkflowConstants;
 import com.vita.workflow.controller.support.WorkflowAdminAccessChecker;
 import com.vita.workflow.flow.rule.dto.WorkflowAssigneeRuleCreateDto;
+import com.vita.workflow.flow.rule.dto.WorkflowAssigneeRuleDeletedDto;
 import com.vita.workflow.flow.rule.dto.WorkflowAssigneeRuleUpdateDto;
 import com.vita.workflow.flow.rule.service.WorkflowAssigneeRuleService;
 import com.vita.workflow.flow.rule.vo.WorkflowAssigneeRuleVo;
@@ -101,16 +102,17 @@ public class WorkflowAssigneeRuleController {
     /**
      * 删除受控办理人规则。
      *
-     * @param ruleId 规则 ID
+     * @param deletedDto 删除请求对象
      * @return 操作结果
      */
     @RepeatSubmit
     @Log(module = "工作流办理人规则", businessType = "DELETE")
-    @PostMapping("/system/workflow/assignee-rules/{ruleId}/delete")
+    @PostMapping("/system/workflow/assignee-rules/delete")
     @SaCheckPermission(WorkflowConstants.WORKFLOW_ASSIGNEE_RULE_MANAGE_PERMISSION)
-    public CommonResult<Boolean> delete(@PathVariable("ruleId") Long ruleId) {
+    public CommonResult<Boolean> delete(
+            @Valid @RequestBody WorkflowAssigneeRuleDeletedDto deletedDto) {
         WorkflowAdminAccessChecker.check();
-        ruleService.delete(ruleId);
+        ruleService.delete(deletedDto);
         return CommonResult.success(true);
     }
 }

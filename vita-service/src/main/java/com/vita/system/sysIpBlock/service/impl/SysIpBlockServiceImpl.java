@@ -11,6 +11,7 @@ import com.vita.core.page.PageResponse;
 import com.vita.mybatis.wrapper.LambdaQueryWrapperX;
 import com.vita.redis.RedisCache;
 import com.vita.system.sysIpBlock.dto.SysIpBlockCreateDto;
+import com.vita.system.sysIpBlock.dto.SysIpBlockDeletedDto;
 import com.vita.system.sysIpBlock.dto.SysIpBlockSearchDto;
 import com.vita.system.sysIpBlock.dto.SysIpBlockUpdateDto;
 import com.vita.system.sysIpBlock.entity.SysIpBlock;
@@ -23,6 +24,7 @@ import jakarta.annotation.PostConstruct;
 import jakarta.annotation.Resource;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.util.Collection;
@@ -93,12 +95,16 @@ public class SysIpBlockServiceImpl extends ServiceImpl<SysIpBlockMapper, SysIpBl
     /**
      * 删除指定数据。
      *
-     * @param id 主键ID
+     * @param deletedDto 删除请求对象
      */
     @Override
-    public void delete(Long id) {
-        SysIpBlock existed = getRequiredEntity(id);
-        sysIpBlockMapper.deleteById(id);
+    @Transactional(rollbackFor = Exception.class)
+    public void delete(SysIpBlockDeletedDto deletedDto) {
+        if (deletedDto == null || deletedDto.getId() == null) {
+            throw new ServiceException(GlobalErrorCode.BAD_REQUEST);
+        }
+        SysIpBlock existed = getRequiredEntity(deletedDto.getId());
+        sysIpBlockMapper.deleteById(deletedDto.getId());
         syncBlockCache(existed, null);
     }
 

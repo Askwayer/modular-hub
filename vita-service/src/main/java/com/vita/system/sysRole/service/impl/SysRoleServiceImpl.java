@@ -17,9 +17,7 @@ import com.vita.system.associate.sysRolePermission.service.ISysRolePermissionSer
 import com.vita.system.associate.sysUserRole.service.ISysUserRoleService;
 import com.vita.system.sysPermission.entity.SysPermission;
 import com.vita.system.sysPermission.service.ISysPermissionService;
-import com.vita.system.sysRole.dto.SysRoleCreateDto;
-import com.vita.system.sysRole.dto.SysRoleSearchDto;
-import com.vita.system.sysRole.dto.SysRoleUpdateDto;
+import com.vita.system.sysRole.dto.*;
 import com.vita.system.sysRole.entity.SysRole;
 import com.vita.system.sysRole.mapper.SysRoleMapper;
 import com.vita.system.sysRole.service.ISysRoleService;
@@ -112,12 +110,15 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
     /**
      * 删除指定数据。
      *
-     * @param id 主键ID
+     * @param deletedDto 删除请求对象
      */
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void delete(Long id) {
-        doDeleteRoles(CollUtil.newArrayList(id));
+    public void delete(SysRoleDeletedDto deletedDto) {
+        if (deletedDto == null || deletedDto.getId() == null) {
+            throw new ServiceException(GlobalErrorCode.BAD_REQUEST);
+        }
+        doDeleteRoles(CollUtil.newArrayList(deletedDto.getId()));
     }
 
     /**
@@ -303,12 +304,15 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
     /**
      * 批量删除角色。
      *
-     * @param ids 角色ID列表
+     * @param batchDeletedDto 批量删除请求对象
      */
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void deleteBatch(List<Long> ids) {
-        doDeleteRoles(ids);
+    public void deleteBatch(SysRoleBatchDeletedDto batchDeletedDto) {
+        if (batchDeletedDto == null) {
+            throw new ServiceException(GlobalErrorCode.BAD_REQUEST);
+        }
+        doDeleteRoles(batchDeletedDto.getIds());
     }
 
     /**

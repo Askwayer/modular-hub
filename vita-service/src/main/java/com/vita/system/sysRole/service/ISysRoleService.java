@@ -2,9 +2,7 @@ package com.vita.system.sysRole.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.vita.core.page.PageResponse;
-import com.vita.system.sysRole.dto.SysRoleCreateDto;
-import com.vita.system.sysRole.dto.SysRoleSearchDto;
-import com.vita.system.sysRole.dto.SysRoleUpdateDto;
+import com.vita.system.sysRole.dto.*;
 import com.vita.system.sysRole.entity.SysRole;
 import com.vita.system.sysRole.vo.SysRoleDetailVo;
 import com.vita.system.sysRole.vo.SysRoleListVo;
@@ -41,9 +39,9 @@ public interface ISysRoleService extends IService<SysRole> {
     /**
      * 删除数据。
      *
-     * @param id 主键ID
+     * @param deletedDto 删除请求对象
      */
-    void delete(Long id);
+    void delete(SysRoleDeletedDto deletedDto);
 
     /**
      * 查询单条数据。
@@ -136,9 +134,9 @@ public interface ISysRoleService extends IService<SysRole> {
     /**
      * 批量删除角色。
      *
-     * @param ids 角色ID列表
+     * @param batchDeletedDto 批量删除请求对象
      */
-    void deleteBatch(List<Long> ids);
+    void deleteBatch(SysRoleBatchDeletedDto batchDeletedDto);
 
     /**
      * 取消授权单个用户角色。

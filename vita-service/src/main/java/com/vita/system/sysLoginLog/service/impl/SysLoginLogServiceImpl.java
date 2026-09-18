@@ -8,6 +8,7 @@ import com.vita.core.exception.ServiceException;
 import com.vita.core.page.PageResponse;
 import com.vita.mybatis.wrapper.LambdaQueryWrapperX;
 import com.vita.system.sysLoginLog.dto.SysLoginLogCreateDto;
+import com.vita.system.sysLoginLog.dto.SysLoginLogDeletedDto;
 import com.vita.system.sysLoginLog.dto.SysLoginLogSearchDto;
 import com.vita.system.sysLoginLog.dto.SysLoginLogUpdateDto;
 import com.vita.system.sysLoginLog.entity.SysLoginLog;
@@ -19,6 +20,7 @@ import com.vita.system.sysLoginLog.vo.SysLoginLogPageVo;
 import jakarta.annotation.Resource;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -89,12 +91,16 @@ public class SysLoginLogServiceImpl extends ServiceImpl<SysLoginLogMapper, SysLo
     /**
      * 删除指定数据。
      *
-     * @param id 主键ID
+     * @param deletedDto 删除请求对象
      */
     @Override
-    public void delete(Long id) {
-        getRequiredEntity(id);
-        sysLoginLogMapper.deleteById(id);
+    @Transactional(rollbackFor = Exception.class)
+    public void delete(SysLoginLogDeletedDto deletedDto) {
+        if (deletedDto == null || deletedDto.getId() == null) {
+            throw new ServiceException(GlobalErrorCode.BAD_REQUEST);
+        }
+        getRequiredEntity(deletedDto.getId());
+        sysLoginLogMapper.deleteById(deletedDto.getId());
     }
 
     /**

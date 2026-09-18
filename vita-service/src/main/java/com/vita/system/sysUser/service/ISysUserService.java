@@ -3,6 +3,7 @@ package com.vita.system.sysUser.service;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.vita.core.page.PageResponse;
 import com.vita.system.sysUser.dto.SysUserCreateDto;
+import com.vita.system.sysUser.dto.SysUserDeletedDto;
 import com.vita.system.sysUser.dto.SysUserSearchDto;
 import com.vita.system.sysUser.dto.SysUserUpdateDto;
 import com.vita.system.sysUser.entity.SysUser;
@@ -41,9 +42,9 @@ public interface ISysUserService extends IService<SysUser> {
     /**
      * 删除数据。
      *
-     * @param id 主键ID
+     * @param deletedDto 删除请求对象
      */
-    void delete(Long id);
+    void delete(SysUserDeletedDto deletedDto);
 
     /**
      * 查询单条数据。

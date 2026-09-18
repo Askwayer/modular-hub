@@ -1,6 +1,7 @@
 package com.vita.workflow.flow.category.service;
 
 import com.vita.workflow.flow.category.dto.WorkflowCategoryCreateDto;
+import com.vita.workflow.flow.category.dto.WorkflowCategoryDeletedDto;
 import com.vita.workflow.flow.category.dto.WorkflowCategoryUpdateDto;
 import com.vita.workflow.flow.category.vo.WorkflowCategoryVo;
 
@@ -50,7 +51,7 @@ public interface WorkflowCategoryManagementService {
     /**
      * 删除未被子分类或流程定义引用的分类。
      *
-     * @param categoryId 分类 ID
+     * @param deletedDto 删除请求对象
      */
-    void delete(Long categoryId);
+    void delete(WorkflowCategoryDeletedDto deletedDto);
 }

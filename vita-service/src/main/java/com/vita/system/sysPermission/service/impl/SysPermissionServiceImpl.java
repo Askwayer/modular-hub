@@ -11,9 +11,7 @@ import com.vita.core.exception.ServiceException;
 import com.vita.core.page.PageResponse;
 import com.vita.mybatis.wrapper.LambdaQueryWrapperX;
 import com.vita.system.associate.sysRolePermission.service.ISysRolePermissionService;
-import com.vita.system.sysPermission.dto.SysPermissionCreateDto;
-import com.vita.system.sysPermission.dto.SysPermissionSearchDto;
-import com.vita.system.sysPermission.dto.SysPermissionUpdateDto;
+import com.vita.system.sysPermission.dto.*;
 import com.vita.system.sysPermission.entity.SysPermission;
 import com.vita.system.sysPermission.mapper.SysPermissionMapper;
 import com.vita.system.sysPermission.service.ISysPermissionService;
@@ -90,12 +88,15 @@ public class SysPermissionServiceImpl extends ServiceImpl<SysPermissionMapper, S
     /**
      * 删除指定数据。
      *
-     * @param id 主键ID
+     * @param deletedDto 删除请求对象
      */
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void delete(Long id) {
-        doDeletePermissions(CollUtil.newArrayList(id));
+    public void delete(SysPermissionDeletedDto deletedDto) {
+        if (deletedDto == null || deletedDto.getId() == null) {
+            throw new ServiceException(GlobalErrorCode.BAD_REQUEST);
+        }
+        doDeletePermissions(CollUtil.newArrayList(deletedDto.getId()));
     }
 
     /**
@@ -257,12 +258,15 @@ public class SysPermissionServiceImpl extends ServiceImpl<SysPermissionMapper, S
     /**
      * 批量删除权限。
      *
-     * @param ids 权限ID列表
+     * @param batchDeletedDto 批量删除请求对象
      */
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void deleteBatch(List<Long> ids) {
-        doDeletePermissions(ids);
+    public void deleteBatch(SysPermissionBatchDeletedDto batchDeletedDto) {
+        if (batchDeletedDto == null) {
+            throw new ServiceException(GlobalErrorCode.BAD_REQUEST);
+        }
+        doDeletePermissions(batchDeletedDto.getIds());
     }
 
     /**
