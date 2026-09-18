@@ -7,6 +7,7 @@ import com.vita.core.page.PageResponse;
 import com.vita.log.annotation.Log;
 import com.vita.repeat.annotation.RepeatSubmit;
 import com.vita.system.sysUser.dto.SysUserCreateDto;
+import com.vita.system.sysUser.dto.SysUserDeletedDto;
 import com.vita.system.sysUser.dto.SysUserSearchDto;
 import com.vita.system.sysUser.dto.SysUserUpdateDto;
 import com.vita.system.sysUser.service.ISysUserService;
@@ -73,15 +74,15 @@ public class SysUserController extends BaseController {
     /**
      * 删除数据。
      *
-     * @param id 主键ID
+     * @param deletedDto 删除请求对象
      * @return 删除结果
      */
     @Log(module = "admin", businessType = "DELETE", saveResponseData = false)
     @RepeatSubmit
-    @PostMapping("/delete" )
+    @PostMapping("/delete")
     @SaCheckPermission("system:user:delete")
-    public CommonResult<Boolean> delete(@RequestParam("id" ) Long id) {
-        sysUserService.delete(id);
+    public CommonResult<Boolean> delete(@RequestBody @Valid SysUserDeletedDto deletedDto) {
+        sysUserService.delete(deletedDto);
         return CommonResult.success(true);
     }
 

@@ -10,6 +10,7 @@ import com.vita.core.page.PageResponse;
 import com.vita.crypto.Sm4Utils;
 import com.vita.mybatis.wrapper.LambdaQueryWrapperX;
 import com.vita.system.sysUser.dto.SysUserCreateDto;
+import com.vita.system.sysUser.dto.SysUserDeletedDto;
 import com.vita.system.sysUser.dto.SysUserSearchDto;
 import com.vita.system.sysUser.dto.SysUserUpdateDto;
 import com.vita.system.sysUser.entity.SysUser;
@@ -21,6 +22,7 @@ import com.vita.system.sysUser.vo.SysUserPageVo;
 import jakarta.annotation.Resource;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -84,16 +86,20 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
     /**
      * 删除指定数据。
      *
-     * @param id 主键ID
+     * @param deletedDto 删除请求对象
      */
     @Override
-    public void delete(Long id) {
-        SysUser user = getRequiredEntity(id);
+    @Transactional(rollbackFor = Exception.class)
+    public void delete(SysUserDeletedDto deletedDto) {
+        if (deletedDto == null || deletedDto.getId() == null) {
+            throw new ServiceException(GlobalErrorCode.BAD_REQUEST);
+        }
+        SysUser user = getRequiredEntity(deletedDto.getId());
         if (CommonStatusEnum.isEnabled(user.getIsSystem())
                 || CommonStatusEnum.isEnabled(user.getIsSuperAdmin())) {
             throw new ServiceException(GlobalErrorCode.BAD_REQUEST.getCode(), "系统内置或超级管理员用户不允许删除");
         }
-        sysUserMapper.deleteById(id);
+        sysUserMapper.deleteById(deletedDto.getId());
     }
 
     /**

@@ -6,6 +6,7 @@ import com.vita.core.controller.BaseController;
 import com.vita.core.page.PageResponse;
 import com.vita.repeat.annotation.RepeatSubmit;
 import com.vita.system.sysIpBlock.dto.SysIpBlockCreateDto;
+import com.vita.system.sysIpBlock.dto.SysIpBlockDeletedDto;
 import com.vita.system.sysIpBlock.dto.SysIpBlockSearchDto;
 import com.vita.system.sysIpBlock.dto.SysIpBlockUpdateDto;
 import com.vita.system.sysIpBlock.service.ISysIpBlockService;
@@ -70,14 +71,14 @@ public class SysIpBlockController extends BaseController {
     /**
      * 删除数据。
      *
-     * @param id 主键ID
+     * @param deletedDto 删除请求对象
      * @return 删除结果
      */
     @RepeatSubmit
-    @GetMapping("/delete")
+    @PostMapping("/delete")
     @SaCheckPermission("system:ip-block:delete")
-    public CommonResult<Boolean> delete(@RequestParam("id") Long id) {
-        sysIpBlockService.delete(id);
+    public CommonResult<Boolean> delete(@RequestBody @Valid SysIpBlockDeletedDto deletedDto) {
+        sysIpBlockService.delete(deletedDto);
         return CommonResult.success(true);
     }
 

@@ -1,11 +1,12 @@
 package com.vita.system.sysDept.service;
 
+import com.baomidou.mybatisplus.extension.service.IService;
 import com.vita.core.page.PageResponse;
 import com.vita.system.sysDept.dto.SysDeptCreateDto;
+import com.vita.system.sysDept.dto.SysDeptDeletedDto;
 import com.vita.system.sysDept.dto.SysDeptSearchDto;
 import com.vita.system.sysDept.dto.SysDeptUpdateDto;
 import com.vita.system.sysDept.entity.SysDept;
-import com.baomidou.mybatisplus.extension.service.IService;
 import com.vita.system.sysDept.vo.SysDeptDetailVo;
 import com.vita.system.sysDept.vo.SysDeptListVo;
 import com.vita.system.sysDept.vo.SysDeptPageVo;
@@ -40,9 +41,9 @@ public interface ISysDeptService extends IService<SysDept> {
     /**
      * 删除数据。
      *
-     * @param id 主键ID
+     * @param deletedDto 删除请求对象
      */
-    void delete(Long id);
+    void delete(SysDeptDeletedDto deletedDto);
 
     /**
      * 查询单条数据。

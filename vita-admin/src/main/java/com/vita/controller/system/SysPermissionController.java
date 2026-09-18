@@ -5,9 +5,7 @@ import com.vita.core.CommonResult;
 import com.vita.core.controller.BaseController;
 import com.vita.core.page.PageResponse;
 import com.vita.repeat.annotation.RepeatSubmit;
-import com.vita.system.sysPermission.dto.SysPermissionCreateDto;
-import com.vita.system.sysPermission.dto.SysPermissionSearchDto;
-import com.vita.system.sysPermission.dto.SysPermissionUpdateDto;
+import com.vita.system.sysPermission.dto.*;
 import com.vita.system.sysPermission.entity.SysPermission;
 import com.vita.system.sysPermission.service.ISysPermissionService;
 import com.vita.system.sysPermission.vo.SysPermissionDetailVo;
@@ -72,14 +70,14 @@ public class SysPermissionController extends BaseController {
     /**
      * 删除数据。
      *
-     * @param id 主键ID
+     * @param deletedDto 删除请求对象
      * @return 删除结果
      */
     @RepeatSubmit
-    @GetMapping("/delete")
+    @PostMapping("/delete")
     @SaCheckPermission("system:permission:delete")
-    public CommonResult<Boolean> delete(@RequestParam("id") Long id) {
-        sysPermissionService.delete(id);
+    public CommonResult<Boolean> delete(@RequestBody @Valid SysPermissionDeletedDto deletedDto) {
+        sysPermissionService.delete(deletedDto);
         return CommonResult.success(true);
     }
 
@@ -191,14 +189,15 @@ public class SysPermissionController extends BaseController {
     /**
      * 批量删除权限。
      *
-     * @param ids 权限ID列表
+     * @param batchDeletedDto 批量删除请求对象
      * @return 删除结果
      */
     @RepeatSubmit
-    @GetMapping("/deleteBatch")
+    @PostMapping("/deleteBatch")
     @SaCheckPermission("system:permission:delete")
-    public CommonResult<Boolean> deleteBatch(@RequestParam("ids") List<Long> ids) {
-        sysPermissionService.deleteBatch(ids);
+    public CommonResult<Boolean> deleteBatch(
+            @RequestBody @Valid SysPermissionBatchDeletedDto batchDeletedDto) {
+        sysPermissionService.deleteBatch(batchDeletedDto);
         return CommonResult.success(true);
     }
 }

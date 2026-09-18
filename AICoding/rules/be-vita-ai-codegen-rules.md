@@ -193,6 +193,10 @@ CREATE TABLE `sys_user`
 
 ## 模块专项规则
 
+- 仓库自建资源的单条删除接口统一使用 `POST /delete` 和 `@RequestBody @Valid *DeletedDto`，请求体为 `{"id": 主键值}`；Controller 与 Service 均传递完整 DTO。
+- 批量删除接口统一使用 `POST /deleteBatch` 和 `@RequestBody @Valid *BatchDeletedDto`，请求体为 `{"ids": [主键值]}`，ID 列表及元素都不得为空。
+- Warm-Flow 自带的流程定义、运行实例、按业务 ID 及历史实例删除接口遵循引擎既有路由和参数契约，不套用上述自建资源删除规范。
+
 ### `vita-admin` / `vita-app` / `vita-service` / `vita-common`
 
 - 管理端 CRUD 命名沿用 `add`、`update`、`delete`、`getDetail`、`list`、`page`。

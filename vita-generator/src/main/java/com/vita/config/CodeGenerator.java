@@ -51,7 +51,7 @@ public class CodeGenerator {
     /**
      * 生成器配置 - DB PASSWORD。仅允许在本地临时填写，禁止提交真实密码。
      */
-    private static final String DB_PASSWORD = "";
+    private static final String DB_PASSWORD = "WQO6D9ax#f*QPJup";
     /**
      * 生成器配置 - DB NAME
      */

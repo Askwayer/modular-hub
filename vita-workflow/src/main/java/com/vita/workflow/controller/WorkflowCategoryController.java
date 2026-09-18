@@ -8,6 +8,7 @@ import com.vita.workflow.config.ConditionalOnWorkflowEnabled;
 import com.vita.workflow.constant.WorkflowConstants;
 import com.vita.workflow.controller.support.WorkflowAdminAccessChecker;
 import com.vita.workflow.flow.category.dto.WorkflowCategoryCreateDto;
+import com.vita.workflow.flow.category.dto.WorkflowCategoryDeletedDto;
 import com.vita.workflow.flow.category.dto.WorkflowCategoryUpdateDto;
 import com.vita.workflow.flow.category.service.WorkflowCategoryManagementService;
 import com.vita.workflow.flow.category.vo.WorkflowCategoryVo;
@@ -101,16 +102,17 @@ public class WorkflowCategoryController {
     /**
      * 安全删除工作流分类。
      *
-     * @param categoryId 分类 ID
+     * @param deletedDto 删除请求对象
      * @return 操作结果
      */
     @RepeatSubmit
     @Log(module = "工作流分类", businessType = "DELETE")
-    @PostMapping("/system/workflow/categories/{categoryId}/delete")
+    @PostMapping("/system/workflow/categories/delete")
     @SaCheckPermission(WorkflowConstants.WORKFLOW_CATEGORY_MANAGE_PERMISSION)
-    public CommonResult<Boolean> delete(@PathVariable("categoryId") Long categoryId) {
+    public CommonResult<Boolean> delete(
+            @Valid @RequestBody WorkflowCategoryDeletedDto deletedDto) {
         WorkflowAdminAccessChecker.check();
-        categoryService.delete(categoryId);
+        categoryService.delete(deletedDto);
         return CommonResult.success(true);
     }
 }

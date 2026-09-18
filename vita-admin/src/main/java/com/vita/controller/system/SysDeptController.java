@@ -6,6 +6,7 @@ import com.vita.core.controller.BaseController;
 import com.vita.core.page.PageResponse;
 import com.vita.repeat.annotation.RepeatSubmit;
 import com.vita.system.sysDept.dto.SysDeptCreateDto;
+import com.vita.system.sysDept.dto.SysDeptDeletedDto;
 import com.vita.system.sysDept.dto.SysDeptSearchDto;
 import com.vita.system.sysDept.dto.SysDeptUpdateDto;
 import com.vita.system.sysDept.service.ISysDeptService;
@@ -70,14 +71,14 @@ public class SysDeptController extends BaseController {
     /**
      * 删除数据。
      *
-     * @param id 主键ID
+     * @param deletedDto 删除请求对象
      * @return 删除结果
      */
     @RepeatSubmit
-    @GetMapping("/delete")
+    @PostMapping("/delete")
     @SaCheckPermission("system:dept:delete")
-    public CommonResult<Boolean> delete(@RequestParam("id") Long id) {
-        sysDeptService.delete(id);
+    public CommonResult<Boolean> delete(@RequestBody @Valid SysDeptDeletedDto deletedDto) {
+        sysDeptService.delete(deletedDto);
         return CommonResult.success(true);
     }
 

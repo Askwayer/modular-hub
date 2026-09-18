@@ -3,6 +3,7 @@ package com.vita.system.sysLoginLog.service;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.vita.core.page.PageResponse;
 import com.vita.system.sysLoginLog.dto.SysLoginLogCreateDto;
+import com.vita.system.sysLoginLog.dto.SysLoginLogDeletedDto;
 import com.vita.system.sysLoginLog.dto.SysLoginLogSearchDto;
 import com.vita.system.sysLoginLog.dto.SysLoginLogUpdateDto;
 import com.vita.system.sysLoginLog.entity.SysLoginLog;
@@ -48,9 +49,9 @@ public interface ISysLoginLogService extends IService<SysLoginLog> {
     /**
      * 删除数据。
      *
-     * @param id 主键ID
+     * @param deletedDto 删除请求对象
      */
-    void delete(Long id);
+    void delete(SysLoginLogDeletedDto deletedDto);
 
     /**
      * 查询单条数据。

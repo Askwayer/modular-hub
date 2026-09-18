@@ -6,6 +6,7 @@ import com.vita.core.exception.ServiceException;
 import com.vita.mybatis.wrapper.LambdaQueryWrapperX;
 import com.vita.workflow.config.ConditionalOnWorkflowEnabled;
 import com.vita.workflow.flow.category.dto.WorkflowCategoryCreateDto;
+import com.vita.workflow.flow.category.dto.WorkflowCategoryDeletedDto;
 import com.vita.workflow.flow.category.dto.WorkflowCategoryUpdateDto;
 import com.vita.workflow.flow.category.entity.WorkflowCategory;
 import com.vita.workflow.flow.category.mapper.WorkflowCategoryMapper;
@@ -151,11 +152,15 @@ public class WorkflowCategoryServiceImpl
     /**
      * 删除未被引用的分类。
      *
-     * @param categoryId 分类 ID
+     * @param deletedDto 删除请求对象
      */
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void delete(Long categoryId) {
+    public void delete(WorkflowCategoryDeletedDto deletedDto) {
+        if (deletedDto == null || deletedDto.getId() == null) {
+            throw new ServiceException(GlobalErrorCode.BAD_REQUEST);
+        }
+        Long categoryId = deletedDto.getId();
         WorkflowCategory category = requiredCategory(categoryId);
         if (DEFAULT_CATEGORY_CODES.contains(category.getCategoryCode())) {
             throw new ServiceException(

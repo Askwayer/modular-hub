@@ -1,11 +1,9 @@
 package com.vita.system.sysPermission.service;
 
-import com.vita.core.page.PageResponse;
-import com.vita.system.sysPermission.dto.SysPermissionCreateDto;
-import com.vita.system.sysPermission.dto.SysPermissionSearchDto;
-import com.vita.system.sysPermission.dto.SysPermissionUpdateDto;
-import com.vita.system.sysPermission.entity.SysPermission;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.vita.core.page.PageResponse;
+import com.vita.system.sysPermission.dto.*;
+import com.vita.system.sysPermission.entity.SysPermission;
 import com.vita.system.sysPermission.vo.SysPermissionDetailVo;
 import com.vita.system.sysPermission.vo.SysPermissionListVo;
 import com.vita.system.sysPermission.vo.SysPermissionOptionVo;
@@ -41,9 +39,9 @@ public interface ISysPermissionService extends IService<SysPermission> {
     /**
      * 删除数据。
      *
-     * @param id 主键ID
+     * @param deletedDto 删除请求对象
      */
-    void delete(Long id);
+    void delete(SysPermissionDeletedDto deletedDto);
 
     /**
      * 查询单条数据。
@@ -127,9 +125,9 @@ public interface ISysPermissionService extends IService<SysPermission> {
     /**
      * 批量删除权限。
      *
-     * @param ids 权限ID列表
+     * @param batchDeletedDto 批量删除请求对象
      */
-    void deleteBatch(List<Long> ids);
+    void deleteBatch(SysPermissionBatchDeletedDto batchDeletedDto);
 
     /**
      * 根据权限ID和状态查询权限码集合。

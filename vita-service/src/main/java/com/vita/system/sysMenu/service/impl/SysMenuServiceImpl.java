@@ -13,6 +13,7 @@ import com.vita.mybatis.wrapper.LambdaQueryWrapperX;
 import com.vita.system.associate.sysRoleMenu.service.ISysRoleMenuService;
 import com.vita.system.associate.sysUserRole.service.ISysUserRoleService;
 import com.vita.system.sysMenu.dto.SysMenuCreateDto;
+import com.vita.system.sysMenu.dto.SysMenuDeletedDto;
 import com.vita.system.sysMenu.dto.SysMenuSearchDto;
 import com.vita.system.sysMenu.dto.SysMenuUpdateDto;
 import com.vita.system.sysMenu.entity.SysMenu;
@@ -27,6 +28,7 @@ import com.vita.system.sysUser.service.ISysUserService;
 import jakarta.annotation.Resource;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -95,10 +97,16 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
     /**
      * 删除指定数据。
      *
-     * @param id 主键ID
+     * @param deletedDto 删除请求对象
      */
     @Override
-    public void delete(Long id) {
+    @Transactional(rollbackFor = Exception.class)
+    public void delete(SysMenuDeletedDto deletedDto) {
+        if (deletedDto == null || deletedDto.getId() == null) {
+            throw new ServiceException(GlobalErrorCode.BAD_REQUEST);
+        }
+        Long id = deletedDto.getId();
+        getRequiredEntity(id);
         if (!hasChildNode(id)) {
             sysMenuMapper.deleteById(id);
         } else {

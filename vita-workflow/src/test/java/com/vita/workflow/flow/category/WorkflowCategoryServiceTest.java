@@ -2,6 +2,7 @@ package com.vita.workflow.flow.category;
 
 import com.vita.core.exception.ServiceException;
 import com.vita.workflow.flow.category.dto.WorkflowCategoryCreateDto;
+import com.vita.workflow.flow.category.dto.WorkflowCategoryDeletedDto;
 import com.vita.workflow.flow.category.dto.WorkflowCategoryUpdateDto;
 import com.vita.workflow.flow.category.entity.WorkflowCategory;
 import com.vita.workflow.flow.category.mapper.WorkflowCategoryMapper;
@@ -46,9 +47,19 @@ class WorkflowCategoryServiceTest {
     void defaultCategoryShouldNotBeDeleted() {
         WorkflowCategoryManagementService service = service(category("REIMBURSE"), 0, 0);
 
-        assertThatThrownBy(() -> service.delete(1L))
+        assertThatThrownBy(() -> service.delete(deletedDto(1L)))
                 .isInstanceOf(ServiceException.class)
                 .hasMessageContaining("系统默认分类不能删除");
+    }
+
+    @Test
+    void deleteShouldRejectMissingRequestId() {
+        WorkflowCategoryManagementService service = service(null, 0, 0);
+
+        assertThatThrownBy(() -> service.delete(new WorkflowCategoryDeletedDto()))
+                .isInstanceOf(ServiceException.class);
+        assertThatThrownBy(() -> service.delete(null))
+                .isInstanceOf(ServiceException.class);
     }
 
     /**
@@ -92,6 +103,12 @@ class WorkflowCategoryServiceTest {
         category.setCategoryCode(code);
         category.setCategoryName(code);
         return category;
+    }
+
+    private WorkflowCategoryDeletedDto deletedDto(Long id) {
+        WorkflowCategoryDeletedDto deletedDto = new WorkflowCategoryDeletedDto();
+        deletedDto.setId(id);
+        return deletedDto;
     }
 
     private Object defaultValue(Class<?> returnType) {

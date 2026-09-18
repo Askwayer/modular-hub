@@ -5,6 +5,7 @@ import com.vita.core.CommonResult;
 import com.vita.core.controller.BaseController;
 import com.vita.core.page.PageResponse;
 import com.vita.repeat.annotation.RepeatSubmit;
+import com.vita.system.sysLoginLog.dto.SysLoginLogDeletedDto;
 import com.vita.system.sysLoginLog.dto.SysLoginLogSearchDto;
 import com.vita.system.sysLoginLog.service.ISysLoginLogService;
 import com.vita.system.sysLoginLog.vo.SysLoginLogDetailVo;
@@ -12,10 +13,7 @@ import com.vita.system.sysLoginLog.vo.SysLoginLogListVo;
 import com.vita.system.sysLoginLog.vo.SysLoginLogPageVo;
 import jakarta.validation.Valid;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -44,14 +42,14 @@ public class SysLoginLogController extends BaseController {
     /**
      * 删除数据。
      *
-     * @param id 主键ID
+     * @param deletedDto 删除请求对象
      * @return 删除结果
      */
     @RepeatSubmit
-    @GetMapping("/delete")
+    @PostMapping("/delete")
     @SaCheckPermission("system:login-log:delete")
-    public CommonResult<Boolean> delete(@RequestParam("id") Long id) {
-        sysLoginLogService.delete(id);
+    public CommonResult<Boolean> delete(@RequestBody @Valid SysLoginLogDeletedDto deletedDto) {
+        sysLoginLogService.delete(deletedDto);
         return CommonResult.success(true);
     }
 

@@ -70,14 +70,14 @@ public class SysRoleController extends BaseController {
     /**
      * 删除数据。
      *
-     * @param id 主键ID
+     * @param deletedDto 删除请求对象
      * @return 删除结果
      */
     @RepeatSubmit
     @PostMapping("/delete")
     @SaCheckPermission("system:role:delete")
-    public CommonResult<Boolean> delete(@RequestParam("id") Long id) {
-        sysRoleService.delete(id);
+    public CommonResult<Boolean> delete(@RequestBody @Valid SysRoleDeletedDto deletedDto) {
+        sysRoleService.delete(deletedDto);
         return CommonResult.success(true);
     }
 
@@ -189,14 +189,15 @@ public class SysRoleController extends BaseController {
     /**
      * 批量删除角色。
      *
-     * @param ids 角色ID列表
+     * @param batchDeletedDto 批量删除请求对象
      * @return 删除结果
      */
     @RepeatSubmit
-    @GetMapping("/deleteBatch")
+    @PostMapping("/deleteBatch")
     @SaCheckPermission("system:role:delete")
-    public CommonResult<Boolean> deleteBatch(@RequestParam("ids") List<Long> ids) {
-        sysRoleService.deleteBatch(ids);
+    public CommonResult<Boolean> deleteBatch(
+            @RequestBody @Valid SysRoleBatchDeletedDto batchDeletedDto) {
+        sysRoleService.deleteBatch(batchDeletedDto);
         return CommonResult.success(true);
     }
 

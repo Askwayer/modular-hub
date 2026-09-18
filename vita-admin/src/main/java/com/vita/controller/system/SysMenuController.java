@@ -6,6 +6,7 @@ import com.vita.core.CommonResult;
 import com.vita.core.controller.BaseController;
 import com.vita.repeat.annotation.RepeatSubmit;
 import com.vita.system.sysMenu.dto.SysMenuCreateDto;
+import com.vita.system.sysMenu.dto.SysMenuDeletedDto;
 import com.vita.system.sysMenu.dto.SysMenuSearchDto;
 import com.vita.system.sysMenu.dto.SysMenuUpdateDto;
 import com.vita.system.sysMenu.service.ISysMenuService;
@@ -69,14 +70,14 @@ public class SysMenuController extends BaseController {
     /**
      * 删除数据。
      *
-     * @param id 主键ID
+     * @param deletedDto 删除请求对象
      * @return 删除结果
      */
     @RepeatSubmit
-    @GetMapping("/delete")
+    @PostMapping("/delete")
     @SaCheckPermission("system:menu:delete")
-    public CommonResult<Boolean> delete(@RequestParam("id") Long id) {
-        sysMenuService.delete(id);
+    public CommonResult<Boolean> delete(@RequestBody @Valid SysMenuDeletedDto deletedDto) {
+        sysMenuService.delete(deletedDto);
         return CommonResult.success(true);
     }
 

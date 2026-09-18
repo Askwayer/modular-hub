@@ -3,6 +3,7 @@ package com.vita.system.sysMenu.service;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.vita.common.core.model.TreeSelectModel;
 import com.vita.system.sysMenu.dto.SysMenuCreateDto;
+import com.vita.system.sysMenu.dto.SysMenuDeletedDto;
 import com.vita.system.sysMenu.dto.SysMenuSearchDto;
 import com.vita.system.sysMenu.dto.SysMenuUpdateDto;
 import com.vita.system.sysMenu.entity.SysMenu;
@@ -40,9 +41,9 @@ public interface ISysMenuService extends IService<SysMenu> {
     /**
      * 删除数据。
      *
-     * @param id 主键ID
+     * @param deletedDto 删除请求对象
      */
-    void delete(Long id);
+    void delete(SysMenuDeletedDto deletedDto);
 
     /**
      * 查询单条数据。

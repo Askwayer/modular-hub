@@ -1,6 +1,7 @@
 package com.vita.workflow.flow.rule.service;
 
 import com.vita.workflow.flow.rule.dto.WorkflowAssigneeRuleCreateDto;
+import com.vita.workflow.flow.rule.dto.WorkflowAssigneeRuleDeletedDto;
 import com.vita.workflow.flow.rule.dto.WorkflowAssigneeRuleUpdateDto;
 import com.vita.workflow.flow.rule.vo.WorkflowAssigneeRuleVo;
 
@@ -51,7 +52,7 @@ public interface WorkflowAssigneeRuleService {
     /**
      * 删除规则。
      *
-     * @param ruleId 规则 ID
+     * @param deletedDto 删除请求对象
      */
-    void delete(Long ruleId);
+    void delete(WorkflowAssigneeRuleDeletedDto deletedDto);
 }

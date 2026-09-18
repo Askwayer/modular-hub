@@ -3,6 +3,7 @@ package com.vita.system.sysUser.service.impl;
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.vita.core.exception.ServiceException;
 import com.vita.crypto.Sm4Utils;
+import com.vita.system.sysUser.dto.SysUserDeletedDto;
 import com.vita.system.sysUser.dto.SysUserSearchDto;
 import com.vita.system.sysUser.dto.SysUserUpdateDto;
 import com.vita.system.sysUser.entity.SysUser;
@@ -108,10 +109,22 @@ class SysUserServiceImplTest {
         systemUser.setIsSystem((byte) 1);
         when(sysUserMapper.selectById(7L)).thenReturn(systemUser);
 
-        assertThatThrownBy(() -> service.delete(7L))
+        SysUserDeletedDto deletedDto = new SysUserDeletedDto();
+        deletedDto.setId(7L);
+
+        assertThatThrownBy(() -> service.delete(deletedDto))
                 .isInstanceOf(ServiceException.class)
                 .hasMessageContaining("不允许删除");
         verify(sysUserMapper, never()).deleteById(7L);
+    }
+
+    @Test
+    void deleteShouldRejectMissingRequestId() {
+        assertThatThrownBy(() -> service.delete(new SysUserDeletedDto()))
+                .isInstanceOf(ServiceException.class);
+        assertThatThrownBy(() -> service.delete(null))
+                .isInstanceOf(ServiceException.class);
+        verifyNoInteractions(sysUserMapper);
     }
 
     private SysUser user(Long id) {

@@ -3,6 +3,7 @@ package com.vita.workflow.flow.rule;
 import com.vita.core.exception.ServiceException;
 import com.vita.workflow.api.WorkflowAssigneeResolver;
 import com.vita.workflow.flow.rule.dto.WorkflowAssigneeRuleCreateDto;
+import com.vita.workflow.flow.rule.dto.WorkflowAssigneeRuleDeletedDto;
 import com.vita.workflow.flow.rule.dto.WorkflowAssigneeRuleUpdateDto;
 import com.vita.workflow.flow.rule.entity.WorkflowAssigneeRule;
 import com.vita.workflow.flow.rule.mapper.WorkflowAssigneeRuleMapper;
@@ -63,6 +64,25 @@ class WorkflowAssigneeRuleServiceTest {
                 .hasMessageContaining("不能为空或重复");
     }
 
+    @Test
+    void referencedRuleShouldNotBeDeleted() {
+        WorkflowAssigneeRuleService service = service(rule(), 1L);
+
+        assertThatThrownBy(() -> service.delete(deletedDto(1L)))
+                .isInstanceOf(ServiceException.class)
+                .hasMessageContaining("不能删除");
+    }
+
+    @Test
+    void deleteShouldRejectMissingRequestId() {
+        WorkflowAssigneeRuleService service = service(null, 0L);
+
+        assertThatThrownBy(() -> service.delete(new WorkflowAssigneeRuleDeletedDto()))
+                .isInstanceOf(ServiceException.class);
+        assertThatThrownBy(() -> service.delete(null))
+                .isInstanceOf(ServiceException.class);
+    }
+
     private WorkflowAssigneeRuleService service(WorkflowAssigneeRule rule, long referenceCount) {
         WorkflowAssigneeResolver resolver = new WorkflowAssigneeResolver() {
             @Override
@@ -90,6 +110,12 @@ class WorkflowAssigneeRuleServiceTest {
         rule.setArgumentNames("deptId");
         rule.setStatus((byte) 1);
         return rule;
+    }
+
+    private WorkflowAssigneeRuleDeletedDto deletedDto(Long id) {
+        WorkflowAssigneeRuleDeletedDto deletedDto = new WorkflowAssigneeRuleDeletedDto();
+        deletedDto.setId(id);
+        return deletedDto;
     }
 
     @SuppressWarnings("unchecked")

@@ -5,6 +5,7 @@ import com.vita.core.CommonResult;
 import com.vita.core.controller.BaseController;
 import com.vita.core.page.PageResponse;
 import com.vita.repeat.annotation.RepeatSubmit;
+import com.vita.system.sysOperLog.dto.SysOperLogDeletedDto;
 import com.vita.system.sysOperLog.dto.SysOperLogSearchDto;
 import com.vita.system.sysOperLog.service.ISysOperLogService;
 import com.vita.system.sysOperLog.vo.SysOperLogDetailVo;
@@ -12,10 +13,7 @@ import com.vita.system.sysOperLog.vo.SysOperLogListVo;
 import com.vita.system.sysOperLog.vo.SysOperLogPageVo;
 import jakarta.validation.Valid;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -44,14 +42,14 @@ public class SysOperLogController extends BaseController {
     /**
      * 删除数据。
      *
-     * @param id 主键ID
+     * @param deletedDto 删除请求对象
      * @return 删除结果
      */
     @RepeatSubmit
-    @GetMapping("/delete")
+    @PostMapping("/delete")
     @SaCheckPermission("system:oper-log:delete")
-    public CommonResult<Boolean> delete(@RequestParam("id") Long id) {
-        sysOperLogService.delete(id);
+    public CommonResult<Boolean> delete(@RequestBody @Valid SysOperLogDeletedDto deletedDto) {
+        sysOperLogService.delete(deletedDto);
         return CommonResult.success(true);
     }
 
