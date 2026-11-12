@@ -18,6 +18,7 @@
 - [前端说明](frontend/README.md)
 - [后端需求与架构导航](backend/docs/README.md)
 - [跨工程文档导航](docs/README.md)
+- [AI 网关评估、PRD 与人工验收计划](docs/05-ai-gateway/README.md)
 - [统一仓库与历史迁移](docs/git-management.md)
 
 ## 日常 Git 操作
