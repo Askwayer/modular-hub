@@ -1,0 +1,25 @@
+vita:
+  poi:
+    excel:
+      # 是否启用 Excel 功能
+      enabled: true
+      # 默认表头行数
+      default-head-row-number: 1
+      # 默认导入批次大小
+      default-import-batch-size: 100
+      # 默认导出分页大小
+      default-export-page-size: 5000
+      # 最大错误行数限制
+      max-error-rows: 200
+      # 是否去除单元格值的首尾空格
+      trim-cell-value: true
+      # 是否忽略空行
+      ignore-empty-row: true
+      # 是否自动关闭流
+      auto-close-stream: false
+      # 是否在内存中处理（大数据量建议设为 false）
+      in-memory: false
+      # 是否使用默认样式
+      use-default-style: true
+      # 默认工作表名称
+      default-sheet-name: Sheet1

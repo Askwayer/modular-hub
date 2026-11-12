@@ -1,0 +1,119 @@
+# Spring Boot 主配置文件
+vita:
+  auth:
+    extra-exclude-paths:
+      - /auth/login
+      - /captcha/**
+      - /public/**
+
+server:
+  port: ${vita.http-port}
+  servlet:
+    context-path: /admin/api
+# Spring Boot 配置
+spring:
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+  application:
+    name: vita
+  # 文件上传
+  servlet:
+    multipart:
+      # 单个文件大小
+      max-file-size: 10MB
+      # 设置总上传的文件大小
+      max-request-size: 15MB
+  config:
+    import:
+      - optional:classpath:application-file-${spring.profiles.active}.yml
+      - optional:classpath:application-captcha.yml
+
+  # 数据库连接
+  datasource:
+    dynamic:
+      # 主库名称
+      primary: master
+      # 严格模式，未匹配数据源时抛异常
+      strict: true
+      datasource:
+        master:
+          # 数据源类型
+          type: com.zaxxer.hikari.HikariDataSource
+          # 驱动类名
+          driver-class-name: com.mysql.cj.jdbc.Driver
+          # 数据库连接地址
+          url: jdbc:mysql://${vita.mysql.master.host}:${vita.mysql.master.port}/${vita.mysql.master.database}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC
+          username: ${vita.mysql.master.username}
+          password: ${vita.mysql.master.password}
+
+  data:
+    # redis 配置
+    redis:
+      # 自动装配
+      enabled: ${vita.redis.enabled}
+      # 是否启用 Redis
+      open: ${vita.redis.open}
+      # 地址
+      host: ${vita.redis.host}
+      # 端口，默认为6379
+      port: ${vita.redis.port}
+      # 数据库索引
+      database: 2
+      # 密码
+      password: ${vita.redis.passwd}
+      # 连接超时时间
+      timeout: 10s
+      lettuce:
+        pool:
+          # 连接池中的最小空闲连接 低负载情况下避免冷启动延迟
+          min-idle: 2
+          # 连接池中的最大空闲连接
+          max-idle: 8
+          # 连接池的最大数据库连接数
+          max-active: 30
+          # #连接池最大阻塞等待时间（使用负值表示没有限制）
+          max-wait: 6000ms
+          # 空闲连接检测周期
+          time-between-eviction-runs: 60s
+          #心跳 30s  配置项单位是毫秒
+          heartbeat: 30000
+
+
+# mybatis-plus
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
+  global-config:
+    db-config:
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+  mapper-locations: classpath*:mapper/**/*Mapper.xml
+  login: true
+
+############## Sa-Token 配置 (文档: https://sa-token.cc) ##############
+sa-token:
+  # token 名称（同时也是 cookie 名称）
+  token-name: ${vita.sa-token.token-name}
+  # token 有效期（单位：秒） 默认30天，-1 代表永久有效
+  timeout: ${vita.sa-token.timeout}
+  # token 最低活跃频率（单位：秒），如果 token 超过此时间没有访问系统就会被冻结，默认-1 代表不限制，永不冻结
+  active-timeout: ${vita.sa-token.active-timeout}
+  # 是否允许同一账号多地同时登录 （为 true 时允许一起登录, 为 false 时新登录挤掉旧登录）
+  is-concurrent: ${vita.sa-token.is-concurrent}
+  # 在多人登录同一账号时，是否共用一个 token （为 true 时所有登录共用一个 token, 为 false 时每次登录新建一个 token）
+  is-share: ${vita.sa-token.is-share}
+  # 是否输出操作日志
+  is-log: ${vita.sa-token.is-log}
+  # 指定 token 提交时的前缀
+  token-prefix: ${vita.sa-token.token-prefix}
+  # jwt秘钥
+  jwt-secret-key: ${vita.sa-token.jwt-secret-key}
+
+# 打印所有的sql日志：sql, 参数, 结果
+logging:
+  config: classpath:logback-spring.xml
+  level:
+    root: info
+    com.vita: debug

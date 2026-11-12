@@ -1,0 +1,13 @@
+server:
+  port: ${SERVER_PORT:18081}
+
+spring:
+  application:
+    name: vita-ah-waste
+  # 当前名称接口匿名返回固定文本；接入实际业务时再配置持久化、缓存和统一认证。
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - com.baomidou.dynamic.datasource.spring.boot.autoconfigure.DynamicDataSourceAutoConfiguration
+      - org.redisson.spring.starter.RedissonAutoConfigurationV2
+      - cn.dev33.satoken.dao.SaTokenDaoForRedisTemplate

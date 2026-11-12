@@ -1,0 +1,4 @@
+vita:
+  i18n:
+    enabled: false
+    default-language: zh-CN
