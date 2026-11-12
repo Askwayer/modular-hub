@@ -1,0 +1,51 @@
+# Dependencies and package-manager state
+node_modules/
+.pnpm-store/
+.yarn/
+.pnp.*
+
+# Build outputs (rules without a leading slash apply recursively)
+dist/
+build/
+.output/
+.nitro/
+*.zip
+*.tsbuildinfo
+
+# Tool caches
+.turbo/
+.vite/
+.cache/
+.eslintcache
+.stylelintcache
+.vitepress/cache/
+.vitepress/dist/
+
+# Test outputs
+coverage/
+playwright-report/
+test-results/
+blob-report/
+
+# Runtime files and logs
+logs/
+*.log
+pnpm-debug.log*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.pid
+*.pid.lock
+
+# Local environment overrides; shared .env files remain trackable
+.env.local
+.env.*.local
+*.local
+
+# IDE and operating-system files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
