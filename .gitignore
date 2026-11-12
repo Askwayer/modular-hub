@@ -1,0 +1,38 @@
+# Dependencies and generated output
+node_modules/
+.pnpm-store/
+.yarn/
+target/
+dist/
+build/
+.output/
+.nitro/
+.turbo/
+.vite/
+.cache/
+coverage/
+playwright-report/
+test-results/
+blob-report/
+*.tsbuildinfo
+
+# Local runtime and environment files
+logs/
+*.log
+*.pid
+*.pid.lock
+.env.local
+.env.*.local
+/backend/config/application-dev.properties
+
+# Local Git migration backups and tooling state
+/.local-backups/
+.codex/
+.claude/
+.codegraph/
+
+# IDE and OS files
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
