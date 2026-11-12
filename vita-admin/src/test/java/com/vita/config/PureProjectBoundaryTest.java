@@ -28,7 +28,14 @@ class PureProjectBoundaryTest {
             "hotRefreshTaskExecutor",
             "marketRefreshTaskExecutor",
             "marketSourceTaskExecutor",
-            "market_stock"
+            "market_stock",
+            "com.vita.app",
+            "app_user",
+            "app_oauth",
+            "workflow",
+            "warm-flow",
+            "vita-openapi",
+            "vita-app"
     );
 
     /**
@@ -42,9 +49,12 @@ class PureProjectBoundaryTest {
         assertThat(repository.resolve("vita-service/src/main/java/com/vita/market")).doesNotExist();
         assertThat(repository.resolve("vita-admin/src/main/java/com/vita/controller/hot")).doesNotExist();
         assertThat(repository.resolve("vita-admin/src/main/java/com/vita/controller/market")).doesNotExist();
-        assertThat(repository.resolve(
-                "vita-openapi/src/main/java/com/vita/controller/publicapi/HotPublicController.java"))
-                .doesNotExist();
+        assertThat(repository.resolve("vita-openapi")).doesNotExist();
+        assertThat(repository.resolve("vita-app")).doesNotExist();
+        assertThat(repository.resolve("vita-workflow")).doesNotExist();
+        assertThat(repository.resolve("vita-service/src/main/java/com/vita/app")).doesNotExist();
+        assertThat(repository.resolve("sql/init/app.sql")).doesNotExist();
+        assertThat(repository.resolve("sql/init/workflow.sql")).doesNotExist();
         assertThat(repository.resolve(
                 "vita-scheduler/src/main/java/com/vita/controller/publicapi/HotRefreshPublicController.java"))
                 .doesNotExist();
@@ -90,7 +100,11 @@ class PureProjectBoundaryTest {
                 "market:stock:manage",
                 "market:stock:sync",
                 "'MarketOverview'",
-                "'MarketStockMonitor'"
+                "'MarketStockMonitor'",
+                "workflow",
+                "warm-flow",
+                "app_user",
+                "app_oauth"
         );
     }
 
@@ -142,7 +156,6 @@ class PureProjectBoundaryTest {
                 repository.resolve("vita-common/src/main"),
                 repository.resolve("vita-service/src/main"),
                 repository.resolve("vita-admin/src/main"),
-                repository.resolve("vita-openapi/src/main"),
                 repository.resolve("vita-scheduler/src/main"),
                 repository.resolve("vita-generator/src/main")
         );

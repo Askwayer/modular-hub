@@ -10,16 +10,17 @@
 
 ## 模块与依赖边界
 
-- 必须保持 `vita-admin -> vita-service -> vita-common`、`vita-admin -> vita-workflow -> vita-service -> vita-common`、`vita-app -> vita-service -> vita-common`、`vita-openapi -> vita-service -> vita-common`、`vita-scheduler -> vita-service -> vita-common` 的依赖方向。
+- 必须保持 `vita-admin -> vita-service -> vita-common`、`vita-scheduler -> vita-service -> vita-common` 的依赖方向。
+- `vita-business` 仅作为 Maven 聚合父模块；部门业务子模块依赖 `vita-common`，按需引入 starter，不直接依赖其他部门业务模块或 `vita-service`。
+- `vita-service` 维护认证、RBAC、系统管理等平台能力，不得反向依赖部门业务模块；部门业务实现保留在对应业务子模块。
 - 必须统一使用 `com.vita.*` 作为包前缀。
 - 跨模块协作必须通过公开服务接口完成，不得直接访问其他模块的内部 Mapper、实现类或配置细节。
 - 通用能力必须沉淀到 `vita-common` 或合适的 starter，不得为临时复用破坏依赖边界。
-- 工作流契约、领域逻辑和实现必须保留在 `vita-workflow`，不得下沉到 `vita-common` 或 `vita-service`。
 
 ## 分层职责
 
 - Controller 只负责接收参数、鉴权声明、调用 Service 和返回统一响应，不得直接调用 Mapper。
-- 工作流定义、实例、任务及具体流程业务 Controller 必须聚合在 `vita-workflow`；非工作流 Controller 保留在对应启动模块，不得放入所有应用共同依赖的 `vita-service`。
+- Controller 保留在对应启动模块，不得放入所有应用共同依赖的 `vita-service`。
 - Service 负责业务编排、参数校验、事务控制、跨表聚合和状态流转。
 - Mapper 默认只负责单表持久化、条件封装、字段投影、计数、排序和必要的 XML。
 - Entity 只表达数据库表结构，不承载 Controller 语义或 Web 校验规则。
@@ -28,6 +29,7 @@
 
 - Java 实现必须兼容 JDK 17 及仓库现有 Maven、Spring Boot 依赖基线，未经任务明确要求不得升级基础技术栈。
 - Web 返回体必须使用 `CommonResult<T>`。
+- 部门应用的 `GET /module/name` 是打包验证接口，按用户约定匿名返回模块名纯文本；此例外不适用于其他业务接口。
 - 分页请求必须使用 `PageRequest`，分页响应必须使用 `PageResponse<T>`。
 - MyBatis-Plus 查询必须优先使用 `BaseMapperX` 与 `LambdaQueryWrapperX`。
 - 参数校验必须使用 `jakarta.validation`。
@@ -48,9 +50,7 @@
 - 单表查询必须优先使用 `BaseMapperX + LambdaQueryWrapperX`，条件优先使用现有 `eqIfPresent`、`likeIfPresent`、`inIfPresent` 等扩展。
 - 单表字段投影、计数、排序和去重必须下沉到 Mapper，不得在 Service 中以 `selectList().stream().map()` 替代。
 - 普通关联查询必须遵循“先查关联 ID -> 去重 -> 再查目标表 -> Service 聚合组装”。
-- 仅 `vita-workflow` 可在专用只读 Query Mapper 中使用 `join` 完成流程定义、实例、任务、办理人和轨迹投影。
-- 工作流引擎表状态写入必须调用 Warm-Flow 官方 Service，不得通过关联 SQL 或自建写 Mapper 修改。
-- 代码生成器不得生成 `join` SQL；工作流只读关联查询必须手工设计。
+- 代码生成器不得生成 `join` SQL。
 - 只有 XML 或手写 SQL 才显式补充 `is_deleted = 0`。
 
 ## 事务、校验与异常
@@ -76,7 +76,7 @@
 
 - 新增或变更表后如需 Entity、DTO、VO、Mapper、Service、Controller、Model 等标准 CRUD 骨架，必须先以 `vita-generator` 模板输出为起点。
 - 允许在模板输出上进行必要的业务补充、裁剪和重构，但不得绕过模板从零手写风格不一致的 CRUD，也不得将手写近似骨架描述为生成结果。
-- 该约束适用于普通业务表、日志表和 workflow 业务扩展表等仓库自建表；纯关联表、第三方组件内置表及明确无需标准 CRUD 的场景不触发。
+- 该约束适用于普通业务表和日志表等仓库自建表；纯关联表、第三方组件内置表及明确无需标准 CRUD 的场景不触发。
 - 模板输出必须继续遵守本文件的统一技术基线、分层、持久化、事务、异常和 DDL 约束。
 - 修改模板时必须检查生成结果是否引入新目录约定、命名后缀、基础类型或不符合规则的持久化代码。
 
@@ -124,8 +124,6 @@
 
 - `sys_user_role`、`sys_role_menu` 等纯中间关系表可按场景精简字段。
 - 纯关联表不强制带完整审计后缀，但必须在设计文档或 SQL 中说明原因。
-- Warm-Flow 官方引擎表可按官方 DDL 原样落库，不强制补齐本仓库公共字段或改写字段顺序。
-- be-vita 自建的 workflow 扩展表、流程业务表和审批关联表仍必须完整遵守本规范。
 
 本规范不要求批量追溯改写全部历史表；历史表以渐进方式对齐。
 
@@ -195,18 +193,23 @@ CREATE TABLE `sys_user`
 
 - 仓库自建资源的单条删除接口统一使用 `POST /delete` 和 `@RequestBody @Valid *DeletedDto`，请求体为 `{"id": 主键值}`；Controller 与 Service 均传递完整 DTO。
 - 批量删除接口统一使用 `POST /deleteBatch` 和 `@RequestBody @Valid *BatchDeletedDto`，请求体为 `{"ids": [主键值]}`，ID 列表及元素都不得为空。
-- Warm-Flow 自带的流程定义、运行实例、按业务 ID 及历史实例删除接口遵循引擎既有路由和参数契约，不套用上述自建资源删除规范。
 
-### `vita-admin` / `vita-app` / `vita-service` / `vita-common`
+### `vita-admin` / `vita-service` / `vita-common`
 
 - 管理端 CRUD 命名沿用 `add`、`update`、`delete`、`getDetail`、`list`、`page`。
 - 普通业务模块默认提供 `create`、`update`、`delete`、`get`、`list`、`page` 六类 Service 方法。
 - 扩展方法优先保持现有风格，例如 `getAll`、`getOptionListByUserId`、`check*Unique`、`auth*`、`cancelAuth*`。
-- `vita-admin`、`vita-app` 等启动模块只保留启动类、Controller和运行配置，非工作流业务逻辑统一下沉到 `vita-service`。
+- `vita-admin` 等平台启动模块只保留启动类、Controller和运行配置，平台业务逻辑下沉到 `vita-service`。
 
-### `vita-openapi` / `vita-scheduler`
+### `vita-business`
 
-- 只读公开接口必须保持薄 Controller 和薄启动模块，不得在启动模块中承载复杂业务编排。
+- 子模块使用 `vita-<部门>-<业务>` 命名，Java 根包使用 `com.vita.business.<部门>.<业务>`，具体模块清单以根 `README.md` 为准。
+- 各子模块拥有独立 Spring Boot 入口并生成可执行 JAR，只扫描本业务包；在本模块内按领域组织 Controller、Entity、DTO、VO、Mapper 和 Service，不把部门业务写入平台服务层。
+- 业务模块之间的协作通过明确的公开契约设计，不得跨模块访问 Mapper、实现类或数据库表。
+- 应用独立部署，不通过把全部业务依赖加入平台启动模块实现装配；接入真实业务前配置统一身份、数据权限和所需基础设施。
+
+### `vita-scheduler`
+
 - 调度触发接口只负责触发、鉴权和返回结果，核心刷新逻辑必须下沉到 `vita-service`。
 
 ### `vita-starters`

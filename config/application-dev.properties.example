@@ -1,0 +1,11 @@
+# Copy to config/application-dev.properties and fill in local development values.
+# The real configuration is ignored by Git and is not included in application JARs.
+vita.mysql.master.host=127.0.0.1
+vita.mysql.master.port=3306
+vita.mysql.master.database=be_vita
+vita.mysql.master.username=root
+vita.mysql.master.password=
+vita.redis.host=127.0.0.1
+vita.redis.port=6379
+vita.redis.passwd=
+vita.sa-token.jwt-secret-key=replace-with-a-random-development-secret

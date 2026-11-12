@@ -220,7 +220,7 @@ List<RouterVo>           // 前端路由树
 - 去重
 - 管理端角色分页查询可按 `roleName`、`roleCode`、`status` 过滤
 - 角色编码 `SUPER_ADMIN` 作为框架保留值，不应允许在角色表中创建或修改成该编码
-- `SUB_ADMIN` 是物理角色，用于子管理员授权，可查看全部权限并创建工作流定义
+- `SUB_ADMIN` 是物理角色，用于子管理员授权，可查看全部权限
 
 ### 5.2.1 角色管理补充约束
 
@@ -236,7 +236,7 @@ List<RouterVo>           // 前端路由树
 - 只查启用权限
 - 返回 `permission_code` 或 `auth_tag`
 - 若用户级超级管理员标记为 1，直接返回 `["**:**:**"]`
-- 子管理员通过 `SUB_ADMIN` 角色默认获得 `system:permission:view` 和 `system:workflow:import`
+- 子管理员通过 `SUB_ADMIN` 角色默认获得 `system:permission:view`
 
 权限模块本身建议补齐：
 
@@ -373,19 +373,6 @@ List<RouterVo>           // 前端路由树
 - `system:permission:view/add/update/delete`
 - `system:dept:view/add/update/delete`
 - `system:ip-block:view/add/update/delete`
-- `system:workflow:import`
-- `system:workflow:definition:view`
-- `system:workflow:definition:manage`
-- `system:workflow:instance:view`
-- `system:workflow:instance:manage`
-- `system:workflow:task:view`
-- `system:workflow:task:manage`
-- `system:workflow:category:view`
-- `system:workflow:category:manage`
-- `system:workflow:assignee-rule:view`
-- `system:workflow:assignee-rule:manage`
-- `system:workflow:reimbursement:view`
-- `system:workflow:reimbursement:resync`
 - `system:oper-log:view/delete`
 - `system:login-log:view/delete`
 
@@ -394,34 +381,6 @@ List<RouterVo>           // 前端路由树
 - 全部 `/system/*` 控制器都应落 `@SaCheckPermission`
 - `/auth/*` 不加 `@SaCheckPermission`
 - `SysOperLogController`、`SysLoginLogController` 只保留读和删，不对外暴露 `add/update`
-
-工作流接口映射：
-
-- `POST /system/workflow/importJson` -> `system:workflow:import`
-- `GET /system/workflow/definitions/page`、`GET /system/workflow/definitions/{id}` -> `system:workflow:definition:view`
-- `POST /system/workflow/definitions/{id}/publish`、`POST /system/workflow/definitions/{id}/unpublish` -> `system:workflow:definition:manage`
-- `POST /system/workflow/definitions/{id}/copy`、`POST /system/workflow/definitions/{id}` -> `system:workflow:definition:manage`
-- `GET /system/workflow/instances/**` -> `system:workflow:instance:view`
-- `POST /system/workflow/instances/{id}/activity`、`POST /system/workflow/instances/{id}/invalidate` -> `system:workflow:instance:manage`
-- `GET /system/workflow/tasks/**` -> `system:workflow:task:view`
-- `POST /system/workflow/tasks/{id}/handlers` -> `system:workflow:task:manage`
-- `GET /system/workflow/categories/**` -> `system:workflow:category:view`
-- `POST /system/workflow/categories/**` -> `system:workflow:category:manage`
-- `GET /system/workflow/assignee-rules/**` -> `system:workflow:assignee-rule:view`
-- `POST /system/workflow/assignee-rules/**` -> `system:workflow:assignee-rule:manage`
-- `GET /system/workflow/reimbursements/**` -> `system:workflow:reimbursement:view`
-- `POST /system/workflow/reimbursements/resync` -> `system:workflow:reimbursement:resync`
-已有环境通过 `sql/upgrade/vita_workflow_upgrade.sql` 按角色码和权限码幂等补齐工作流 RBAC 数据。该脚本以增量方式补齐 `workflow_category` 和默认分类，不删除已有自定义分类。
-
-工作流补充边界：
-
-- `/warm-flow-ui/config` 和设计器静态资源允许匿名访问，不参与 RBAC 权限码判定
-- Warm-Flow 表单加载和办理接口要求登录，节点办理资格由 Warm-Flow `PermissionHandler` 判定
-- 其余 `/warm-flow/**` 内置设计和管理接口只允许 `SUB_ADMIN` / `SUPER_ADMIN`
-- `/workflow/**` 统一要求登录，实例查看和任务办理还必须通过 service 层归属检查
-- `/system/workflow/**` 是管理端接口，必须同时具备对应 `system:workflow:*` 权限和 `SUB_ADMIN` / `SUPER_ADMIN` 角色
-- 定义管理支持查看、导出、发布、取消发布、复制、激活、挂起和安全删除
-- 实例管理只提供激活、挂起和作废，不提供删除、管理员强改办理人或任意变量修改
 
 ---
 

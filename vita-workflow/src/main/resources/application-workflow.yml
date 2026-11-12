@@ -1,9 +1,0 @@
-vita:
-  workflow:
-    enabled: false
-
-warm-flow:
-  enabled: ${vita.workflow.enabled}
-  ui: ${vita.workflow.enabled}
-  token-name: ${vita.sa-token.token-name}
-  data-source-type: mysql

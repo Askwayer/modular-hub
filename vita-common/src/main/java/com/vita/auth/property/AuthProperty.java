@@ -1,6 +1,5 @@
 package com.vita.auth.property;
 
-import cn.dev33.satoken.stp.StpUtil;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
@@ -20,11 +19,6 @@ import java.util.List;
 @Component
 @ConfigurationProperties(prefix = "vita.auth")
 public class AuthProperty {
-
-    /**
-     * 当前进程使用的Sa-Token账号域，默认保持管理端login账号域。
-     */
-    private String loginType = StpUtil.TYPE;
 
     /**
      * Sa-Token 认证放行路径扩展。

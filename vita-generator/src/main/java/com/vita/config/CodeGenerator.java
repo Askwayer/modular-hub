@@ -73,22 +73,22 @@ public class CodeGenerator {
     /**
      * 生成器配置 - TABLE NAME
      */
-    private static final String[] TABLE_NAMES = {"workflow_category"};
+    private static final String[] TABLE_NAMES = {};
 
     /**
      * 生成器配置 - TARGET MODULE
      */
-    private static final String TARGET_MODULE = "vita-workflow";
+    private static final String TARGET_MODULE = "vita-service";
 
     /**
      * 生成器配置 - CONTROLLER MODULE
      */
-    private static final String CONTROLLER_MODULE = "vita-workflow";
+    private static final String CONTROLLER_MODULE = "vita-admin";
 
     /**
      * 生成器配置 - BUSINESS MODULE
      */
-    private static final String BUSINESS_MODULE = "workflow";
+    private static final String BUSINESS_MODULE = "system";
 
     /**
      * 生成器配置 - DOMAIN MODULE
@@ -117,19 +117,6 @@ public class CodeGenerator {
             "id", "tenant_id", "create_time", "create_by_id", "create_by",
             "update_time", "update_by_id", "update_by", "is_deleted", "version"
     };
-
-    /**
-     * Warm-Flow 官方引擎表，禁止生成业务 CRUD。
-     */
-    private static final Set<String> WARM_FLOW_ENGINE_TABLES = Set.of(
-            "flow_definition", "flow_node", "flow_skip", "flow_instance",
-            "flow_task", "flow_his_task", "flow_user", "flow_form"
-    );
-
-    /**
-     * 认证内部表只允许生成持久化骨架，禁止生成可直接暴露的通用 CRUD。
-     */
-    private static final Set<String> AUTH_INTERNAL_TABLES = Set.of("app_user", "app_oauth_account");
 
     private static final Pattern MODULE_PATTERN = Pattern.compile("[a-z0-9]+(?:-[a-z0-9]+)*");
     private static final Pattern PACKAGE_SEGMENT_PATTERN = Pattern.compile("[a-z][a-z0-9]*");
@@ -338,18 +325,7 @@ public class CodeGenerator {
                 throw new IllegalStateException("表名只允许小写字母、数字和下划线：" + tableName);
             }
         }
-        validateGeneratedTables();
         moduleConfig.validate();
-    }
-
-    private static void validateGeneratedTables() {
-        List<String> invalidTables = Arrays.stream(TABLE_NAMES)
-                .filter(tableName -> WARM_FLOW_ENGINE_TABLES.contains(tableName)
-                        || AUTH_INTERNAL_TABLES.contains(tableName))
-                .toList();
-        if (!invalidTables.isEmpty()) {
-            throw new IllegalArgumentException("禁止为引擎表或认证内部表生成通用 CRUD：" + invalidTables);
-        }
     }
 
     private static void validateRepositoryRoot(Path repositoryRoot, ModuleConfig moduleConfig) {

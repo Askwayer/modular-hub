@@ -36,7 +36,7 @@ public class StpInterfaceImpl implements StpInterface {
      */
     @Override
     public List<String> getPermissionList(Object loginId, String loginType) {
-        // App账号域不接入管理端RBAC，避免相同数字ID命中sys_user权限。
+        // 仅为管理账号域加载权限，未知账号域默认拒绝授权。
         if (!StpUtil.TYPE.equals(loginType)) {
             return CollUtil.newArrayList();
         }

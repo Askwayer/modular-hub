@@ -7,7 +7,7 @@
 ## 作用范围
 
 - 仅作用于 `com.vita..controller..*Controller` 下标注 `@RepeatSubmit` 的方法
-- 默认覆盖 `vita-admin`、`vita-openapi`、`vita-scheduler`、`vita-workflow`
+- 默认覆盖 `vita-admin`、`vita-scheduler`
 - Starter 内的 Controller 只有在应用实际装配为 Bean 且方法显式标注 `@RepeatSubmit` 时才生效
 
 ## 用法

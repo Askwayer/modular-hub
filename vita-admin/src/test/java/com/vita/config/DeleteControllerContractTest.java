@@ -11,10 +11,6 @@ import com.vita.system.sysPermission.dto.SysPermissionDeletedDto;
 import com.vita.system.sysRole.dto.SysRoleBatchDeletedDto;
 import com.vita.system.sysRole.dto.SysRoleDeletedDto;
 import com.vita.system.sysUser.dto.SysUserDeletedDto;
-import com.vita.workflow.controller.WorkflowAssigneeRuleController;
-import com.vita.workflow.controller.WorkflowCategoryController;
-import com.vita.workflow.flow.category.dto.WorkflowCategoryDeletedDto;
-import com.vita.workflow.flow.rule.dto.WorkflowAssigneeRuleDeletedDto;
 import jakarta.validation.Valid;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.bind.annotation.*;
@@ -44,11 +40,7 @@ class DeleteControllerContractTest {
             new DeleteContract(SysRoleController.class, "deleteBatch", SysRoleBatchDeletedDto.class,
                     "/deleteBatch"),
             new DeleteContract(SysPermissionController.class, "deleteBatch",
-                    SysPermissionBatchDeletedDto.class, "/deleteBatch"),
-            new DeleteContract(WorkflowCategoryController.class, "delete",
-                    WorkflowCategoryDeletedDto.class, "/system/workflow/categories/delete"),
-            new DeleteContract(WorkflowAssigneeRuleController.class, "delete",
-                    WorkflowAssigneeRuleDeletedDto.class, "/system/workflow/assignee-rules/delete"));
+                    SysPermissionBatchDeletedDto.class, "/deleteBatch"));
 
     @Test
     void deleteEndpointsShouldUsePostAndValidatedRequestBody() throws NoSuchMethodException {

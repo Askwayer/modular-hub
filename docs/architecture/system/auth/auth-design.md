@@ -736,15 +736,11 @@ public Result<?> list() {
 
 ---
 
-## 13.1 工作流认证边界
+## 13.1 管理端认证边界
 
-`vita.auth.extra-exclude-paths` 在 `vita-admin/src/main/resources/application.yml` 集中维护，profile 配置和 workflow 配置不得重复声明该列表。
+当前基础框架统一使用 Sa-Token 默认 `login` 账号域，用户来源为 `sys_user`。
 
-- 匿名访问：`/warm-flow-ui/index.html`、`/warm-flow-ui/css/**`、`/warm-flow-ui/js/**`、`/warm-flow-ui/ico/**`、`/warm-flow-ui/config`
-- 登录访问：`/warm-flow/published-form`、`/warm-flow/form-content/**`、`/warm-flow/execute/load/**`、`/warm-flow/execute/hisLoad/**`、`/warm-flow/execute/handle`
-- 管理员角色访问：其余 `/warm-flow/**`，仅允许 `SUB_ADMIN` 或 `SUPER_ADMIN`
-- 管理访问：`/system/workflow/**` 在登录基础上继续执行权限码与管理员角色校验
-- 禁止放行 `/warm-flow/**` 或 `/warm-flow-ui/**` 整体路径
+`vita.auth.extra-exclude-paths` 在 `vita-admin/src/main/resources/application.yml` 集中维护，profile 配置不重复声明该列表。当前扩展放行路径为 `/auth/login`、`/captcha/**` 和 `/public/**`；其余路径遵循统一登录与注解鉴权规则。
 
 Sa-Token 注解鉴权在路由登录校验前执行。`SaTokenExceptionHandler` 必须保持高于通用异常处理器的优先级，确保 `NotLoginException`、`NotPermissionException` 和 `NotRoleException` 分别返回正确的 401/403 业务码，而不是被通用异常处理器转为 500。
 

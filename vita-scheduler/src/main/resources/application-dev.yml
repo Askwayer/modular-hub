@@ -17,7 +17,7 @@ vita:
       port: 3306
       database: be_vita
       username: root
-      password: password
+      password: ${VITA_MYSQL_PASSWORD:}
   # redis 配置
   redis:
     # 自动装配
@@ -26,7 +26,7 @@ vita:
     open: true
     host: localhost
     port: 6379
-    passwd: password
+    passwd: ${VITA_REDIS_PASSWORD:}
   # sa-token 配置
   sa-token:
     # token 名称（同时也是 cookie 名称）
@@ -40,8 +40,8 @@ vita:
     # 在多人登录同一账号时，是否共用一个 token （为 true 时所有登录共用一个 token, 为 false 时每次登录新建一个 token）
     is-share: false
     # 是否输出操作日志
-    is-log: true
+    is-log: false
     # 指定 token 提交时的前缀
     token-prefix: Bearer
     # jwt秘钥
-    jwt-secret-key: secret-key
+    jwt-secret-key: ${VITA_JWT_SECRET:}

@@ -39,3 +39,4 @@ Thumbs.db
 .codegraph/
 
 # vita
+/config/application-dev.properties

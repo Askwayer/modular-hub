@@ -31,19 +31,16 @@
         <guava.version>33.2.1-jre</guava.version>
         <bcprov.version>1.79</bcprov.version>
         <sa-token.version>1.44.0</sa-token.version>
-        <warm-flow.version>1.8.8</warm-flow.version>
     </properties>
 
     <modules>
         <module>vita-common</module>
         <module>vita-service</module>
+        <module>vita-business</module>
         <module>vita-generator</module>
         <module>vita-starters</module>
         <module>vita-admin</module>
         <module>vita-scheduler</module>
-        <module>vita-openapi</module>
-        <module>vita-workflow</module>
-        <module>vita-app</module>
     </modules>
 
     <dependencyManagement>
@@ -158,23 +155,6 @@
                 <version>${sa-token.version}</version>
             </dependency>
 
-            <!-- 工作流warm-flow模块 -->
-            <dependency>
-                <groupId>org.dromara.warm</groupId>
-                <artifactId>warm-flow-mybatis-plus-sb3-starter</artifactId>
-                <version>${warm-flow.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.dromara.warm</groupId>
-                <artifactId>warm-flow-plugin-ui-sb-web</artifactId>
-                <version>${warm-flow.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>org.dromara.warm</groupId>
-                <artifactId>warm-flow-plugin-ui-core</artifactId>
-                <version>${warm-flow.version}</version>
-            </dependency>
-
             <!-- 公共基础模块 -->
             <dependency>
                 <groupId>com.vita</groupId>
@@ -189,10 +169,25 @@
                 <version>${vita.version}</version>
             </dependency>
 
-            <!-- 工作流基础设施模块 -->
+            <!-- 部门业务模块，统一版本但不自动装配到平台应用 -->
             <dependency>
                 <groupId>com.vita</groupId>
-                <artifactId>vita-workflow</artifactId>
+                <artifactId>vita-ah-waste</artifactId>
+                <version>${vita.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.vita</groupId>
+                <artifactId>vita-gm-purchase</artifactId>
+                <version>${vita.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.vita</groupId>
+                <artifactId>vita-gm-mailrec</artifactId>
+                <version>${vita.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.vita</groupId>
+                <artifactId>vita-cw-aiaudit</artifactId>
                 <version>${vita.version}</version>
             </dependency>
 

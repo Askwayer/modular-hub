@@ -14,7 +14,7 @@
 
 当前仓库已经具备以下基础能力：
 
-- `vita-admin`、`vita-openapi`、`vita-scheduler` 分别通过模块内的 `logback-spring.xml` 输出三类日志文件：
+- `vita-admin`、`vita-scheduler` 分别通过模块内的 `logback-spring.xml` 输出三类日志文件：
   - 普通运行日志：`vita-<app>.log`
   - 错误日志：`vita-<app>-error.log`
   - 访问与审计日志：`vita-<app>-access.log`
@@ -55,7 +55,7 @@
 | `vita-<app>-error.log` | 异常和错误日志 | 全局异常处理、切面异常日志 |
 | `vita-<app>-access.log` | 控制器访问审计日志 | `sys-access` Logger |
 
-默认目录为仓库根目录或部署启动目录下的 `data/logs/be-vita/`。Maven 本地启动通过 Spring Boot Maven Plugin 的 `workingDirectory` 固定到仓库根目录，避免在 `vita-admin`、`vita-openapi`、`vita-scheduler` 模块下分别生成 `data/`。生产部署应通过 `VITA_LOG_HOME` 配置绝对目录。
+默认目录为仓库根目录或部署启动目录下的 `data/logs/be-vita/`。Maven 本地启动通过 Spring Boot Maven Plugin 的 `workingDirectory` 固定到仓库根目录，避免在 `vita-admin`、`vita-scheduler` 模块下分别生成 `data/`。生产部署应通过 `VITA_LOG_HOME` 配置绝对目录。
 
 ### 4.2 复用现有业务模块
 

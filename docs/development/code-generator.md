@@ -2,13 +2,13 @@
 
 ## 适用边界
 
-`vita-generator` 为仓库自建普通业务表生成标准 CRUD 骨架。纯关联表、Warm-Flow 官方引擎表、认证内部表以及明确不需要通用 CRUD 的表不适用；工作流只读关联查询和所有业务特有校验仍需人工设计。
+`vita-generator` 为仓库自建普通业务表生成标准 CRUD 骨架。纯关联表、认证内部表以及明确不需要通用 CRUD 的表不适用；业务特有查询和校验仍需人工设计。
 
 生成器只维护 `vita-generator/src/main/resources/templates/mybatis-plus/` 一套当前模板，不提供旧模板、版本切换或兼容回退。
 
 ## 运行前配置
 
-在 `CodeGenerator` 顶部常量区设置数据库连接、表名和输出模块。仓库保留当前 MySQL、`workflow_category` 和 `vita-workflow` 配置作为默认结构，真实数据库密码不得提交：
+在 `CodeGenerator` 顶部常量区设置数据库连接、表名和输出模块。默认业务输出到 `vita-service`，Controller 输出到 `vita-admin`，业务包为 `system`；`TABLE_NAMES` 默认为空，运行前必须明确填写待生成表。真实数据库密码不得提交：
 
 ```java
 private static final String DB_PASSWORD = "";
@@ -27,7 +27,7 @@ private static final boolean OVERWRITE_EXISTING_FILES = false;
 mvn -pl vita-generator -DskipTests exec:java -Dexec.mainClass=com.vita.config.CodeGenerator
 ```
 
-生成器会拒绝 Warm-Flow 官方引擎表和 `app_user`、`app_oauth_account` 认证内部表，并校验模块、包名和表名格式。
+生成器校验非空表清单、模块、包名和表名格式；执行前须确认所选表适用于标准 CRUD。
 
 ## 固定输出
 

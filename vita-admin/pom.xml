@@ -27,18 +27,6 @@
             <artifactId>vita-service</artifactId>
         </dependency>
 
-        <!-- 工作流基础设施模块 -->
-        <dependency>
-            <groupId>com.vita</groupId>
-            <artifactId>vita-workflow</artifactId>
-        </dependency>
-
-        <!-- Warm-Flow 设计器 UI，仅 admin 暴露 -->
-        <dependency>
-            <groupId>org.dromara.warm</groupId>
-            <artifactId>warm-flow-plugin-ui-sb-web</artifactId>
-        </dependency>
-
         <!-- 文件上传/存储 Starter -->
         <dependency>
             <groupId>com.vita</groupId>

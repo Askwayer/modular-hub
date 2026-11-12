@@ -5,11 +5,6 @@ vita:
       - /auth/login
       - /captcha/**
       - /public/**
-      - /warm-flow-ui/index.html
-      - /warm-flow-ui/css/**
-      - /warm-flow-ui/js/**
-      - /warm-flow-ui/ico/**
-      - /warm-flow-ui/config
 
 server:
   port: ${vita.http-port}
@@ -18,7 +13,7 @@ server:
 # Spring Boot 配置
 spring:
   profiles:
-    active: prod
+    active: ${SPRING_PROFILES_ACTIVE:dev}
   application:
     name: vita
   # 文件上传
@@ -32,7 +27,6 @@ spring:
     import:
       - optional:classpath:application-file-${spring.profiles.active}.yml
       - optional:classpath:application-captcha.yml
-      - optional:classpath:application-workflow.yml
 
   # 数据库连接
   datasource:
