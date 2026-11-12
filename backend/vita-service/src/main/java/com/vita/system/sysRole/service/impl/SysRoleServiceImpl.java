@@ -182,6 +182,14 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
         return CollUtil.newArrayList();
     }
 
+    @Override
+    public List<Long> getEnabledIdsByIds(List<Long> roleIds) {
+        if (CollUtil.isEmpty(roleIds)) {
+            return CollUtil.newArrayList();
+        }
+        return sysRoleMapper.selectIdsByIdsAndStatus(roleIds, CommonStatusEnum.ENABLED.getCode());
+    }
+
     /**
      * 根据角色ID和状态列表查询角色编码。
      *

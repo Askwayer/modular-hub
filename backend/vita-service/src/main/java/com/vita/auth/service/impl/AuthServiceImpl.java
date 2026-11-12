@@ -1,6 +1,5 @@
 package com.vita.auth.service.impl;
 
-import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.text.CharSequenceUtil;
 import com.vita.auth.constant.AuthConstants;
 import com.vita.auth.context.LoginUserInfoContextLoader;
@@ -30,7 +29,6 @@ import com.vita.system.sysUser.service.ISysUserService;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -131,8 +129,8 @@ public class AuthServiceImpl implements IAuthService {
         resolveCurrentLoginUserInfo();
         LoginUserInfoModel loginUserInfoModel = LoginUserInfoModelContext.getRequiredLoginUserInfo();
         Long userId = LoginUserInfoModelContext.getRequiredLoginUserId();
-        List<String> roleCodes = getOrLoadRoleCodes(userId);
-        List<String> permissionCodes = getOrLoadPermissionCodes(userId);
+        List<String> roleCodes = authCommonService.getRoleCodesByUserId(userId);
+        List<String> permissionCodes = authCommonService.getPermissionCodesByUserId(userId);
 
         AuthInfoVo authInfoVo = new AuthInfoVo();
         authInfoVo.setUserInfo(loginUserInfoModel);
@@ -223,7 +221,7 @@ public class AuthServiceImpl implements IAuthService {
     }
 
     /**
-     * 处理登录成功后的会话创建、用户快照缓存与登录审计提交流程。
+     * 处理登录成功后的会话创建、请求用户上下文与登录审计提交流程。
      *
      * @param user              当前登录用户
      * @param requestClientInfo 当前请求客户端信息
@@ -232,7 +230,7 @@ public class AuthServiceImpl implements IAuthService {
     private AuthLoginVo loginSuccess(SysUser user, RequestClientInfo requestClientInfo) {
         authTokenService.login(user.getId());
         LoginUserInfoModel loginUserInfo = buildLoginUserInfo(user, requestClientInfo);
-        cacheLoginUserInfo(loginUserInfo);
+        LoginUserInfoModelContext.setLoginUserInfo(loginUserInfo);
         loginAuditService.record(user.getUserName(), user.getId(), requestClientInfo, Constants.SUCCESS, Constants.LOGIN_SUCCESS);
 
         AuthLoginVo authLoginVo = new AuthLoginVo();
@@ -258,7 +256,7 @@ public class AuthServiceImpl implements IAuthService {
         if (Objects.equals(user.getIsDeleted(), Boolean.TRUE)) {
             throw new ServiceException(GlobalErrorCode.UNAUTHORIZED.getCode(), AuthConstants.LOGIN_FAIL_MESSAGE);
         }
-        if (CommonStatusEnum.isDisabled(user.getStatus())) {
+        if (!CommonStatusEnum.isEnabled(user.getStatus())) {
             throw new ServiceException(GlobalErrorCode.FORBIDDEN.getCode(), "账号已被禁用");
         }
     }
@@ -305,17 +303,11 @@ public class AuthServiceImpl implements IAuthService {
 
 
     /**
-     * 获取当前登录用户快照的统一入口，先尝试从线程上下文与会话缓存获取，未命中时重建并缓存后返回。
+     * 获取当前登录用户快照的统一入口，只复用当前请求上下文，未命中时实时加载有效账号。
      */
     private void resolveCurrentLoginUserInfo() {
         LoginUserInfoModel loginUserInfoModel = LoginUserInfoModelContext.getLoginUserInfo();
         if (loginUserInfoModel != null) {
-            return;
-        }
-
-        loginUserInfoModel = toLoginUserInfoModel(authTokenService.getStoredLoginUserInfo());
-        if (loginUserInfoModel != null) {
-            LoginUserInfoModelContext.setLoginUserInfo(loginUserInfoModel);
             return;
         }
 
@@ -327,65 +319,7 @@ public class AuthServiceImpl implements IAuthService {
         if (rebuiltLoginUserInfo == null) {
             throw new ServiceException(GlobalErrorCode.UNAUTHORIZED);
         }
-        cacheLoginUserInfo(rebuiltLoginUserInfo);
-    }
-
-    /**
-     * 同步写入会话与当前线程上下文中的登录用户快照。
-     *
-     * @param loginUserInfo 登录用户快照
-     */
-    private void cacheLoginUserInfo(LoginUserInfoModel loginUserInfo) {
-        authTokenService.storeLoginUserInfo(loginUserInfo);
-        LoginUserInfoModelContext.setLoginUserInfo(loginUserInfo);
-    }
-
-    /**
-     * 根据用户 ID 获取当前登录用户的角色编码列表，先尝试从会话缓存获取，未命中时查询数据库后缓存并返回。
-     *
-     * @param userId 用户ID
-     * @return 角色编码列表
-     */
-    private List<String> getOrLoadRoleCodes(Long userId) {
-        List<String> roleCodes = castStringList(authTokenService.getStoredLoginRoleCodes());
-        if (!roleCodes.isEmpty()) {
-            return roleCodes;
-        }
-        roleCodes = authCommonService.getRoleCodesByUserId(userId);
-        authTokenService.storeLoginRoleCodes(roleCodes);
-        return roleCodes;
-    }
-
-    /**
-     * 根据用户 ID 获取当前登录用户的权限编码列表，先尝试从会话缓存获取，未命中时查询数据库后缓存并返回。
-     *
-     * @param userId 用户 ID
-     * @return 权限编码列表
-     */
-    private List<String> getOrLoadPermissionCodes(Long userId) {
-        List<String> permissionCodes = castStringList(authTokenService.getStoredLoginPermissionCodes());
-        if (!permissionCodes.isEmpty()) {
-            return permissionCodes;
-        }
-        permissionCodes = authCommonService.getPermissionCodesByUserId(userId);
-        authTokenService.storeLoginPermissionCodes(permissionCodes);
-        return permissionCodes;
-    }
-
-    /**
-     * 将会话中缓存的用户对象转换为统一的登录用户模型。
-     *
-     * @param sessionValue 会话缓存值
-     * @return 登录用户模型
-     */
-    private LoginUserInfoModel toLoginUserInfoModel(Object sessionValue) {
-        if (sessionValue instanceof LoginUserInfoModel loginUserInfoModel) {
-            return loginUserInfoModel;
-        }
-        if (sessionValue == null) {
-            return null;
-        }
-        return BeanUtil.toBean(sessionValue, LoginUserInfoModel.class);
+        LoginUserInfoModelContext.setLoginUserInfo(rebuiltLoginUserInfo);
     }
 
     /**
@@ -399,36 +333,11 @@ public class AuthServiceImpl implements IAuthService {
             return null;
         }
         try {
-            return Long.valueOf(String.valueOf(loginId));
+            long userId = Long.parseLong(String.valueOf(loginId));
+            return userId > 0 ? userId : null;
         } catch (NumberFormatException ex) {
             return null;
         }
     }
 
-    /**
-     * 将任意对象安全转换为 {@code List<String>}。
-     *
-     * <p>处理规则如下：
-     * <ul>
-     *   <li>如果传入对象不是 {@code List} 类型，则返回空列表</li>
-     *   <li>如果传入对象是 {@code List}，则遍历其中元素</li>
-     *   <li>忽略列表中的 {@code null} 元素</li>
-     *   <li>非空元素统一通过 {@link String#valueOf(Object)} 转换为字符串</li>
-     * </ul>
-     *
-     * @param value 待转换的对象，预期可能为 {@code List<?>}
-     * @return 转换后的字符串列表；如果输入不是列表或列表中没有有效元素，则返回空列表
-     */
-    private List<String> castStringList(Object value) {
-        if (!(value instanceof List<?> list)) {
-            return List.of();
-        }
-        List<String> result = new ArrayList<>(list.size());
-        for (Object item : list) {
-            if (item != null) {
-                result.add(String.valueOf(item));
-            }
-        }
-        return result;
-    }
 }

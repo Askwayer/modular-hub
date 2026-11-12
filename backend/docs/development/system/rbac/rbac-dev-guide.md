@@ -23,12 +23,11 @@
 建议改动：
 
 - `AuthConstants`
-    - 增加 权限和角色 Redis Key，例如：
-        - `LOGIN_USER_PERMISSION`
-        - `LOGIN_USER_ROLE`
-        - 保存角色码、权限码
+    - 定义角色与权限通配码，不定义跨请求 RBAC 缓存 Key
 - `LoginUserInfoModel`
-    - 保留基础用户信息
+    - 保留当前请求实时加载的基础用户信息
+- `LoginUserContextInterceptor`
+    - 从有效账号加载上下文，账号查询失败时不能使用旧资料授权
 
 ### 2.2 `vita-service`
 
@@ -44,8 +43,8 @@
     - 实现聚合查询逻辑
 - `StpInterfaceImpl`
     - 放到 `com.vita.auth` 包下
-    - 优先读 `LOGIN_USER_ROLE`、`LOGIN_USER_PERMISSION`
-    - 未命中再通过 `IAuthCommonService` 回源
+    - 根据传入 `loginId` 通过 `IAuthCommonService` 实时查询
+    - 禁止跨请求缓存用户授权
 - 相关 mapper 只保留单表查询与单表投影能力：
     - `SysUserRoleMapper`：按用户查角色 ID
     - `SysRolePermissionMapper`：按角色查权限 ID
@@ -86,13 +85,9 @@
 
 用户和角色管理端列表、详情模型必须返回主键 `id`，供编辑、删除与后续授权使用；用户响应模型不得包含密码字段。
 
-### 3.1 Redis 缓存对象
+### 3.1 请求级账号上下文
 
-用途：
-
-- 给 `StpInterfaceImpl` 用
-- 给 `/auth/info` 初始化缓存用
-- 保存角色码、权限码
+`LoginUserContextInterceptor` 实时加载有效账号；`LoginUserInfoModelContext` 只在当前请求内复用并在请求结束时清理。角色码、权限码均直接查询数据库，不存入 Session。
 
 ### 3.2 权限初始化返回对象
 
@@ -149,7 +144,7 @@ List<RouterVo>           // 前端路由树
 - `getCurrentAuthInfo` 或改造 `getCurrentUserInfo`
   - 聚合角色、权限
   - 构建 `AuthInfoVo`
-  - 缓存角色码、权限码到 Session，供 `StpInterfaceImpl` 使用
+  - 每次查询有效角色和权限，不写入跨请求缓存
 - `getRouters`
   - 只负责获取当前用户路由树
   - 路由树构建逻辑收口到 `SysMenuService`
@@ -267,30 +262,14 @@ List<RouterVo>           // 前端路由树
 
 ## 6. `StpInterfaceImpl` 实现建议
 
-### 6.1 `getRoleList`
+### 6.1 角色与权限回调
 
-推荐逻辑：
+1. 校验默认管理账号域和合法正整数 `loginId`。
+2. 分别调用 `IAuthCommonService.getRoleCodesByUserId` 或 `getPermissionCodesByUserId`。
+3. 聚合服务校验有效账号，筛选启用且未删除的角色、权限和关联。
+4. 启用的超级管理员返回虚拟角色或通配权限；停用账号返回空结果。
 
-1. `loginId` 转 `Long`
-2. 从 Session 取 `LOGIN_USER_ROLE`
-3. 命中则直接返回
-4. 未命中则调用 `IAuthCommonService.getRoleCodesByUserId`
-5. 若用户是超级管理员，返回虚拟角色码 `SUPER_ADMIN`
-
-### 6.2 `getPermissionList`
-
-推荐逻辑：
-
-1. 从 Session 取 `LOGIN_USER_PERMISSION`
-2. 命中则直接返回
-3. 未命中则调用 `IAuthCommonService.getPermissionCodesByUserId`
-4. 超级管理员返回 `["**:**:**"]`
-
-### 6.3 注意事项
-
-- 不要在 `StpInterfaceImpl` 中直接拼 SQL
-- 回调实现只做读取缓存和兜底回源，不做复杂业务编排
-- 真正的聚合逻辑收口到 `IAuthCommonService`
+不得读取当前请求 Session 的权限来回答另一个 `loginId` 的查询。菜单查询同样需要先过滤角色状态。所有撤权测试都应先查询一次，再修改状态，并在不重新登录的情况下再次查询。
 
 ---
 
@@ -321,11 +300,10 @@ List<RouterVo>           // 前端路由树
 
 `GET /auth/info`
 
-1. 从 Session 取基础登录用户
+1. 从当前请求上下文取实时加载的有效账号
 2. 根据 `userId` 聚合角色码、权限码
 3. 组装 `AuthInfoVo`
-4. 写入 RBAC 上下文缓存
-5. 返回前端
+4. 返回前端；不写入 RBAC 缓存
 
 `GET /auth/routers`
 
@@ -433,8 +411,6 @@ List<RouterVo>           // 前端路由树
 
 - `data_scope_type`
 - `sys_role_dept_scope`
-- `LOGIN_USER_ROLE`
-- `LOGIN_USER_PERMISSION`
 - `IAuthCommonService`
 
 ---

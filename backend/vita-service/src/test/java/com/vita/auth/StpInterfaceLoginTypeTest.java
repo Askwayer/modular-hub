@@ -16,7 +16,7 @@ class StpInterfaceLoginTypeTest {
 
     @Test
     void unknownLoginTypeShouldNeverLoadAdminRbac() {
-        StpInterfaceImpl stpInterface = new StpInterfaceImpl(null, null);
+        StpInterfaceImpl stpInterface = new StpInterfaceImpl(null);
 
         assertThat(stpInterface.getRoleList(1L, "unknown")).isEmpty();
         assertThat(stpInterface.getPermissionList(1L, "unknown")).isEmpty();

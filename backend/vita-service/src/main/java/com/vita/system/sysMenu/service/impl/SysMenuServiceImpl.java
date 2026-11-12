@@ -25,6 +25,7 @@ import com.vita.system.sysMenu.vo.SysMenuDetailVo;
 import com.vita.system.sysMenu.vo.SysMenuListVo;
 import com.vita.system.sysUser.entity.SysUser;
 import com.vita.system.sysUser.service.ISysUserService;
+import com.vita.system.sysRole.service.ISysRoleService;
 import jakarta.annotation.Resource;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
@@ -58,6 +59,9 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
 
     @Resource
     private ISysRoleMenuService sysRoleMenuService;
+
+    @Resource
+    private ISysRoleService sysRoleService;
 
     /**
      * 新增数据并返回主键ID。
@@ -194,6 +198,11 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
             return getAllEnabledMenus();
         }
         List<Long> roleIds = sysUserRoleService.getRoleIdsByUserId(userId);
+        if (CollUtil.isEmpty(roleIds)) {
+            return CollUtil.newArrayList();
+        }
+        // 菜单和接口权限使用相同的角色状态边界，停用角色不再提供导航。
+        roleIds = sysRoleService.getEnabledIdsByIds(roleIds);
         if (CollUtil.isEmpty(roleIds)) {
             return CollUtil.newArrayList();
         }

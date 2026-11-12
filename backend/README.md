@@ -102,6 +102,8 @@ curl http://localhost:18081/module/name
 ## 文档与脚本入口
 
 - 文档总导航：`docs/README.md`
+- 集团框架分批验收：`docs/requirements/group-foundation.md`
+- 公司、多任职与授权设计：`docs/architecture/system/group/group-foundation-design.md`
 - 需求与验收：`docs/requirements/`
 - 系统与 Starter 设计：`docs/architecture/`
 - 开发与运维指南：`docs/development/`

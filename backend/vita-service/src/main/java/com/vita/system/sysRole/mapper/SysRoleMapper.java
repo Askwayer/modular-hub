@@ -20,6 +20,15 @@ import java.util.List;
 public interface SysRoleMapper extends BaseMapperX<SysRole> {
 
     /**
+     * 查询给定 ID 中启用且未删除的角色，空输入必须返回空结果。
+     *
+     * @param roleIds 候选角色 ID
+     * @param status 启用状态
+     * @return 有效角色 ID
+     */
+    List<Long> selectIdsByIdsAndStatus(@Param("roleIds") List<Long> roleIds, @Param("status") Byte status);
+
+    /**
      * 根据角色ID和状态查询角色编码集合。
      *
      * @param roleIds 角色ID集合

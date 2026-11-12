@@ -28,38 +28,11 @@
 
 ## 2. 当前现状
 
-结合当前代码与 SQL，RBAC 的“数据模型层”已具备基础形态，但“运行时判定层”尚未落地：
+截至 2026-11-12，平台已有角色、权限、菜单及关联表，`StpInterfaceImpl` 通过 `IAuthCommonService` 实时查询有效角色和权限；`/auth/info` 返回 `AuthInfoVo`，`/auth/routers` 返回当前有效菜单路由。Controller 位于 `vita-admin`，服务与持久化位于 `vita-service`。
 
-### 2.1 已具备的内容
+请求上下文实时加载启用且未删除的用户，角色与权限不使用跨请求缓存。相关撤权变更提交后，新请求按新状态判断。
 
-- `sql/init/system.sql` 中已存在 RBAC 相关表：
-  - `sys_role`
-  - `sys_menu`
-  - `sys_permission`
-  - `sys_user_role`
-  - `sys_role_menu`
-  - `sys_role_permission`
-  - `sys_role_dept_scope`
-- `vita-service` 中已有上述表的 entity / dto / vo / service / controller 基础 CRUD 结构
-- 认证链路已具备登录、登出、当前登录用户信息获取能力
-- 登录态已通过 Sa-Token session 缓存基础用户快照
-
-### 2.2 尚未完成的关键点
-
-- `vita-service/src/main/java/com/vita/auth/StpInterfaceImpl.java` 需要通过 `IAuthCommonService` 接通角色与权限回调
-- `vita-service/src/main/java/com/vita/auth/service/impl/AuthServiceImpl.java` 当前只缓存基础登录用户信息，没有初始化角色码、权限码、菜单数据
-- 当前需要由 `IAuthCommonService` 统一承接 RBAC 聚合查询，避免角色、权限、菜单查询入口分散
-- 当前 `GET /auth/info` 返回的是基础用户信息模型，不足以支撑前端权限初始化
-- 数据范围模型已经有 `data_scope_type` 与 `sys_role_dept_scope`，但还没有真正参与查询判定
-
-### 2.3 结论
-
-当前仓库已经完成了 RBAC 的“静态结构搭建”，下一步应聚焦“运行时判定闭环”：
-
-1. 能查出来
-2. 能缓存起来
-3. 能让 Sa-Token 用起来
-4. 能让前端消费起来
+尚未实现公司、多任职与业务数据范围。现有 `data_scope_type` 和 `sys_role_dept_scope` 尚未形成查询隔离；后续按 `docs/architecture/system/group/group-foundation-design.md` 重构授权模型，不能把功能权限视为数据权限。
 
 ---
 
@@ -172,16 +145,7 @@ RBAC 查询应统一过滤以下条件：
 
 #### RBAC 权限快照
 
-一期先不单独引入 RBAC 上下文模型，而是使用 Sa-Token Session 中的独立键存放：
-
-- `LOGIN_USER_ROLE`
-- `LOGIN_USER_PERMISSION`
-
-设计原因：
-
-- 基础登录信息和权限上下文生命周期不同
-- 权限可能因角色分配变化而失效，需要单独刷新
-- `StpInterfaceImpl` 只关心角色码和权限码，不应依赖前端菜单结构对象
+不在 Sa-Token Session 中保存角色码、权限码或用户资料。当前请求内的用户资料由 `LoginUserInfoModelContext` 持有，权限查询根据传入的账号 ID 实时执行；菜单与接口权限分别从各自关联表取得，均排除停用角色。
 
 ### 5.3 `/auth/info` 返回对象
 
@@ -228,7 +192,7 @@ RBAC 查询应统一过滤以下条件：
 
 1. 用户名密码认证
 2. 用户状态校验
-3. 写入基础登录快照到 Sa-Token Session
+3. 建立 Sa-Token 登录态并设置当前请求用户上下文
 4. 返回 token 和基础用户信息
 
 设计原因：
@@ -241,23 +205,17 @@ RBAC 查询应统一过滤以下条件：
 
 登录成功后，前端调用 `GET /auth/info`：
 
-1. 获取当前登录用户基础信息
-2. 根据 `userId` 聚合角色码
-3. 聚合权限码
-4. 聚合可见菜单
-5. 构建 RBAC 上下文快照
-6. 写入 Sa-Token Session
-7. 返回前端初始化数据
+1. 从当前请求上下文获取实时加载的有效账号信息
+2. 根据 `userId` 查询当前有效角色码和权限码
+3. 构建 `AuthInfoVo` 返回前端；菜单由 `/auth/routers` 单独返回
+4. 不读写跨请求 RBAC 缓存，前端按钮显隐不能替代后端鉴权
 
 ### 6.3 `StpInterfaceImpl` 判定流程
 
-`getRoleList` / `getPermissionList` 建议统一流程：
-
-1. 从 Sa-Token Session 读取 RBAC 上下文
-2. 命中则直接返回
-3. 未命中则根据 `loginId` 重新聚合
-4. 若用户是超级管理员，直接返回通配结果
-5. 将结果重新写回 Session
+1. 只接受默认管理账号域和合法的正整数 `loginId`
+2. 根据传入的 `loginId` 查询有效账号，不能使用当前请求其他用户的资料
+3. 启用的超级管理员返回虚拟角色或通配权限；普通用户查询启用角色对应的启用权限
+4. 每次检查实时查询；账号、角色、权限或关联变更提交后的新请求使用新状态
 
 ### 6.4 菜单控制流程
 
@@ -303,19 +261,21 @@ RBAC 查询应统一过滤以下条件：
 
 ### 7.2 权限查询
 
-按 `userId` 查询权限编码，统一采用三段式：
+按 `userId` 查询权限编码，按以下顺序查询：
 
 1. `sys_user_role` 单表查询 `roleIds`
-2. `sys_role_permission` 单表查询 `permissionIds`
-3. `sys_permission` 单表按 `permissionIds + status=1` 查询权限详情并映射 `authTag / permissionCode`
+2. `sys_role` 筛选启用且未删除的 `roleIds`；为空则返回空权限
+3. `sys_role_permission` 单表查询 `permissionIds`
+4. `sys_permission` 单表按 `permissionIds + status=1` 查询权限详情并映射 `authTag / permissionCode`
 
 ### 7.3 菜单查询
 
-按 `userId` 查询菜单，统一采用三段式：
+按 `userId` 查询菜单，按以下顺序查询：
 
 1. `sys_user_role` 单表查询 `roleIds`
-2. `sys_role_menu` 单表查询 `menuIds`
-3. `sys_menu` 单表按 `menuIds + status=1` 查询菜单详情，再在 service 中组装菜单树和前端路由
+2. `sys_role` 筛选启用且未删除的 `roleIds`；为空则返回空菜单
+3. `sys_role_menu` 单表查询 `menuIds`
+4. `sys_menu` 单表按 `menuIds + status=1` 查询菜单详情，再在 service 中组装菜单树和前端路由
 
 ### 7.4 约束总结
 
@@ -325,42 +285,13 @@ RBAC 查询应统一过滤以下条件：
 
 ---
 
-## 8. 缓存与失效策略
+## 8. 实时鉴权策略（2026-11-12）
 
-### 8.1 一期建议
+当前不在 Session 或 Redis 中缓存用户资料、角色码和权限码。`LoginUserContextInterceptor` 每次请求加载启用且未删除的账号；`StpInterfaceImpl`、`/auth/info`、菜单查询直接读取有效授权。停用账号在仅要求登录的接口也必须被拒绝。
 
-一期优先使用 Sa-Token Session 做 RBAC 上下文缓存，不单独引入 Redis RBAC Key。
+不采用“要求重新登录才生效”或“缓存未命中才回源”的撤权策略。已经执行中的请求不追溯中断；撤权提交后的新鉴权查询生效。账户重新启用和密码重置的全终端会话撤销属于后续工作。
 
-原因：
-
-- 当前项目是单体结构
-- Session 已经存在
-- 可以先以最少改动打通权限判定
-
-### 8.2 失效触发点
-
-以下变更发生后，需要清理对应用户的 RBAC 上下文缓存：
-
-- 用户超级管理员标记变更
-- 用户角色变更
-- 角色状态变更
-- 角色权限变更
-- 角色菜单变更
-- 权限状态或权限编码变更
-- 菜单状态变更
-
-### 8.3 一期可接受方案
-
-一期如果暂时做不到“精准删某个用户缓存”，可先采用以下策略之一：
-
-1. 角色/权限变更后，要求相关用户重新登录
-2. 在 `/auth/info` 每次调用时重建 RBAC 上下文
-3. 在 `StpInterfaceImpl` 缓存未命中时自动回源构建
-
-推荐组合：
-
-- 登录后第一次 `/auth/info` 构建
-- `StpInterfaceImpl` 做兜底回源
+后续缓存优化必须先验证授权版本、失效时限与故障拒绝，并覆盖多实例撤权测试。集团公司及任职范围见 `docs/architecture/system/group/group-foundation-design.md`；当前功能 RBAC 不代表数据隔离已经实现。
 
 ---
 
@@ -433,4 +364,4 @@ RBAC 查询应统一过滤以下条件：
 - `@SaCheckPermission` 在至少一个管理端接口上验证通过
 - 超级管理员用户无需配置角色权限也可通过鉴权
 - 普通用户只拥有角色分配到的菜单和权限
-- 角色、权限、菜单停用后，重新初始化权限上下文可立即生效
+- 角色、权限、菜单停用提交后，后续请求直接使用新状态

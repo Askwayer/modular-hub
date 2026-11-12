@@ -4,10 +4,8 @@ import cn.dev33.satoken.stp.StpInterface;
 import cn.dev33.satoken.stp.StpUtil;
 import cn.hutool.core.collection.CollUtil;
 import com.vita.auth.service.IAuthCommonService;
-import com.vita.auth.service.IAuthTokenService;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -19,12 +17,8 @@ import java.util.List;
 public class StpInterfaceImpl implements StpInterface {
 
     private final IAuthCommonService authCommonService;
-    private final IAuthTokenService authTokenService;
-
-    public StpInterfaceImpl(IAuthCommonService authCommonService,
-                            IAuthTokenService authTokenService) {
+    public StpInterfaceImpl(IAuthCommonService authCommonService) {
         this.authCommonService = authCommonService;
-        this.authTokenService = authTokenService;
     }
 
     /**
@@ -44,13 +38,8 @@ public class StpInterfaceImpl implements StpInterface {
         if (userId == null) {
             return CollUtil.newArrayList();
         }
-        List<String> permissionCodes = castStringList(authTokenService.getStoredLoginPermissionCodes());
-        if (CollUtil.isNotEmpty(permissionCodes)) {
-            return permissionCodes;
-        }
-        permissionCodes = authCommonService.getPermissionCodesByUserId(userId);
-        authTokenService.storeLoginPermissionCodes(permissionCodes);
-        return permissionCodes;
+        // 按被查询账号实时取权，不能复用当前请求账号的 Session 授权。
+        return authCommonService.getPermissionCodesByUserId(userId);
     }
 
     /**
@@ -70,13 +59,7 @@ public class StpInterfaceImpl implements StpInterface {
         if (userId == null) {
             return CollUtil.newArrayList();
         }
-        List<String> roleCodes = castStringList(authTokenService.getStoredLoginRoleCodes());
-        if (!roleCodes.isEmpty()) {
-            return roleCodes;
-        }
-        roleCodes = authCommonService.getRoleCodesByUserId(userId);
-        authTokenService.storeLoginRoleCodes(roleCodes);
-        return roleCodes;
+        return authCommonService.getRoleCodesByUserId(userId);
     }
 
     /**
@@ -90,31 +73,11 @@ public class StpInterfaceImpl implements StpInterface {
             return null;
         }
         try {
-            return Long.valueOf(String.valueOf(loginId));
+            long userId = Long.parseLong(String.valueOf(loginId));
+            return userId > 0 ? userId : null;
         } catch (NumberFormatException ex) {
             return null;
         }
     }
 
-    /**
-     * 将任意对象安全转换为 `List<String>`。
-     * <p>
-     * 仅当 `value` 为 `List` 时执行转换；否则返回空集合。
-     * 转换过程中会忽略 `null` 元素，其余元素通过 `String.valueOf` 转为字符串。
-     *
-     * @param value 待转换对象
-     * @return 转换后的字符串列表；若 `value` 不是列表则返回空列表
-     */
-    private List<String> castStringList(Object value) {
-        if (!(value instanceof List<?> list)) {
-            return CollUtil.newArrayList();
-        }
-        List<String> result = new ArrayList<>(list.size());
-        for (Object item : list) {
-            if (item != null) {
-                result.add(String.valueOf(item));
-            }
-        }
-        return result;
-    }
 }

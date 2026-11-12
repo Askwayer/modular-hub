@@ -6,6 +6,8 @@ import cn.dev33.satoken.router.SaHttpMethod;
 import cn.dev33.satoken.router.SaRouter;
 import cn.dev33.satoken.stp.StpLogic;
 import com.vita.auth.property.AuthProperty;
+import com.vita.auth.context.LoginUserInfoModelContext;
+import com.vita.auth.interceptor.LoginUserContextInterceptor;
 import com.vita.core.exception.GlobalErrorCode;
 import com.vita.core.exception.ServiceException;
 import com.vita.log.interceptor.RequestTraceInterceptor;
@@ -33,6 +35,9 @@ public class SaTokenConfigure implements WebMvcConfigurer {
 
     @Resource
     private RequestTraceInterceptor requestTraceInterceptor;
+
+    @Resource
+    private LoginUserContextInterceptor loginUserContextInterceptor;
 
     @Resource
     private AuthProperty authProperty;
@@ -71,20 +76,24 @@ public class SaTokenConfigure implements WebMvcConfigurer {
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(requestTraceInterceptor)
-                .addPathPatterns("/**");
+                .addPathPatterns("/**").order(-300);
+        registry.addInterceptor(loginUserContextInterceptor)
+                .addPathPatterns("/**").order(-200);
 
         List<String> excludePaths = new ArrayList<>(authProperty.getExtraExcludePaths());
         // 所有业务模块共用登录校验，模块专属授权规则由各模块自行追加。
         registry.addInterceptor(new SaInterceptor(handle -> {
                     try {
-                        // 按当前启动模块注册的账号域校验，避免App请求误用管理端默认StpUtil。
+                        // 有效令牌与有效账号必须同时成立，纯登录接口也不能绕过账号停用。
                         stpLogic.checkLogin();
+                        LoginUserInfoModelContext.getRequiredLoginUserInfo();
                     } catch (Exception e) {
                         throw new ServiceException(GlobalErrorCode.UNAUTHORIZED);
                     }
 
                 }))
                 .addPathPatterns("/**")
+                .order(-100)
                 .excludePathPatterns(excludePaths);
     }
 }

@@ -1,5 +1,7 @@
 # 管理端用户认证开发文档
 
+> 2026-11-12 实现边界：本批完成有效账号与实时 RBAC 校验。公司隔离、多任职、SSO、密码哈希升级与完整登录风控仍待实施；下文未标明已实现的设计建议不能作为交付证明。集团模型见 `docs/architecture/system/group/group-foundation-design.md`。
+
 > 本文基于现有《管理后台用户登录》设计稿进行完善与优化，补充了认证边界、核心流程、数据模型建议、Redis 键设计、接口设计、异常处理、安全建议与落地实现说明，适用于 Spring Boot + Sa-Token/JWT + Redis + MySQL 的管理端认证场景。
 
 ---
@@ -83,7 +85,10 @@
 
 负责 token、session、在线用户信息、登出、强制下线等。
 
-`LoginUserInfoModel` 已迁移至 `com.vita.auth.model`。由于旧登录会话可能保存原全限定类名，发布该结构调整时必须清理 Sa-Token 会话命名空间，并要求在线用户重新登录；系统不保留旧包兼容反序列化逻辑。
+当前用户资料不再写入 Sa-Token Session；每次请求由 `LoginUserContextInterceptor` 调用加载器从有效账号重建上下文，受保护接口同时要求有效令牌与有效账号。旧 Session 中的资料和角色/权限字段不再读取，无需清空 Redis。线程上下文在请求完成或转入异步处理时清理。
+
+`LoginUserInfoModel` 的账号、部门和管理标识来自当前数据库状态；`loginTime`、`loginAddress` 表示账号最近一次记录的登录时间/IP，并非当前令牌的独立会话元数据。浏览器、操作系统和地点由当前请求解析。登录审计异步更新期间，最近登录字段可能暂时为空或保留前值。
+
 
 ### 4.4 审计日志服务
 
@@ -115,7 +120,7 @@
         ↓
 签发 token / 建立 Sa-Token 会话
         ↓
-写入 session 用户信息
+设置当前请求用户上下文
         ↓
 异步更新登录时间/IP
         ↓
@@ -273,7 +278,7 @@ auth:login:fail:user:{userName}
 用户认证通过后，执行登录成功链路：
 
 1. 生成登录态
-2. 将用户基础信息写入 session
+2. 将用户基础信息设置到当前请求上下文
 3. 返回 token 与用户基本资料
 4. 异步更新用户登录信息
 5. 异步记录登录成功日志
@@ -290,7 +295,7 @@ auth:login:fail:user:{userName}
 
 ```java
 StpUtil.login(userId);
-StpUtil.getSession().set(Constants.LOGIN_USER_INFO, loginUserInfo);
+LoginUserInfoModelContext.setLoginUserInfo(loginUserInfo);
 ```
 
 如需返回自定义 token：
@@ -692,7 +697,7 @@ public LoginResp login(LoginReq req) {
     // 7. 登录成功
     StpUtil.login(user.getId());
     LoginUserInfo loginUserInfo = buildLoginUserInfo(user);
-    StpUtil.getSession().set(Constants.LOGIN_USER_INFO, loginUserInfo);
+    LoginUserInfoModelContext.setLoginUserInfo(loginUserInfo);
 
     // 8. 清理失败计数
     loginRiskService.clearFailCount(ip, req.getUserName());
@@ -721,7 +726,7 @@ public LoginResp login(LoginReq req) {
 
 1. 完成身份认证
 2. 在获取用户信息接口中，加载角色与菜单权限
-3. 将关键权限标识缓存到 session 或 Redis
+3. 每次接口鉴权实时查询有效角色和权限，禁止使用跨请求授权缓存
 4. 接口访问通过 Sa-Token 权限注解或统一拦截器完成授权校验
 
 例如：

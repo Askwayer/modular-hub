@@ -13,10 +13,10 @@ import com.vita.auth.model.LoginUserInfoModel;
 public interface LoginUserInfoContextLoader {
 
     /**
-     * 根据用户 ID 重建登录用户快照。
+     * 根据用户 ID 实时加载启用且未删除的账号，不使用跨请求缓存。
      *
      * @param userId 用户 ID
-     * @return 登录用户快照；无法重建时返回 null
+     * @return 当前用户资料；账号停用、删除或不存在时返回 null
      */
     LoginUserInfoModel loadByUserId(Long userId);
 }

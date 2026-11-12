@@ -6,10 +6,13 @@
 
 `docs/requirements/` 保存业务目标、流程规则、验收条件和需求产物。
 
+- 集团基础框架与分批验收：`docs/requirements/group-foundation.md`
+
 ## Architecture
 
 `docs/architecture/` 保存系统能力和 Starter 的技术方案、边界、数据流与详细设计。
 
+- 集团身份、任职与公司权限模型：`docs/architecture/system/group/group-foundation-design.md`
 - 系统设计：`docs/architecture/system/`
 - Starter 设计：`docs/architecture/starter/`
 

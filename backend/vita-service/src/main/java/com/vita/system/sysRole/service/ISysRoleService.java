@@ -22,6 +22,14 @@ import java.util.List;
 public interface ISysRoleService extends IService<SysRole> {
 
     /**
+     * 从给定角色中筛选启用且未删除的 ID；空集合不代表全部角色。
+     *
+     * @param roleIds 候选角色 ID
+     * @return 有效角色 ID
+     */
+    List<Long> getEnabledIdsByIds(List<Long> roleIds);
+
+    /**
      * 新增数据。
      *
      * @param createDto 创建请求对象

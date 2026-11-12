@@ -20,21 +20,6 @@ public class AuthConstants {
     }
 
     /**
-     * Sa-Token Session 中缓存登录用户信息的键名。
-     */
-    public static final String LOGIN_USER_INFO = "LOGIN_USER_INFO";
-
-    /**
-     * Sa-Token Session 中缓存登录用户角色码集合的键名。
-     */
-    public static final String LOGIN_USER_ROLE = "LOGIN_USER_ROLE";
-
-    /**
-     * Sa-Token Session 中缓存登录用户权限码集合的键名。
-     */
-    public static final String LOGIN_USER_PERMISSION = "LOGIN_USER_PERMISSION";
-
-    /**
      * 超级管理员虚拟角色码。
      */
     public static final String SUPER_ADMIN_ROLE_CODE = "SUPER_ADMIN";

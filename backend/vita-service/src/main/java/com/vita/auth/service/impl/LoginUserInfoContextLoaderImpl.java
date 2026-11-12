@@ -36,10 +36,10 @@ public class LoginUserInfoContextLoaderImpl implements LoginUserInfoContextLoade
      */
     @Override
     public LoginUserInfoModel loadByUserId(Long userId) {
-        if (userId == null) {
+        if (userId == null || userId <= 0) {
             return null;
         }
-        SysUser user = sysUserService.getById(userId);
+        SysUser user = sysUserService.getActiveById(userId);
         if (user == null) {
             return null;
         }
@@ -65,11 +65,12 @@ public class LoginUserInfoContextLoaderImpl implements LoginUserInfoContextLoade
         loginUserInfo.setAvatarUrl(user.getAvatarUrl());
         loginUserInfo.setIsSuperAdmin(user.getIsSuperAdmin());
         loginUserInfo.setIsSystem(user.getIsSystem());
-        loginUserInfo.setLoginAddress(requestClientInfo.getIp());
+        loginUserInfo.setLoginAddress(user.getLoginAddress());
         loginUserInfo.setLoginLocation(requestClientInfo.getLocation());
         loginUserInfo.setBrowser(requestClientInfo.getBrowser());
         loginUserInfo.setOs(requestClientInfo.getOs());
-        loginUserInfo.setLoginTime(requestClientInfo.getRequestTime().format(AuthConstants.LOGIN_TIME_FORMATTER));
+        loginUserInfo.setLoginTime(user.getLoginTime() == null ? null
+                : user.getLoginTime().format(AuthConstants.LOGIN_TIME_FORMATTER));
         return loginUserInfo;
     }
 }

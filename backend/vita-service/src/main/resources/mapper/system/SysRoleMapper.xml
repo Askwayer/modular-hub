@@ -2,6 +2,22 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.vita.system.sysRole.mapper.SysRoleMapper">
 
+    <select id="selectIdsByIdsAndStatus" resultType="java.lang.Long">
+        SELECT id
+        FROM sys_role
+        WHERE is_deleted = 0 AND status = #{status}
+        <choose>
+            <when test="roleIds != null and roleIds.size() > 0">
+                AND id IN
+                <foreach collection="roleIds" item="roleId" open="(" separator="," close=")">
+                    #{roleId}
+                </foreach>
+            </when>
+            <otherwise>AND 1 = 0</otherwise>
+        </choose>
+        ORDER BY role_sort ASC, id ASC
+    </select>
+
     <select id="selectRoleCodesByIds" resultType="java.lang.String">
         SELECT role_code
         FROM sys_role

@@ -25,7 +25,7 @@
   - `MDC`
   - `NamedThreadLocal`
   - `LoginUserInfoModelContext`
-- `vita-common/src/main/java/com/vita/nnotation/Log.java` 已存在 `@Log` 注解
+- `vita-common/src/main/java/com/vita/log/annotation/Log.java` 已存在 `@Log` 注解
 - `vita-service` 已存在完整的 `sysOperLog` 模块：
   - 实体：`com.vita.system.sysOperLog.entity.sysOperLog`
   - DTO：`com.vita.system.sysOperLog.dto.sysOperLogCreateDto`
@@ -154,7 +154,7 @@
 
 - 生成或透传 `requestId`
 - 写入 `MDC.put("requestId", requestId)`
-- 按需把 Sa-Token 会话中的用户信息放入 `LoginUserInfoModelContext`
+- `RequestTraceInterceptor` 负责请求标识，随后 `LoginUserContextInterceptor` 实时加载有效账号到 `LoginUserInfoModelContext`，不从 Sa-Token Session 恢复旧用户资料
 
 ### 6.2 `@Around` 审计采集
 
@@ -162,7 +162,7 @@
 
 ### 6.3 过滤器/拦截器后置清理
 
-在请求完成后统一执行：
+在请求完成或转入异步处理时统一执行（异步工作线程不得隐式继承请求身份）：
 
 - `LoginUserInfoModelContext.removeLoginUserInfo()`
 - `MDC.remove("requestId")`

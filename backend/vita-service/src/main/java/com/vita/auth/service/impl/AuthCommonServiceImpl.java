@@ -84,6 +84,11 @@ public class AuthCommonServiceImpl implements IAuthCommonService {
         if (CollUtil.isEmpty(roleIds)) {
             return CollUtil.newArrayList();
         }
+        // 关联仍存在不代表角色仍可授权；停用或删除角色必须切断后续权限查询。
+        roleIds = sysRoleService.getEnabledIdsByIds(roleIds);
+        if (CollUtil.isEmpty(roleIds)) {
+            return CollUtil.newArrayList();
+        }
         List<Long> permissionIds = sysRolePermissionService.getPermissionIdsByRoleIds(roleIds);
         if (CollUtil.isEmpty(permissionIds)) {
             return CollUtil.newArrayList();
@@ -111,6 +116,9 @@ public class AuthCommonServiceImpl implements IAuthCommonService {
      * @return 用户信息
      */
     private SysUser getActiveUser(Long userId) {
+        if (userId == null || userId <= 0) {
+            return null;
+        }
         return sysUserService.getActiveById(userId);
     }
 }

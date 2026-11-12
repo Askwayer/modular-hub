@@ -1,7 +1,5 @@
 package com.vita.auth.service;
 
-import com.vita.system.sysMenu.entity.SysMenu;
-
 import java.util.List;
 
 /**
